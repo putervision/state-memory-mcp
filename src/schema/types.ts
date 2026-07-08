@@ -1,0 +1,54 @@
+export type NodeType = 'task' | 'decision' | 'artifact' | 'plan' | 'observation' | 'blocker' | 'milestone';
+
+export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'blocked' | 'cancelled';
+export type DecisionStatus = 'proposed' | 'accepted' | 'rejected' | 'superseded';
+export type ArtifactStatus = 'draft' | 'current' | 'outdated' | 'archived';
+export type PlanStatus = 'draft' | 'active' | 'completed' | 'abandoned';
+export type ObservationStatus = 'active' | 'resolved' | 'invalidated';
+export type BlockerStatus = 'active' | 'mitigated' | 'resolved';
+export type MilestoneStatus = 'upcoming' | 'in_progress' | 'reached' | 'missed';
+
+export type NodeStatus =
+  | TaskStatus
+  | DecisionStatus
+  | ArtifactStatus
+  | PlanStatus
+  | ObservationStatus
+  | BlockerStatus
+  | MilestoneStatus;
+
+export interface BaseNode {
+  id: string;                           // ULID (sortable, unique)
+  type: NodeType;                       // Discriminator
+  title: string;                        // Human-readable label
+  status: string;                       // Type-specific status
+  created_at: string;                   // ISO 8601
+  updated_at: string;                   // ISO 8601
+  metadata: Record<string, unknown>;    // Extensible JSON blob
+  tags: string[];                       // Freeform tags for filtering
+  project: string;                      // Project scope
+  git_branch?: string;                  // Optional branch name for context isolation
+}
+
+export type EdgeType =
+  | 'depends_on'
+  | 'blocks'
+  | 'produces'
+  | 'references'
+  | 'decided_in'
+  | 'updates'
+  | 'contradicts'
+  | 'part_of'
+  | 'implements'
+  | 'child_of';
+
+export interface Edge {
+  id: string;                           // ULID
+  source_id: string;                    // Source node ID
+  target_id: string;                    // Target node ID
+  type: EdgeType;                       // Relationship type
+  properties: Record<string, unknown>;  // JSON metadata properties
+  project: string;                      // Project scope
+  git_branch?: string;                  // Optional branch name
+  created_at: string;                   // ISO 8601
+}

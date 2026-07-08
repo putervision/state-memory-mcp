@@ -1,11 +1,30 @@
 {
   "name": "state-graph-mcp",
-  "version": "0.1.0",
+  "version": "0.0.4",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
     "state-graph-mcp": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "state-graph",
+    "workflow",
+    "cli",
+    "ai-agents",
+    "model-context-protocol",
+    "project-management",
+    "decision-tracking"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LucasArmstrong/state-graph-mcp.git"
   },
   "scripts": {
     "build": "tsup src/index.ts src/cli.ts --format esm --clean --dts",
@@ -13,7 +32,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/**/*.ts",
-    "format": "prettier --write src/**/*.ts tests/**/*.ts"
+    "format": "prettier --write src/**/*.ts tests/**/*.ts",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",

@@ -19,7 +19,7 @@ describe('MCP Server Integration Tests', () => {
     client = new Client(
       {
         name: 'test-client',
-        version: '0.1.0',
+        version: '0.0.4',
       },
       {
         capabilities: {},

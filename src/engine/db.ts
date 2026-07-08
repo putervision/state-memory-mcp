@@ -1,13 +1,68 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { logger } from '../utils/logger.js';
 
-// Resolve project root by walking up from CWD
-export function resolveProjectRoot(cwd: string = process.cwd()): string {
-  let current = path.resolve(cwd);
+const REGISTRY_PATH = path.join(os.homedir(), '.state-graph-mcp-registry.json');
+
+function getRegistry(): Record<string, string> {
+  try {
+    if (fs.existsSync(REGISTRY_PATH)) {
+      const raw = fs.readFileSync(REGISTRY_PATH, 'utf-8');
+      return JSON.parse(raw) || {};
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  return {};
+}
+
+export function registerProject(name: string, projectPath: string): void {
+  try {
+    const registry = getRegistry();
+    registry[name.toLowerCase()] = path.resolve(projectPath);
+    const dir = path.dirname(REGISTRY_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2), 'utf-8');
+  } catch (e) {
+    logger.error('Failed to register project in global registry:', e);
+  }
+}
+
+export function getProjectFromRegistry(name: string): string | undefined {
+  const registry = getRegistry();
+  return registry[name.toLowerCase()];
+}
+
+// Resolve project root by walking up from CWD or using global registry
+export function resolveProjectRoot(project?: string, cwd: string = process.cwd()): string {
+  // 1. Try resolving via project parameter lookup in global registry
+  if (project) {
+    const registeredPath = getProjectFromRegistry(project);
+    if (registeredPath && fs.existsSync(registeredPath)) {
+      return registeredPath;
+    }
+  }
+
+  const currentCwd = path.resolve(cwd);
+
+  // 2. Check if current CWD is a subdirectory of any registered project path
+  const registry = getRegistry();
+  for (const [, projectPath] of Object.entries(registry)) {
+    if (currentCwd === projectPath || currentCwd.startsWith(projectPath + path.sep)) {
+      if (fs.existsSync(projectPath)) {
+        return projectPath;
+      }
+    }
+  }
+
+  // 3. Fallback: walk up directory tree
+  let current = currentCwd;
   while (true) {
-    if (fs.existsSync(path.join(current, '.git')) || fs.existsSync(path.join(current, '.state-graph'))) {
+    if (fs.existsSync(path.join(current, '.git')) || fs.existsSync(path.join(current, '.state-graph-mcp'))) {
       return current;
     }
     const parent = path.dirname(current);
@@ -16,16 +71,16 @@ export function resolveProjectRoot(cwd: string = process.cwd()): string {
     }
     current = parent;
   }
-  return path.resolve(cwd); // default to cwd if none found
+  return currentCwd; // default to cwd if none found
 }
 
-// Get the base directory for storing state-graph databases
+// Get the base directory for storing state-graph-mcp databases
 export function getBaseDir(projectRoot: string): string {
-  if (process.env.STATE_GRAPH_DIR) {
-    return path.resolve(process.env.STATE_GRAPH_DIR);
+  if (process.env.STATE_GRAPH_MCP_DIR) {
+    return path.resolve(process.env.STATE_GRAPH_MCP_DIR);
   }
-  // Default to project-local .state-graph directory
-  return path.join(projectRoot, '.state-graph');
+  // Default to project-local .state-graph-mcp directory
+  return path.join(projectRoot, '.state-graph-mcp');
 }
 
 // Resolve project slug
@@ -34,8 +89,43 @@ export function getProjectSlug(project?: string): string {
     // Sanitize project name to be a safe slug (alphanumeric, dashes, underscores)
     return project.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
   }
-  const root = resolveProjectRoot();
+  const root = resolveProjectRoot(project);
   return path.basename(root).toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+}
+
+// Get the directory where a project's database is stored
+export function getProjectDbDir(project?: string): string {
+  const root = resolveProjectRoot(project);
+  
+  // Enforce that state-graph-mcp init must have been run (unless overridden by env var or in a test environment)
+  if (!process.env.STATE_GRAPH_MCP_DIR && process.env.NODE_ENV !== 'test') {
+    const localDir = path.join(root, '.state-graph-mcp');
+    const isHomeDir = root === os.homedir();
+    
+    let isInitialized = fs.existsSync(localDir);
+    if (isHomeDir) {
+      // Home directory .state-graph-mcp is the global fallback folder,
+      // so we only count it as initialized if it was explicitly registered as a project.
+      const registry = getRegistry();
+      const isRegistered = Object.values(registry).includes(root);
+      if (!isRegistered) {
+        isInitialized = false;
+      }
+    }
+
+    if (!isInitialized) {
+      throw new Error(`Project "${path.basename(root)}" is not initialized. Please run "state-graph-mcp init" in the project root first.`);
+    }
+  }
+
+  const baseDir = getBaseDir(root);
+  const projectSlug = getProjectSlug(project);
+  return path.join(baseDir, projectSlug);
+}
+
+// Get the absolute path to the project's SQLite database file
+export function getDbPath(project?: string): string {
+  return path.join(getProjectDbDir(project), 'graph.db');
 }
 
 const dbCache = new Map<string, Database.Database>();
@@ -46,16 +136,14 @@ export function getDb(project?: string): Database.Database {
     return dbCache.get(projectSlug)!;
   }
 
-  const root = resolveProjectRoot();
-  const baseDir = getBaseDir(root);
-  const projectDbDir = path.join(baseDir, projectSlug);
+  const projectDbDir = getProjectDbDir(project);
 
   // Ensure directories exist
   if (!fs.existsSync(projectDbDir)) {
     fs.mkdirSync(projectDbDir, { recursive: true });
   }
 
-  const dbPath = path.join(projectDbDir, 'graph.db');
+  const dbPath = getDbPath(project);
   logger.info(`Connecting to database for project "${projectSlug}" at: ${dbPath}`);
 
   const db = new Database(dbPath);

@@ -1,6 +1,6 @@
 # state-graph-mcp — Build Plan
 
-> **Version**: 0.1 (Draft)
+> **Version**: 0.0.4 (Draft)
 > **Date**: 2026-07-07
 > **Author**: Architecture Review
 
@@ -92,7 +92,7 @@ Rather than replacing code-specific memory tools (such as codebase-memory-mcp), 
 │  │  └──────┘  └──────┘  └──────┘  └───────────┘ │ │
 │  └────────────────────────────────────────────────┘ │
 │                                                     │
-│  📁 ~/.state-graph-mcp/<project>/graph.db           │
+│  📁 ~/.state-graph-mcp/<project>/graph.db            │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -102,7 +102,7 @@ Rather than replacing code-specific memory tools (such as codebase-memory-mcp), 
 
 2. **No LLM in the engine**: The server is a pure data store + query engine. The calling agent is responsible for deciding what to store and how to interpret results. This makes the server deterministic, testable, and fast.
 
-3. **Project-scoped databases**: Each project gets its own `graph.db` file (stored in `~/.state-graph-mcp/<project-slug>/graph.db`). This keeps graphs isolated, portable, and easy to back up or delete. The project is identified by a name provided by the agent; the server implements a root-resolution strategy (searching for `.git` or `.state-graph`) to ensure consistent project slugs regardless of the current working directory.
+3. **Project-scoped databases**: Each project gets its own `graph.db` file (stored in `~/.state-graph-mcp/<project-slug>/graph.db`). This keeps graphs isolated, portable, and easy to back up or delete. The project is identified by a name provided by the agent; the server implements a root-resolution strategy (searching for `.git` or `.state-graph-mcp`) to ensure consistent project slugs regardless of the current working directory.
 
 4. **Hybrid native consideration**: The initial version is pure TypeScript. If performance becomes a concern at scale, the SQLite layer could be swapped for a Rust/Go native binary (as codebase-memory-mcp does), with the npm package acting as a thin wrapper. The architecture is designed to make this swap possible by keeping the graph engine behind a clean interface.
 
@@ -422,7 +422,7 @@ CREATE VIRTUAL TABLE nodes_fts USING fts5(
 - [ ] **Task 0.2: SQLite Database Connection & Config**
   - Implement database setup file (`src/engine/db.ts`).
   - Configure synchronous SQLite driver to use WAL mode (`PRAGMA journal_mode = WAL;`) and busy timeout (`PRAGMA busy_timeout = 5000;`).
-  - Implement dynamic project database mapping (`~/.state-graph-mcp/<project>/graph.db` or local `.state-graph/graph.db`).
+  - Implement dynamic project database mapping (`~/.state-graph-mcp/<project>/graph.db` or local `.state-graph-mcp/graph.db`).
 - [ ] **Task 0.3: Database Schema Creation**
   - Write schema setup SQL script representing the `nodes`, `edges`, and `schema_meta` tables.
   - Implement automatic schema check and run SQL creation on initialization.
@@ -608,7 +608,7 @@ CREATE VIRTUAL TABLE nodes_fts USING fts5(
 - Auto-detect the current Git branch on startup by calling `git branch --show-current` in the workspace directory.
 - Store a `git_branch` property on every node and edge (defaulting to the active branch).
 - Allow the calling agent to filter list and traversal queries by `git_branch` or specify a branch target.
-- Keep the database file inside the project-local `.state-graph/` directory. Because the directory is ignored in `.gitignore`, the local database file is persistent across branch checkouts, but the content remains branch-aware.
+- Keep the database file inside the project-local `.state-graph-mcp/` directory. Because the directory is ignored in `.gitignore`, the local database file is persistent across branch checkouts, but the content remains branch-aware.
 
 ### 6.8 LLM Token Optimization & Output Compacting
 
@@ -709,12 +709,9 @@ npm install --save-dev state-graph-mcp
 ```json
 {
   "servers": {
-    "state-graph": {
-      "command": "npx",
-      "args": ["-y", "state-graph-mcp"],
-      "env": {
-        "STATE_GRAPH_DIR": "${workspaceFolder}/.state-graph"
-      }
+    "state-graph-mcp": {
+      "command": "state-graph-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -724,9 +721,9 @@ npm install --save-dev state-graph-mcp
 ```json
 {
   "mcpServers": {
-    "state-graph": {
-      "command": "npx",
-      "args": ["-y", "state-graph-mcp"]
+    "state-graph-mcp": {
+      "command": "state-graph-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -736,9 +733,9 @@ npm install --save-dev state-graph-mcp
 ```json
 {
   "mcpServers": {
-    "state-graph": {
-      "command": "npx",
-      "args": ["-y", "state-graph-mcp"]
+    "state-graph-mcp": {
+      "command": "state-graph-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -750,9 +747,9 @@ The server should be configurable using the following environment variables:
 
 | Environment Variable | Description | Default Value |
 |---|---|---|
-| `STATE_GRAPH_DIR` | Absolute path to directory where database files are stored. | `.state-graph/` (Project-local, in CWD) |
-| `STATE_GRAPH_LOG_LEVEL` | Logging verbosity on `stderr` (`debug`, `info`, `warn`, `error`). | `info` |
-| `STATE_GRAPH_DEFAULT_BRANCH` | Fallback branch name if Git cannot be queried on startup. | `main` |
+| `STATE_GRAPH_MCP_DIR` | Absolute path to directory where database files are stored. | `.state-graph-mcp/` (Project-local, in CWD) |
+| `STATE_GRAPH_MCP_LOG_LEVEL` | Logging verbosity on `stderr` (`debug`, `info`, `warn`, `error`). | `info` |
+| `STATE_GRAPH_MCP_DEFAULT_BRANCH` | Fallback branch name if Git cannot be queried on startup. | `main` |
 
 ### Bootstrapping Configuration Templates
 
@@ -762,7 +759,7 @@ To ensure another agent can immediately bootstrap the environment, here are the 
 ```json
 {
   "name": "state-graph-mcp",
-  "version": "0.1.0",
+  "version": "0.0.4",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "type": "module",
   "main": "./dist/index.js",
@@ -902,8 +899,8 @@ docs/
 
 ### Open Questions (Decide Early)
 
-1. **Data directory location**: Should the default be `~/.state-graph-mcp/` (global), `$PROJECT/.state-graph/` (project-local), or configurable via env var? 
-   - **Recommendation**: Default to project-local (`$STATE_GRAPH_DIR` or `.state-graph/` in the working directory), with an env var override. This keeps graphs co-located with projects and easy to `.gitignore`.
+1. **Data directory location**: Should the default be `~/.state-graph-mcp/` (global), `$PROJECT/.state-graph-mcp/` (project-local), or configurable via env var? 
+   - **Recommendation**: Default to project-local (`$STATE_GRAPH_MCP_DIR` or `.state-graph-mcp/` in the working directory), with an env var override. This keeps graphs co-located with projects and easy to `.gitignore`.
 
 2. **Project naming**: Should the `project` parameter be required on every tool call, or should the server auto-detect from the working directory?
    - **Recommendation**: Auto-detect from CWD by default (basename of the working directory), but allow override via the `project` parameter. This reduces boilerplate for single-project use.

@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
-import { getDb, getProjectSlug, resolveProjectRoot, getBaseDir } from './db.js';
+import { getDb, getProjectSlug, resolveProjectRoot, getBaseDir, getDbPath } from './db.js';
 import { BaseNode, Edge, NodeType } from '../schema/types.js';
 import { logger } from '../utils/logger.js';
 import { generateId } from '../utils/id.js';
@@ -15,13 +15,10 @@ export function queryGraph(params: {
   sql: string;
   params?: any[];
 }): any[] {
-  const projectSlug = getProjectSlug(params.project);
-  const root = resolveProjectRoot();
-  const baseDir = getBaseDir(root);
-  const dbPath = path.join(baseDir, projectSlug, 'graph.db');
+  const dbPath = getDbPath(params.project);
 
   if (!fs.existsSync(dbPath)) {
-    throw new Error(`Database file not found for project: ${projectSlug}`);
+    throw new Error(`Database file not found at: ${dbPath}`);
   }
 
   // Open with readonly: true to enforce read-only access

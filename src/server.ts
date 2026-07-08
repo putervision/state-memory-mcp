@@ -32,11 +32,12 @@ import { QueryEngine } from './engine/queries.js';
 import { AnalyticsEngine } from './engine/analytics.js';
 import { queryGraph, exportGraph, importGraph } from './engine/utils.js';
 import { logger } from './utils/logger.js';
+import { VERSION } from './utils/version.js';
 
 export const server = new Server(
   {
     name: 'state-graph-mcp',
-    version: '0.1.0',
+    version: VERSION,
   },
   {
     capabilities: {

@@ -4,16 +4,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { logger } from './utils/logger.js';
-import { resolveProjectRoot, getBaseDir, getProjectSlug } from './engine/db.js';
+import { resolveProjectRoot, getBaseDir, getProjectSlug, getProjectDbDir } from './engine/db.js';
 import { QueryEngine } from './engine/queries.js';
 import { exportGraph, importGraph } from './engine/utils.js';
+import { runInit } from './cli/init.js';
+import { VERSION } from './utils/version.js';
 
 const program = new Command();
 
 program
   .name('state-graph-mcp')
   .description('MCP server and CLI tool for state-graph-mcp')
-  .version('0.1.0');
+  .version(VERSION);
 
 // Default run command to launch MCP server
 program
@@ -27,17 +29,10 @@ program
 // Init command to scaffold workspace
 program
   .command('init')
-  .description('Initialize local state-graph-mcp directory in current workspace')
+  .description('Initialize state-graph-mcp in the current project (creates data directory, .gitignore, IDE instructions, MCP configs)')
   .action(() => {
     const root = resolveProjectRoot();
-    const baseDir = getBaseDir(root);
-    if (!fs.existsSync(baseDir)) {
-      fs.mkdirSync(baseDir, { recursive: true });
-      logger.info(`Initialized .state-graph directory at: ${baseDir}`);
-      logger.info('Please add ".state-graph" to your .gitignore file.');
-    } else {
-      logger.info(`.state-graph directory already exists at: ${baseDir}`);
-    }
+    runInit(root);
   });
 
 // Inspect command to display project status overview
@@ -91,17 +86,14 @@ program
   .description('Open interactive HTML graph visualization in default web browser')
   .option('-p, --project <name>', 'Project slug name')
   .action((options) => {
-    const projectSlug = getProjectSlug(options.project);
-    const root = resolveProjectRoot();
-    const baseDir = getBaseDir(root);
-    const projectDbDir = path.join(baseDir, projectSlug);
+    const projectDbDir = getProjectDbDir(options.project);
 
     if (!fs.existsSync(projectDbDir)) {
       fs.mkdirSync(projectDbDir, { recursive: true });
     }
 
     try {
-      const htmlContent = exportGraph({ project: projectSlug, format: 'html' });
+      const htmlContent = exportGraph({ project: options.project, format: 'html' });
       const htmlPath = path.join(projectDbDir, 'viewer.html');
       
       fs.writeFileSync(htmlPath, htmlContent, 'utf-8');

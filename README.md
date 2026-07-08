@@ -9,26 +9,44 @@ By using `state-graph-mcp`, your AI coding assistant (such as Cursor, Claude Cod
 ## Key Features
 
 1. **Deterministic State Graph**: No LLM in the loop; all operations are structured, deterministic, and fast.
-2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-graph/`) or globally.
+2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-graph-mcp/`) or globally.
 3. **19 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, and blocker analysis.
 4. **Interactive HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed visualizer built with `vis-network`.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
+7. **One-Command Setup**: `state-graph-mcp init` scaffolds the data directory, `.gitignore`, IDE instruction files, and MCP configs for all major editors.
+
+---
+
+## Quick Start
+
+```bash
+# Install globally
+npm install -g state-graph-mcp
+
+# Navigate to your project
+cd your-project
+
+# Initialize — creates .state-graph-mcp/, updates .gitignore,
+# scaffolds IDE instructions and MCP configs
+state-graph-mcp init
+
+# Done! Your IDE now has MCP configs + agent instructions.
+```
 
 ---
 
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/LucasArmstrong/state-graph-mcp.git
-cd state-graph-mcp
+# Global install (recommended)
+npm install -g state-graph-mcp
 
-# Install dependencies
-npm install
+# Or use directly with npx (no install)
+npx state-graph-mcp
 
-# Compile the ESM bundle
-npm run build
+# Or install as a project dev dependency
+npm install --save-dev state-graph-mcp
 ```
 
 ---
@@ -38,35 +56,40 @@ npm run build
 `state-graph-mcp` comes with a powerful command line interface to manage project databases:
 
 ```bash
-# Initialize a .state-graph folder in your current workspace
-node dist/cli.js init
+# Initialize state-graph-mcp in your project (creates .state-graph-mcp/,
+# updates .gitignore, scaffolds IDE instructions and MCP configs)
+state-graph-mcp init
+
+# Start the MCP server (used by IDE configs)
+state-graph-mcp run
 
 # View the interactive graph visualizer in your default browser
-node dist/cli.js view --project my-project
+state-graph-mcp view --project my-project
 
 # Inspect project nodes in ASCII format
-node dist/cli.js inspect --project my-project
+state-graph-mcp inspect --project my-project
 
 # Export graph data (JSON, DOT, Mermaid, HTML formats supported)
-node dist/cli.js export --project my-project --format html --out graph.html
-node dist/cli.js export --project my-project --format mermaid
+state-graph-mcp export --project my-project --format html --out graph.html
+state-graph-mcp export --project my-project --format mermaid
 
 # Import graph data from a JSON file (overwrites existing project data)
-node dist/cli.js import data.json --project my-project
+state-graph-mcp import data.json --project my-project
 ```
 
 ---
 
 ## MCP Configuration Examples
 
+Running `state-graph-mcp init` automatically creates these configuration files for you. If you prefer to configure manually:
+
 ### Cursor (`.cursor/mcp.json`)
-Add the following to your Cursor configuration file to register the server:
 ```json
 {
   "mcpServers": {
-    "state-graph": {
-      "command": "node",
-      "args": ["/absolute/path/to/state-graph-mcp/dist/index.js"]
+    "state-graph-mcp": {
+      "command": "state-graph-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -76,9 +99,9 @@ Add the following to your Cursor configuration file to register the server:
 ```json
 {
   "servers": {
-    "state-graph": {
-      "command": "node",
-      "args": ["/absolute/path/to/state-graph-mcp/dist/index.js"]
+    "state-graph-mcp": {
+      "command": "state-graph-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -90,9 +113,9 @@ On Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 ```json
 {
   "mcpServers": {
-    "state-graph": {
-      "command": "node",
-      "args": ["/absolute/path/to/state-graph-mcp/dist/index.js"]
+    "state-graph-mcp": {
+      "command": "state-graph-mcp",
+      "args": ["run"]
     }
   }
 }
@@ -100,13 +123,32 @@ On Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ---
 
+## What `init` Sets Up
+
+Running `state-graph-mcp init` in your project root will:
+
+1. Create the `.state-graph-mcp/` data directory
+2. Add `.state-graph-mcp` to your `.gitignore`
+3. Create/append IDE instruction files for:
+   - **Gemini** (`.gemini/instructions.md`)
+   - **Cursor** (`.cursor/rules/state-graph-mcp.mdc`)
+   - **GitHub Copilot** (`.github/copilot-instructions.md`)
+   - **VS Code** (`.vscode/instructions.md`)
+   - **Claude Code** (`CLAUDE.md`)
+   - **Windsurf** (`.windsurfrules`)
+4. Create MCP server configs for Cursor and VS Code
+
+All operations are idempotent — running `init` multiple times is safe.
+
+---
+
 ## Environment Variables
 
 | Variable | Description | Default Value |
 |---|---|---|
-| `STATE_GRAPH_DIR` | Absolute path to directory where database files are stored. | `.state-graph/` (Project-local, in CWD) |
-| `STATE_GRAPH_LOG_LEVEL` | Logging verbosity on `stderr` (`debug`, `info`, `warn`, `error`). | `info` |
-| `STATE_GRAPH_DEFAULT_BRANCH` | Fallback branch name if Git cannot be queried on startup. | `main` |
+| `STATE_GRAPH_MCP_DIR` | Absolute path to directory where database files are stored. | `.state-graph-mcp/` (Project-local, in CWD) |
+| `STATE_GRAPH_MCP_LOG_LEVEL` | Logging verbosity on `stderr` (`debug`, `info`, `warn`, `error`). | `info` |
+| `STATE_GRAPH_MCP_DEFAULT_BRANCH` | Fallback branch name if Git cannot be queried on startup. | `main` |
 
 ---
 

@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "state-graph-mcp": {
+      "command": "state-graph-mcp",
+      "args": [
+        "run"
+      ]
+    }
+  }
+}

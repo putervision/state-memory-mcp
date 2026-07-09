@@ -1,6 +1,6 @@
 import { getDb, getProjectSlug } from './db.js';
 import { BaseNode, Edge, NodeType, NodeStatus, NodeRow, EdgeRow } from '../schema/types.js';
-import { DEFAULT_STATUS_BY_TYPE, MetadataSchema, PropertiesSchema } from '../schema/zod.js';
+import { DEFAULT_STATUS_BY_TYPE, MetadataSchema, PropertiesSchema } from '../schema/schemas.js';
 import { generateId } from '../utils/id.js';
 import { getCurrentIsoString } from '../utils/time.js';
 import { getCurrentBranch } from '../utils/git.js';

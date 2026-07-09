@@ -33,7 +33,7 @@ import {
   FindRelatedDecisionsSchema,
   FindBlockedTasksSchema,
   ScaffoldTemplateSchema,
-} from './schema/zod.js';
+} from './schema/schemas.js';
 import { GraphEngine } from './engine/graph.js';
 import { EdgeEngine } from './engine/edges.js';
 import { QueryEngine } from './engine/queries.js';

@@ -88,4 +88,9 @@ describe('Git Utilities', () => {
     const files = getFilesChanged(newestCommit.hash, tempDir);
     expect(files).toContain('file2.txt');
   });
+
+  it('should throw validation errors for shell command injection attempts', () => {
+    expect(() => getFilesChanged('hash; rm -rf /', tempDir)).toThrow();
+    expect(() => getCommitLog(tempDir, 10, 'since; rm -rf /')).toThrow();
+  });
 });

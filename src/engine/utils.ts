@@ -290,6 +290,10 @@ function generateVisualizerHtml(projectSlug: string, nodes: BaseNode[], edges: E
     _edge: e
   }));
 
+  const safeJsonStringify = (val: any) => {
+    return JSON.stringify(val).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+  };
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -603,9 +607,9 @@ function generateVisualizerHtml(projectSlug: string, nodes: BaseNode[], edges: E
   </div>
 
   <script>
-    const TYPE_COLORS = ${JSON.stringify(TYPE_COLORS)};
-    const allGraphNodes = ${JSON.stringify(mappedNodes)};
-    const allGraphLinks = ${JSON.stringify(mappedLinks)};
+    const TYPE_COLORS = ${safeJsonStringify(TYPE_COLORS)};
+    const allGraphNodes = ${safeJsonStringify(mappedNodes)};
+    const allGraphLinks = ${safeJsonStringify(mappedLinks)};
 
     // Initialize graph
     const Graph = ForceGraph3D()(document.getElementById('graph-container'))

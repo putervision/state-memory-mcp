@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { z } from 'zod';
+import { z } from '../schema/schemas.js';
 import { logger } from '../utils/logger.js';
 
 export const ProjectConfigSchema = z.object({

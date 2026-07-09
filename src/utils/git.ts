@@ -76,6 +76,9 @@ export function parseConventionalCommit(subject: string): { type?: string; scope
 }
 
 export function getFilesChanged(hash: string, cwd: string = process.cwd()): string[] {
+  if (hash && !/^[a-zA-Z0-9_./^-]+$/.test(hash)) {
+    throw new Error(`Invalid git reference or commit hash: ${hash}`);
+  }
   try {
     const output = execSync(`git diff-tree --no-commit-id --name-only -r --root ${hash}`, {
       cwd,
@@ -90,6 +93,11 @@ export function getFilesChanged(hash: string, cwd: string = process.cwd()): stri
 }
 
 export function getCommitLog(cwd: string, count: number, since?: string): GitCommit[] {
+  const limit = Math.max(1, Math.floor(count) || 30);
+  if (since && !/^[a-zA-Z0-9_./^-]+$/.test(since)) {
+    throw new Error(`Invalid git reference or commit hash: ${since}`);
+  }
+
   const parseGitLogOutput = (output: string): GitCommit[] => {
     const tokens = output.split('\0');
     const commits: GitCommit[] = [];
@@ -125,12 +133,12 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
       execSync(`git cat-file -e ${since}`, { cwd, stdio: 'ignore' });
       sinceExists = true;
     } catch {
-      logger.debug(`Commit hash ${since} does not exist or is unreachable in git history. Falling back to last ${count} commits.`);
+      logger.debug(`Commit hash ${since} does not exist or is unreachable in git history. Falling back to last ${limit} commits.`);
     }
 
     if (sinceExists) {
       try {
-        const command = `git log -n ${count} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00' ${since}..HEAD`;
+        const command = `git log -n ${limit} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00' ${since}..HEAD`;
         const output = execSync(command, {
           cwd,
           stdio: ['ignore', 'pipe', 'ignore'],
@@ -144,7 +152,7 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
   }
 
   try {
-    const command = `git log -n ${count} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00'`;
+    const command = `git log -n ${limit} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00'`;
     const output = execSync(command, {
       cwd,
       stdio: ['ignore', 'pipe', 'ignore'],

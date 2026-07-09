@@ -1,6 +1,6 @@
 {
   "name": "state-graph-mcp",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "type": "module",
   "main": "./dist/index.js",
@@ -59,11 +59,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
-    "better-sqlite3": "^11.0.0",
-    "cli-table3": "^0.6.5",
-    "commander": "^12.0.0",
-    "ulid": "^2.3.0",
-    "zod": "^3.23.8"
+    "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
@@ -10,7 +9,288 @@ import { exportGraph, importGraph, backupProjectDb, restoreProjectDb, auditProje
 import { runInit } from './cli/init.js';
 import { VERSION } from './utils/version.js';
 import { scanGit } from './engine/git-scanner.js';
-import Table from 'cli-table3';
+
+class Option {
+  flags: string;
+  description: string;
+  defaultValue?: any;
+  key: string;
+  isFlag: boolean;
+  short?: string;
+  long?: string;
+
+  constructor(flags: string, description: string, defaultValue?: any) {
+    this.flags = flags;
+    this.description = description;
+    this.defaultValue = defaultValue;
+
+    const parts = flags.split(',').map(s => s.trim());
+    for (const part of parts) {
+      if (part.startsWith('--')) {
+        this.long = part.split(' ')[0];
+      } else if (part.startsWith('-')) {
+        this.short = part.split(' ')[0];
+      }
+    }
+
+    const cleanLong = this.long ? this.long.replace(/^--/, '') : '';
+    this.isFlag = !flags.includes('<') && !flags.includes('[');
+
+    if (cleanLong.startsWith('no-')) {
+      this.key = cleanLong.replace(/^no-/, '');
+      this.isFlag = true;
+      if (this.defaultValue === undefined) {
+        this.defaultValue = true;
+      }
+    } else {
+      this.key = cleanLong || (this.short ? this.short.replace(/^-/, '') : '');
+    }
+  }
+}
+
+class SubCommand {
+  nameStr: string;
+  descStr: string = '';
+  optionsList: Option[] = [];
+  actionFn?: (...args: any[]) => void | Promise<void>;
+  isDefaultCmd: boolean = false;
+
+  constructor(nameStr: string, isDefault = false) {
+    this.nameStr = nameStr;
+    this.isDefaultCmd = isDefault;
+  }
+
+  description(desc: string): this {
+    this.descStr = desc;
+    return this;
+  }
+
+  option(flags: string, description: string, defaultValue?: any): this {
+    this.optionsList.push(new Option(flags, description, defaultValue));
+    return this;
+  }
+
+  action(fn: (...args: any[]) => void | Promise<void>): this {
+    this.actionFn = fn;
+    return this;
+  }
+}
+
+class Command {
+  private programName: string = '';
+  private programDesc: string = '';
+  private programVer: string = '';
+  private commandsList: SubCommand[] = [];
+
+  name(name: string): this {
+    this.programName = name;
+    return this;
+  }
+
+  description(desc: string): this {
+    this.programDesc = desc;
+    return this;
+  }
+
+  version(ver: string): this {
+    this.programVer = ver;
+    return this;
+  }
+
+  command(cmdStr: string, options?: { isDefault?: boolean }): SubCommand {
+    const isDefault = !!(options && options.isDefault);
+    const sub = new SubCommand(cmdStr, isDefault);
+    this.commandsList.push(sub);
+    return sub;
+  }
+
+  showHelp() {
+    console.log(`\nUsage: ${this.programName} [command] [options]\n`);
+    if (this.programDesc) {
+      console.log(`${this.programDesc}\n`);
+    }
+    console.log(`Options:`);
+    console.log(`  -h, --help      Display help for command`);
+    console.log(`  -v, --version   Output the version number\n`);
+    console.log(`Commands:`);
+    for (const cmd of this.commandsList) {
+      const defaultStr = cmd.isDefaultCmd ? ' (default)' : '';
+      console.log(`  ${cmd.nameStr.padEnd(20)} ${cmd.descStr}${defaultStr}`);
+      for (const opt of cmd.optionsList) {
+        console.log(`    ${opt.flags.padEnd(22)} ${opt.description}`);
+      }
+    }
+    console.log();
+  }
+
+  async parse(argv: string[]) {
+    const args = argv.slice(2);
+
+    if (args.includes('--help') || args.includes('-h')) {
+      this.showHelp();
+      process.exit(0);
+    }
+
+    if (args.includes('--version') || args.includes('-v')) {
+      console.log(this.programVer);
+      process.exit(0);
+    }
+
+    let cmdName = '';
+    let commandArgs: string[] = [];
+
+    const firstArg = args[0];
+    let matchedCmd = this.commandsList.find(c => c.nameStr.split(' ')[0] === firstArg);
+
+    if (matchedCmd) {
+      cmdName = firstArg;
+      commandArgs = args.slice(1);
+    } else {
+      matchedCmd = this.commandsList.find(c => c.isDefaultCmd);
+      if (matchedCmd) {
+        cmdName = matchedCmd.nameStr.split(' ')[0];
+        commandArgs = args;
+      } else {
+        console.error(`Error: Unknown command "${firstArg}"`);
+        this.showHelp();
+        process.exit(1);
+      }
+    }
+
+    const optionsResult: Record<string, any> = {};
+    for (const opt of matchedCmd.optionsList) {
+      optionsResult[opt.key] = opt.defaultValue;
+    }
+
+    const positionalArgs: string[] = [];
+    let i = 0;
+    while (i < commandArgs.length) {
+      const arg = commandArgs[i];
+      if (arg.startsWith('-')) {
+        const opt = matchedCmd.optionsList.find(o => o.short === arg || o.long === arg);
+        if (opt) {
+          if (opt.isFlag) {
+            if (opt.long && opt.long.startsWith('--no-')) {
+              optionsResult[opt.key] = false;
+            } else {
+              optionsResult[opt.key] = true;
+            }
+          } else {
+            const val = commandArgs[++i];
+            optionsResult[opt.key] = val;
+          }
+        } else {
+          console.error(`Error: Unknown option "${arg}"`);
+          this.showHelp();
+          process.exit(1);
+        }
+      } else {
+        positionalArgs.push(arg);
+      }
+      i++;
+    }
+
+    if (!matchedCmd.actionFn) {
+      console.error(`Error: Command "${cmdName}" has no action defined`);
+      process.exit(1);
+    }
+
+    try {
+      await matchedCmd.actionFn(...positionalArgs, optionsResult);
+    } catch (err: any) {
+      console.error(`Error executing command ${cmdName}:`, err.message);
+      process.exit(1);
+    }
+  }
+}
+
+class Table {
+  private head: string[];
+  private colWidths: number[];
+  private rows: string[][] = [];
+
+  constructor(options: { head: string[]; colWidths: number[]; wordWrap?: boolean }) {
+    this.head = options.head;
+    this.colWidths = options.colWidths;
+  }
+
+  push(row: string[]) {
+    this.rows.push(row);
+  }
+
+  toString(): string {
+    const wrapCell = (text: string, width: number): string[] => {
+      const colWidth = Math.max(1, width);
+      const cleanText = String(text ?? '').replace(/\r?\n/g, ' ');
+      const lines: string[] = [];
+      let i = 0;
+      while (i < cleanText.length) {
+        let chunk = cleanText.substring(i, i + colWidth);
+        if (chunk.length < colWidth) {
+          lines.push(chunk.padEnd(colWidth));
+          break;
+        }
+        let spaceIdx = chunk.lastIndexOf(' ');
+        if (spaceIdx > 0) {
+          chunk = chunk.substring(0, spaceIdx);
+          lines.push(chunk.padEnd(colWidth));
+          i += spaceIdx + 1;
+        } else {
+          lines.push(chunk);
+          i += colWidth;
+        }
+      }
+      if (lines.length === 0) {
+        lines.push(''.padEnd(colWidth));
+      }
+      return lines;
+    };
+
+    const buildBorder = (char: string, corner: string): string => {
+      return corner + this.colWidths.map(w => char.repeat(w + 2)).join(corner) + corner;
+    };
+
+    const topBorder = buildBorder('─', '┌');
+    const headerSeparator = buildBorder('─', '├');
+    const rowSeparator = buildBorder('─', '├');
+    const bottomBorder = buildBorder('─', '└');
+
+    const result: string[] = [];
+    result.push(topBorder);
+
+    const headerLines = this.head.map((h, i) => wrapCell(h, this.colWidths[i]));
+    const maxHeaderLines = Math.max(...headerLines.map(l => l.length));
+    for (let r = 0; r < maxHeaderLines; r++) {
+      const rowParts = this.head.map((_, colIdx) => {
+        const line = headerLines[colIdx][r] || ''.padEnd(this.colWidths[colIdx]);
+        return ` ${line} `;
+      });
+      result.push(`│${rowParts.join('│')}│`);
+    }
+
+    result.push(headerSeparator);
+
+    for (let i = 0; i < this.rows.length; i++) {
+      const row = this.rows[i];
+      const cellLines = row.map((cell, colIdx) => wrapCell(cell, this.colWidths[colIdx]));
+      const maxLines = Math.max(...cellLines.map(l => l.length));
+
+      for (let r = 0; r < maxLines; r++) {
+        const rowParts = row.map((_, colIdx) => {
+          const line = cellLines[colIdx][r] || ''.padEnd(this.colWidths[colIdx]);
+          return ` ${line} `;
+        });
+        result.push(`│${rowParts.join('│')}│`);
+      }
+      if (i < this.rows.length - 1) {
+        result.push(rowSeparator);
+      }
+    }
+
+    result.push(bottomBorder);
+    return result.join('\n');
+  }
+}
 
 const program = new Command();
 

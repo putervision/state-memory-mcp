@@ -10,7 +10,7 @@ By using `state-graph-mcp`, your AI coding assistant (such as Cursor, Claude Cod
 
 1. **Deterministic State Graph**: No LLM in the loop; all operations are structured, deterministic, and fast.
 2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-graph-mcp/`) or globally.
-3. **23 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, and database administration utilities.
+3. **27 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, database administration utilities, template scaffolding, and agent QoL context tools.
 4. **Interactive HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed visualizer built with `vis-network`.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
@@ -168,24 +168,97 @@ All operations are idempotent — running `init` multiple times is safe.
 
 ---
 
-## Tool Reference (23 Tools)
+## Tool Reference (27 Tools)
 
-* **Mutation (5 tools)**: `add_node`, `update_node`, `remove_node`, `add_edge`, `remove_edge`.
-* **Query (4 tools)**: `list_nodes` (compact mode, pagination, tag filtering), `get_node` (details + edges), `search_nodes` (FTS5 search), `get_subgraph` (N-hop neighbor fetch).
-* **MVP Analytics (3 tools)**: `trace_dependencies`, `find_blockers`, `get_project_summary`.
-* **Advanced Analytics & Utilities (7 tools)**:
-  * `decision_trail`: Traces updates/contradicts chains of decisions.
-  * `critical_path`: Evaluates longest path of active tasks to a milestone.
-  * `impact_analysis`: Evaluates downstream affected nodes if modified/deleted.
-  * `detect_contradictions`: Catches done tasks with blockers or contradicting decisions.
-  * `export_graph`: Dumps graph in JSON, DOT, Mermaid, or HTML visualizer.
-  * `import_graph`: Bulk imports nodes and edges.
-  * `query_graph`: Safe, read-only SELECT SQL interface.
-* **Database Administration (4 tools)**:
-  * `backup_project_db`: Hot backup of project SQLite database.
-  * `restore_project_db`: Destructive restore of project database from a backup file.
-  * `audit_project_db`: Integrity checks, circular dependency detection, and logical contradiction auditing.
-  * `merge_project_db`: Merge another project's database with conflict and cycle safety checks.
+### 🟢 Node & Relationship Management (6 Tools)
+* **`add_node`**: Creates a node (`task`, `decision`, `artifact`, `plan`, `observation`, `blocker`, `milestone`).
+  * Inputs: `type`, `title`, `project`, `status`, `metadata`, `tags`.
+* **`update_node`**: Modifies properties (title, status, metadata, tags) of an existing node.
+  * Inputs: `id`, `project`, `title`, `status`, `metadata`, `tags`.
+* **`get_node`**: Fetches a node's details and all inbound/outbound relationships.
+  * Inputs: `id`, `project`, `include_edges`.
+* **`remove_node`**: Deletes a node and automatically cascades deletions to all connected edges.
+  * Inputs: `id`, `project`.
+* **`add_edge`**: Links two nodes with a typed relationship (`depends_on`, `blocks`, `produces`, `references`, `decided_in`, `updates`, `contradicts`, `part_of`, `implements`, `child_of`). Cycles are rejected for directed dependency types.
+  * Inputs: `source_id`, `target_id`, `type`, `project`, `properties`.
+* **`remove_edge`**: Deletes a specific relationship between two nodes.
+  * Inputs: `source_id`, `target_id`, `type`, `project`.
+
+### 🔍 Search & Querying (4 Tools)
+* **`list_nodes`**: Returns lists of nodes matching filters with support for compact mode, pagination, tags, and branch tracking.
+  * Inputs: `type`, `status`, `tags`, `project`, `limit`, `offset`, `compact`, `git_branch`.
+* **`search_nodes`**: Performs fast full-text search (FTS5) across title, metadata, and tags.
+  * Inputs: `query`, `type`, `status`, `limit`, `project`.
+* **`get_subgraph`**: Extracts a node and its N-hop neighbor nodes and connecting relationships.
+  * Inputs: `root_id`, `depth`, `edge_types`, `node_types`, `project`.
+* **`query_graph`**: Executes safe, read-only SELECT SQL queries against the underlying database. Sanitized to block dangerous SQLite functions.
+  * Inputs: `sql`, `params`, `project`.
+
+### 🧠 Advanced Analytics & Tracing (7 Tools)
+* **`trace_dependencies`**: Computes recursive upstream (requirements) or downstream (dependents) dependency chains.
+  * Inputs: `node_id`, `direction`, `edge_types`, `max_depth`, `project`.
+* **`find_blockers`**: Lists active blocker nodes and the tasks/milestones they block.
+  * Inputs: `node_id`, `include_transitive`, `project`.
+* **`get_project_summary`**: Provides a high-level project summary containing node breakdowns, task completion progress, recent decisions, and active blockers.
+  * Inputs: `project`.
+* **`decision_trail`**: Traces the historical chain of decisions that led to a given state (updates/contradicts).
+  * Inputs: `node_id`, `project`.
+* **`critical_path`**: Computes the longest chain of uncompleted tasks leading to a milestone (minimum set of tasks that must finish).
+  * Inputs: `milestone_id`, `project`.
+* **`impact_analysis`**: Calculates the downstream blast radius if a node is modified or deleted.
+  * Inputs: `node_id`, `project`.
+* **`detect_contradictions`**: Scans the project for logical flaws (e.g. completed tasks that still have active blockers, contradicting accepted decisions).
+  * Inputs: `project`.
+
+### 🤖 Agent QoL & Templates (4 Tools)
+* **`get_context_snapshot`**: Dual-format context snapshot returning structured JSON data (blockers, pending tasks) and pre-rendered Markdown for quick agent prompting.
+  * Inputs: `project`.
+* **`find_related_decisions`**: Finds all decisions that affected a given artifact node (directly or via milestones).
+  * Inputs: `artifact_id`, `project`.
+* **`find_blocked_tasks`**: Finds all tasks blocked directly or transitively by a decision node.
+  * Inputs: `decision_id`, `project`.
+* **`scaffold_template`**: Automates scaffolding of standard development workflows. Supported templates: `fdd` (Feature-Driven Development design/build milestones & tasks) and `rfc` (Request for Comments author/review/decision loop).
+  * Inputs: `template`, `name`, `project`.
+
+### 🛡️ Administration & Backups (6 Tools)
+* **`export_graph`**: Exports project graph to JSON, DOT, Mermaid flowchart, or interactive HTML formats.
+  * Inputs: `format`, `project`.
+* **`import_graph`**: Bulk loads nodes and edges from external files.
+  * Inputs: `nodes`, `edges`, `project`.
+* **`backup_project_db`**: Creates an online SQLite database backup file along with an integrity SHA-256 checksum file.
+  * Inputs: `outputPath`, `project`.
+* **`restore_project_db`**: Restores the database from a backup file, checking the structural SQLite integrity and matching the SHA-256 checksum file.
+  * Inputs: `backupPath`, `project`.
+* **`audit_project_db`**: Audits database structure, foreign key constraints, orphaned edges, cycles, and logical contradictions.
+  * Inputs: `project`.
+* **`merge_project_db`**: Safely merges two project databases, keeping the newer node (based on `updated_at`) and validating circular dependencies.
+  * Inputs: `sourcePath`, `force`, `project`.
+
+---
+
+## Interactive HTML Visualizer
+
+`state-graph-mcp` offers an interactive, dark-mode browser visualization to explore your project's workflow state graph.
+
+### Viewing the Visualizer
+To generate and view the visualizer instantly in your default web browser, run:
+```bash
+state-graph-mcp view --project my-project
+```
+This command:
+1. Generates a standalone `viewer.html` containing the embedded graph dataset.
+2. Saves it in the project database folder.
+3. Automatically launches the page in your browser.
+
+### Exporting the Visualizer
+To export the visualizer to a specific file:
+```bash
+state-graph-mcp export --project my-project --format html --out ./my-graph.html
+```
+You can share the exported HTML file with your team. The file contains a responsive Force-Directed network graph rendering with:
+- Hover details for nodes and relationships.
+- Distinct color-coded nodes based on types.
+- Zooming, panning, and automatic physics layouts.
 
 ---
 

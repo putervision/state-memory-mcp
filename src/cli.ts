@@ -10,7 +10,7 @@ import { exportGraph, importGraph, backupProjectDb, restoreProjectDb, auditProje
 import { runInit } from './cli/init.js';
 import { VERSION } from './utils/version.js';
 import { scanGit } from './engine/git-scanner.js';
-
+import Table from 'cli-table3';
 
 const program = new Command();
 
@@ -106,9 +106,20 @@ program
       }
 
       console.log('\nNodes List:');
+      const table = new Table({
+        head: ['Type', 'Title', 'Status', 'ID'],
+        colWidths: [12, 45, 12, 30],
+        wordWrap: true
+      });
       for (const n of list.nodes) {
-        console.log(`  [${n.type.toUpperCase()}] ${n.title} (Status: ${n.status}) - ID: ${n.id}`);
+        table.push([
+          n.type.toUpperCase(),
+          n.title,
+          n.status,
+          n.id
+        ]);
       }
+      console.log(table.toString());
       console.log('======================================\n');
     } catch (error: any) {
       logger.error('Failed to inspect project:', error.message);

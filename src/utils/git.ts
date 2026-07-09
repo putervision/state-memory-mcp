@@ -10,6 +10,29 @@ export function getCurrentBranch(cwd: string = process.cwd()): string {
     return process.env.STATE_GRAPH_MCP_DEFAULT_BRANCH;
   }
   try {
+    let current = path.resolve(cwd);
+    while (true) {
+      const configPath = path.join(current, '.state-graph-mcp.json');
+      if (fs.existsSync(configPath)) {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.defaultBranch === 'string') {
+          return parsed.defaultBranch;
+        }
+      }
+      if (fs.existsSync(path.join(current, '.git')) || fs.existsSync(path.join(current, '.state-graph-mcp'))) {
+        break; // reached project root
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
+    }
+  } catch {
+    // Ignore config check errors
+  }
+  try {
     const branch = execSync('git branch --show-current', {
       cwd,
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -67,17 +90,7 @@ export function getFilesChanged(hash: string, cwd: string = process.cwd()): stri
 }
 
 export function getCommitLog(cwd: string, count: number, since?: string): GitCommit[] {
-  try {
-    let command = `git log -n ${count} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00'`;
-    if (since) {
-      // Use double dots for range: since..HEAD
-      command += ` ${since}..HEAD`;
-    }
-    const output = execSync(command, {
-      cwd,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf-8',
-    });
+  const parseGitLogOutput = (output: string): GitCommit[] => {
     const tokens = output.split('\0');
     const commits: GitCommit[] = [];
     for (let i = 0; i + 6 < tokens.length; i += 7) {
@@ -104,8 +117,42 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
       });
     }
     return commits;
+  };
+
+  if (since) {
+    let sinceExists = false;
+    try {
+      execSync(`git cat-file -e ${since}`, { cwd, stdio: 'ignore' });
+      sinceExists = true;
+    } catch {
+      logger.debug(`Commit hash ${since} does not exist or is unreachable in git history. Falling back to last ${count} commits.`);
+    }
+
+    if (sinceExists) {
+      try {
+        const command = `git log -n ${count} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00' ${since}..HEAD`;
+        const output = execSync(command, {
+          cwd,
+          stdio: ['ignore', 'pipe', 'ignore'],
+          encoding: 'utf-8',
+        });
+        return parseGitLogOutput(output);
+      } catch (err) {
+        logger.debug(`Failed to retrieve git log range ${since}..HEAD, falling back:`, err);
+      }
+    }
+  }
+
+  try {
+    const command = `git log -n ${count} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00'`;
+    const output = execSync(command, {
+      cwd,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf-8',
+    });
+    return parseGitLogOutput(output);
   } catch (err) {
-    logger.debug('Failed to retrieve git log:', err);
+    logger.debug('Failed to retrieve fallback git log:', err);
     return [];
   }
 }

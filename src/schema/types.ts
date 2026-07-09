@@ -83,3 +83,27 @@ export interface GitScanResult {
   last_processed_commit: string | null;
 }
 
+export interface NodeRow {
+  id: string;
+  type: string;
+  title: string;
+  status: string;
+  project: string;
+  git_branch?: string;
+  metadata: string;
+  tags: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EdgeRow {
+  id: string;
+  source_id: string;
+  target_id: string;
+  type: string;
+  properties: string;
+  project: string;
+  git_branch?: string;
+  created_at: string;
+}
+

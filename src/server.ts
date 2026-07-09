@@ -29,11 +29,17 @@ import {
   RestoreProjectDbSchema,
   AuditProjectDbSchema,
   MergeProjectDbSchema,
+  GetContextSnapshotSchema,
+  FindRelatedDecisionsSchema,
+  FindBlockedTasksSchema,
+  ScaffoldTemplateSchema,
 } from './schema/zod.js';
 import { GraphEngine } from './engine/graph.js';
 import { EdgeEngine } from './engine/edges.js';
 import { QueryEngine } from './engine/queries.js';
 import { AnalyticsEngine } from './engine/analytics.js';
+import { scaffoldTemplate } from './engine/scaffolder.js';
+import { getDb, getProjectSlug } from './engine/db.js';
 import { queryGraph, exportGraph, importGraph, backupProjectDb, restoreProjectDb, auditProjectDb, mergeProjectDb } from './engine/utils.js';
 import { logger } from './utils/logger.js';
 import { VERSION } from './utils/version.js';
@@ -596,9 +602,114 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['sourcePath'],
         },
       },
+      {
+        name: 'get_context_snapshot',
+        description: 'Get a comprehensive high-level context snapshot combining summary, active blockers, and immediate pending tasks.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+          },
+        },
+      },
+      {
+        name: 'find_related_decisions',
+        description: 'Find all decisions that affected a given artifact (either directly produces it or decided_in a milestone that produces it).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            artifact_id: {
+              type: 'string',
+              description: 'The unique ID of the artifact node.',
+            },
+          },
+          required: ['artifact_id'],
+        },
+      },
+      {
+        name: 'find_blocked_tasks',
+        description: 'List all tasks that are currently blocked by a given decision node (either directly or transitively).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            decision_id: {
+              type: 'string',
+              description: 'The unique ID of the decision node.',
+            },
+          },
+          required: ['decision_id'],
+        },
+      },
+      {
+        name: 'scaffold_template',
+        description: 'Scaffold standard feature (fdd) or decision (rfc) workflow templates into the project graph.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            template: {
+              type: 'string',
+              enum: ['fdd', 'rfc'],
+              description: 'The template type: "fdd" (Feature-Driven Development design/build) or "rfc" (Request for Comments decision loop).',
+            },
+            name: {
+              type: 'string',
+              description: 'The name of the feature or RFC (e.g., "OAuth Login").',
+            },
+          },
+          required: ['template', 'name'],
+        },
+      },
     ],
   };
 });
+
+function suggestLinks(projectSlug: string, node: any) {
+  try {
+    const db = getDb(projectSlug);
+    if (node.type === 'decision') {
+      const recentTasks = db.prepare(`
+        SELECT id, title FROM nodes 
+        WHERE project = ? AND type = 'task' AND status != 'done' AND status != 'cancelled'
+        ORDER BY updated_at DESC LIMIT 3
+      `).all(projectSlug) as any[];
+      if (recentTasks.length > 0) {
+        logger.info(`[SUGGESTION] Created/updated decision "${node.title}" (${node.id}). Consider linking it to pending tasks using add_edge (type: 'decided_in' or 'blocks'):`);
+        for (const t of recentTasks) {
+          logger.info(`  - Task: "${t.title}" (ID: ${t.id})`);
+        }
+      }
+    } else if (node.type === 'task') {
+      const recentDecisions = db.prepare(`
+        SELECT id, title FROM nodes 
+        WHERE project = ? AND type = 'decision' AND status = 'accepted'
+        ORDER BY updated_at DESC LIMIT 3
+      `).all(projectSlug) as any[];
+      if (recentDecisions.length > 0) {
+        logger.info(`[SUGGESTION] Created/updated task "${node.title}" (${node.id}). Did this task originate from a decision? Consider linking them via decided_in:`);
+        for (const d of recentDecisions) {
+          logger.info(`  - Decision: "${d.title}" (ID: ${d.id})`);
+        }
+      }
+    }
+  } catch {
+    // Ignore suggestion errors
+  }
+}
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
@@ -614,6 +725,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           );
         }
         const node = GraphEngine.addNode(parsed.data);
+        suggestLinks(node.project, node);
         return {
           content: [{ type: 'text', text: JSON.stringify(node, null, 2) }],
         };
@@ -631,6 +743,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!node) {
           throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${parsed.data.id}`);
         }
+        suggestLinks(node.project, node);
         return {
           content: [{ type: 'text', text: JSON.stringify(node, null, 2) }],
         };
@@ -934,6 +1047,65 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           );
         }
         const result = mergeProjectDb(parsed.data);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'get_context_snapshot': {
+        const parsed = GetContextSnapshotSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
+          );
+        }
+        const result = AnalyticsEngine.getContextSnapshot(parsed.data);
+        return {
+          content: [
+            { type: 'text', text: JSON.stringify(result, null, 2) },
+            { type: 'text', text: result.formatted_summary }
+          ],
+        };
+      }
+
+      case 'find_related_decisions': {
+        const parsed = FindRelatedDecisionsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
+          );
+        }
+        const result = AnalyticsEngine.findRelatedDecisions(parsed.data);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'find_blocked_tasks': {
+        const parsed = FindBlockedTasksSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
+          );
+        }
+        const result = AnalyticsEngine.findBlockedTasks(parsed.data);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'scaffold_template': {
+        const parsed = ScaffoldTemplateSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
+          );
+        }
+        const result = scaffoldTemplate(parsed.data);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };

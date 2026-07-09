@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { logger } from '../utils/logger.js';
+import { DatabaseError } from '../utils/errors.js';
+import { loadProjectConfig } from './config.js';
 
 const REGISTRY_PATH = path.join(os.homedir(), '.state-graph-mcp-registry.json');
 
@@ -13,7 +15,7 @@ function getRegistry(): Record<string, string> {
       return JSON.parse(raw) || {};
     }
   } catch (e) {
-    // Ignore errors
+    logger.warn('Failed to read or parse global registry:', e);
   }
   return {};
 }
@@ -76,6 +78,10 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
 
 // Get the base directory for storing state-graph-mcp databases
 export function getBaseDir(projectRoot: string): string {
+  const config = loadProjectConfig(projectRoot);
+  if (config.storagePath) {
+    return path.resolve(projectRoot, config.storagePath);
+  }
   if (process.env.STATE_GRAPH_MCP_DIR) {
     return path.resolve(process.env.STATE_GRAPH_MCP_DIR);
   }
@@ -90,6 +96,10 @@ export function getProjectSlug(project?: string): string {
     return project.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
   }
   const root = resolveProjectRoot(project);
+  const config = loadProjectConfig(root);
+  if (config.projectName) {
+    return config.projectName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+  }
   return path.basename(root).toLowerCase().replace(/[^a-z0-9-_]/g, '-');
 }
 
@@ -114,13 +124,22 @@ export function getProjectDbDir(project?: string): string {
     }
 
     if (!isInitialized) {
-      throw new Error(`Project "${path.basename(root)}" is not initialized. Please run "state-graph-mcp init" in the project root first.`);
+      throw new DatabaseError(`Project "${path.basename(root)}" is not initialized. Please run "state-graph-mcp init" in the project root first.`);
     }
   }
 
   const baseDir = getBaseDir(root);
   const projectSlug = getProjectSlug(project);
-  return path.join(baseDir, projectSlug);
+  const targetDir = path.resolve(path.join(baseDir, projectSlug));
+
+  // Verify that the resolved target directory is inside the allowed baseDir to prevent path traversal
+  const relative = path.relative(baseDir, targetDir);
+  const isSafe = relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  if (!isSafe) {
+    throw new DatabaseError(`Path traversal detected: target directory "${targetDir}" is outside allowed base directory "${baseDir}"`);
+  }
+
+  return targetDir;
 }
 
 // Get the absolute path to the project's SQLite database file
@@ -128,12 +147,33 @@ export function getDbPath(project?: string): string {
   return path.join(getProjectDbDir(project), 'graph.db');
 }
 
-const dbCache = new Map<string, Database.Database>();
+import { migrations } from './migrations.js';
+
+const MAX_CACHED_DBS = 5;
+const dbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 
 export function getDb(project?: string): Database.Database {
   const projectSlug = getProjectSlug(project);
-  if (dbCache.has(projectSlug)) {
-    return dbCache.get(projectSlug)!;
+  const cached = dbCache.get(projectSlug);
+  if (cached) {
+    cached.lastUsed = Date.now();
+    return cached.db;
+  }
+
+  // Enforce connection cache limit
+  if (dbCache.size >= MAX_CACHED_DBS) {
+    let oldestSlug: string | null = null;
+    let oldestTime = Infinity;
+    for (const [slug, item] of dbCache.entries()) {
+      if (item.lastUsed < oldestTime) {
+        oldestTime = item.lastUsed;
+        oldestSlug = slug;
+      }
+    }
+    if (oldestSlug) {
+      logger.info(`Evicting database connection for project "${oldestSlug}" from cache due to limit.`);
+      closeDb(oldestSlug);
+    }
   }
 
   const projectDbDir = getProjectDbDir(project);
@@ -156,16 +196,16 @@ export function getDb(project?: string): Database.Database {
   // Initialize schema
   initializeSchema(db);
 
-  dbCache.set(projectSlug, db);
+  dbCache.set(projectSlug, { db, lastUsed: Date.now() });
   return db;
 }
 
 export function closeDb(project?: string): void {
   const projectSlug = getProjectSlug(project);
-  const db = dbCache.get(projectSlug);
-  if (db) {
+  const cached = dbCache.get(projectSlug);
+  if (cached) {
     try {
-      db.close();
+      cached.db.close();
       logger.info(`Closed database for project "${projectSlug}"`);
     } catch (err) {
       logger.error(`Error closing database for project "${projectSlug}":`, err);
@@ -175,9 +215,9 @@ export function closeDb(project?: string): void {
 }
 
 export function closeAllDbs(): void {
-  for (const [slug, db] of dbCache.entries()) {
+  for (const [slug, cached] of dbCache.entries()) {
     try {
-      db.close();
+      cached.db.close();
       logger.info(`Closed database for project "${slug}"`);
     } catch (err) {
       logger.error(`Error closing database for project "${slug}":`, err);
@@ -194,91 +234,6 @@ export function getMetaValue(db: Database.Database, key: string): string | null 
 export function setMetaValue(db: Database.Database, key: string, value: string): void {
   db.prepare('INSERT OR REPLACE INTO schema_meta (key, value) VALUES (?, ?)').run(key, value);
 }
-
-
-interface Migration {
-  version: number;
-  up: (db: Database.Database) => void;
-}
-
-// Define incremental database migrations here
-const migrations: Migration[] = [
-  // Version 1 is the baseline schema setup. If new tables/columns are needed, increment version.
-  {
-    version: 1,
-    up: (db) => {
-      // Baseline schema (was previously created, this is now migration v1)
-      db.prepare(`
-        CREATE TABLE nodes (
-          id          TEXT PRIMARY KEY,
-          type        TEXT NOT NULL,
-          title       TEXT NOT NULL,
-          status      TEXT NOT NULL,
-          project     TEXT NOT NULL,
-          git_branch  TEXT DEFAULT 'main',
-          metadata    TEXT DEFAULT '{}',
-          tags        TEXT DEFAULT '[]',
-          created_at  TEXT NOT NULL,
-          updated_at  TEXT NOT NULL
-        )
-      `).run();
-
-      db.prepare(`
-        CREATE TABLE edges (
-          id          TEXT PRIMARY KEY,
-          source_id   TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-          target_id   TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-          type        TEXT NOT NULL,
-          properties  TEXT DEFAULT '{}',
-          project     TEXT NOT NULL,
-          git_branch  TEXT DEFAULT 'main',
-          created_at  TEXT NOT NULL,
-          UNIQUE(source_id, target_id, type)
-        )
-      `).run();
-
-      db.prepare(`CREATE INDEX idx_nodes_type ON nodes(type)`).run();
-      db.prepare(`CREATE INDEX idx_nodes_status ON nodes(status)`).run();
-      db.prepare(`CREATE INDEX idx_nodes_project ON nodes(project)`).run();
-      db.prepare(`CREATE INDEX idx_nodes_project_branch ON nodes(project, git_branch)`).run();
-      db.prepare(`CREATE INDEX idx_nodes_project_type ON nodes(project, type)`).run();
-      db.prepare(`CREATE INDEX idx_nodes_project_status ON nodes(project, status)`).run();
-
-      db.prepare(`CREATE INDEX idx_edges_source ON edges(source_id)`).run();
-      db.prepare(`CREATE INDEX idx_edges_target ON edges(target_id)`).run();
-      db.prepare(`CREATE INDEX idx_edges_type ON edges(type)`).run();
-      db.prepare(`CREATE INDEX idx_edges_project ON edges(project)`).run();
-      db.prepare(`CREATE INDEX idx_edges_project_branch ON edges(project, git_branch)`).run();
-
-      db.prepare(`
-        CREATE VIRTUAL TABLE nodes_fts USING fts5(
-          title, metadata, tags,
-          content='nodes',
-          content_rowid='rowid'
-        )
-      `).run();
-
-      db.prepare(`
-        CREATE TRIGGER nodes_ai AFTER INSERT ON nodes BEGIN
-          INSERT INTO nodes_fts(rowid, title, metadata, tags) VALUES (new.rowid, new.title, new.metadata, new.tags);
-        END
-      `).run();
-
-      db.prepare(`
-        CREATE TRIGGER nodes_ad AFTER DELETE ON nodes BEGIN
-          INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', old.rowid, old.title, old.metadata, old.tags);
-        END
-      `).run();
-
-      db.prepare(`
-        CREATE TRIGGER nodes_au AFTER UPDATE ON nodes BEGIN
-          INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', old.rowid, old.title, old.metadata, old.tags);
-          INSERT INTO nodes_fts(rowid, title, metadata, tags) VALUES (new.rowid, new.title, new.metadata, new.tags);
-        END
-      `).run();
-    }
-  }
-];
 
 function initializeSchema(db: Database.Database): void {
   // Check if schema_meta exists

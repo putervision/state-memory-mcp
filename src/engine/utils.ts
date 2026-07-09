@@ -1,11 +1,13 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { getDb, getProjectSlug, getDbPath, getProjectDbDir, closeDb } from './db.js';
 import { BaseNode, Edge, NodeType } from '../schema/types.js';
 import { logger } from '../utils/logger.js';
 import { generateId } from '../utils/id.js';
 import { getCurrentIsoString } from '../utils/time.js';
+import { ValidationError, DatabaseError } from '../utils/errors.js';
 
 /**
  * Run safe raw SELECT SQL queries against the database using a read-only connection
@@ -15,10 +17,19 @@ export function queryGraph(params: {
   sql: string;
   params?: any[];
 }): any[] {
+  // Case-insensitive blocklist check for dangerous SQLite functions/keywords
+  const forbiddenKeywords = ['load_extension', 'writefile', 'attach', 'fts3_tokenizer'];
+  const lowerSql = params.sql.toLowerCase();
+  for (const keyword of forbiddenKeywords) {
+    if (lowerSql.includes(keyword)) {
+      throw new ValidationError(`SQL query contains forbidden keyword/function: ${keyword}`);
+    }
+  }
+
   const dbPath = getDbPath(params.project);
 
   if (!fs.existsSync(dbPath)) {
-    throw new Error(`Database file not found at: ${dbPath}`);
+    throw new ValidationError(`Database file not found at: ${dbPath}`);
   }
 
   // Open with readonly: true to enforce read-only access
@@ -26,10 +37,16 @@ export function queryGraph(params: {
   
   try {
     readOnlyDb.pragma('busy_timeout = 5000');
-    const stmt = readOnlyDb.prepare(params.sql);
+    
+    let stmt;
+    try {
+      stmt = readOnlyDb.prepare(params.sql);
+    } catch (err: any) {
+      throw new DatabaseError(`SQL compilation failed: ${err.message}`);
+    }
     
     if (!stmt.reader) {
-      throw new Error('Write operations (INSERT, UPDATE, DELETE, DROP, etc.) are strictly prohibited.');
+      throw new ValidationError('Write operations (INSERT, UPDATE, DELETE, DROP, etc.) are strictly prohibited.');
     }
 
     const rows = stmt.all(...(params.params || []));
@@ -839,6 +856,17 @@ export async function backupProjectDb(params: {
 
   logger.info(`Starting online database backup for project "${projectSlug}" to: ${targetPath}`);
   await db.backup(targetPath);
+
+  // Calculate SHA-256 hash and write it to targetPath.sha256
+  try {
+    const fileBuffer = fs.readFileSync(targetPath);
+    const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    fs.writeFileSync(`${targetPath}.sha256`, hash, 'utf-8');
+    logger.info(`Database backup SHA-256 hash written to: ${targetPath}.sha256`);
+  } catch (err: any) {
+    logger.warn(`Failed to write checksum file: ${err.message}`);
+  }
+
   logger.info(`Database backup completed successfully for project "${projectSlug}"`);
   return targetPath;
 }
@@ -854,35 +882,67 @@ export function restoreProjectDb(params: {
   const resolvedBackupPath = path.resolve(params.backupPath);
 
   if (!fs.existsSync(resolvedBackupPath)) {
-    throw new Error(`Backup file not found: ${resolvedBackupPath}`);
+    throw new ValidationError(`Backup file not found: ${resolvedBackupPath}`);
   }
 
-  // 1. Verify structural soundness of backup
+  // 1. Verify SHA-256 checksum if .sha256 file exists
+  const checksumPath = `${resolvedBackupPath}.sha256`;
+  if (fs.existsSync(checksumPath)) {
+    try {
+      const expectedHash = fs.readFileSync(checksumPath, 'utf-8').trim();
+      const fileBuffer = fs.readFileSync(resolvedBackupPath);
+      const actualHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+      if (expectedHash !== actualHash) {
+        throw new ValidationError(`Backup file integrity checksum mismatch. Expected: ${expectedHash}, Actual: ${actualHash}`);
+      }
+      logger.info('Backup file SHA-256 checksum verified successfully.');
+    } catch (err: any) {
+      if (err instanceof ValidationError) throw err;
+      throw new ValidationError(`Failed to verify backup SHA-256 checksum: ${err.message}`);
+    }
+  } else {
+    logger.warn(`No checksum file found at "${checksumPath}". Proceeding with SQLite integrity check only.`);
+  }
+
+  // 2. Verify structural soundness & schema of backup database
   try {
     const tempDb = new Database(resolvedBackupPath, { readonly: true });
     const check = tempDb.pragma('integrity_check') as any[];
-    tempDb.close();
+    
     const isOk = Array.isArray(check) && check.length === 1 && (check[0] === 'ok' || check[0]?.integrity_check === 'ok');
     if (!isOk) {
-      throw new Error(`Backup file integrity check failed: ${JSON.stringify(check)}`);
+      tempDb.close();
+      throw new ValidationError(`Backup file SQLite integrity check failed: ${JSON.stringify(check)}`);
+    }
+
+    // Verify expected tables exist
+    const schemaMetaExists = tempDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'").get();
+    const nodesExists = tempDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='nodes'").get();
+    const edgesExists = tempDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='edges'").get();
+    
+    tempDb.close();
+
+    if (!schemaMetaExists || !nodesExists || !edgesExists) {
+      throw new ValidationError("Backup database is missing required state-graph-mcp tables ('schema_meta', 'nodes', or 'edges').");
     }
   } catch (err: any) {
-    throw new Error(`Invalid sqlite database file: ${err.message}`);
+    if (err instanceof ValidationError) throw err;
+    throw new ValidationError(`Invalid state-graph-mcp backup database file: ${err.message}`);
   }
 
-  // 2. Close active connection
+  // 3. Close active connection
   closeDb(params.project);
 
-  // 3. Clear WAL and shm files if they exist
+  // 4. Clear WAL and shm files if they exist
   const walPath = `${dbPath}-wal`;
   const shmPath = `${dbPath}-shm`;
   if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
   if (fs.existsSync(shmPath)) fs.unlinkSync(shmPath);
 
-  // 4. Overwrite DB file
+  // 5. Overwrite DB file
   fs.copyFileSync(resolvedBackupPath, dbPath);
 
-  // 5. Re-open/initialize database
+  // 6. Re-open/initialize database
   getDb(params.project);
   logger.info(`Database restored successfully from: ${resolvedBackupPath}`);
 }

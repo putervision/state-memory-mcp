@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { runStaticScaffolder, runTechStackScaffolder, STATIC_NODE_TEMPLATES, STATIC_EDGE_TEMPLATES } from '../../src/engine/scaffolder.js';
+import { runStaticScaffolder, runTechStackScaffolder, STATIC_NODE_TEMPLATES, STATIC_EDGE_TEMPLATES, scaffoldTemplate } from '../../src/engine/scaffolder.js';
 import { closeAllDbs, getDb } from '../../src/engine/db.js';
 import { GraphEngine } from '../../src/engine/graph.js';
 
@@ -140,5 +140,23 @@ describe('Scaffolding Engine', () => {
       WHERE project = ? AND source_id = ? AND target_id = ? AND type = 'produces'
     `).get(project, setupNode!.id, reqNode!.id);
     expect(reqEdge).toBeDefined();
+  });
+
+  it('should scaffold FDD and RFC templates successfully', () => {
+    const fddResult = scaffoldTemplate({
+      project,
+      template: 'fdd',
+      name: 'Auth Module'
+    });
+    expect(fddResult.nodes_created).toBe(8);
+    expect(fddResult.edges_created).toBe(7);
+
+    const rfcResult = scaffoldTemplate({
+      project,
+      template: 'rfc',
+      name: 'GraphQL Migration'
+    });
+    expect(rfcResult.nodes_created).toBe(4);
+    expect(rfcResult.edges_created).toBe(3);
   });
 });

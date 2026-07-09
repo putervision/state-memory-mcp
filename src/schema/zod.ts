@@ -21,12 +21,36 @@ export const DEFAULT_STATUS_BY_TYPE: Record<NodeType, NodeStatus> = {
   milestone: 'upcoming',
 };
 
+export const MetadataSchema = z.record(z.unknown()).refine(
+  (val) => {
+    try {
+      JSON.stringify(val);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: 'Metadata must be a JSON-serializable object' }
+);
+
+export const PropertiesSchema = z.record(z.unknown()).refine(
+  (val) => {
+    try {
+      JSON.stringify(val);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: 'Properties must be a JSON-serializable object' }
+);
+
 export const AddNodeSchema = z.object({
   project: z.string().optional(),
   type: NodeTypeSchema,
   title: z.string().min(1, 'Title cannot be empty'),
   status: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: MetadataSchema.optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -41,7 +65,7 @@ export const UpdateNodeSchema = z.object({
   id: z.string().min(1, 'ID is required'),
   title: z.string().optional(),
   status: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: MetadataSchema.optional(),
   tags: z.array(z.string()).optional(),
 });
 
@@ -68,7 +92,7 @@ export const AddEdgeSchema = z.object({
   source_id: z.string().min(1, 'Source ID is required'),
   target_id: z.string().min(1, 'Target ID is required'),
   type: EdgeTypeSchema,
-  properties: z.record(z.unknown()).optional(),
+  properties: PropertiesSchema.optional(),
 });
 
 export const RemoveEdgeSchema = z.object({
@@ -176,6 +200,26 @@ export const MergeProjectDbSchema = z.object({
   sourcePath: z.string().min(1, 'Source path is required'),
   project: z.string().optional(),
   force: z.boolean().optional().default(false),
+});
+
+export const GetContextSnapshotSchema = z.object({
+  project: z.string().optional(),
+});
+
+export const FindRelatedDecisionsSchema = z.object({
+  project: z.string().optional(),
+  artifact_id: z.string().min(1, 'Artifact ID is required'),
+});
+
+export const FindBlockedTasksSchema = z.object({
+  project: z.string().optional(),
+  decision_id: z.string().min(1, 'Decision ID is required'),
+});
+
+export const ScaffoldTemplateSchema = z.object({
+  project: z.string().optional(),
+  template: z.enum(['fdd', 'rfc']),
+  name: z.string().min(1, 'Template name is required'),
 });
 
 

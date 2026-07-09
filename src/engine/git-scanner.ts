@@ -1,5 +1,6 @@
 import { Database } from 'better-sqlite3';
 import * as path from 'path';
+import * as fs from 'fs';
 import { BaseNode, GitCommit, GitScanOptions, GitScanResult } from '../schema/types.js';
 import { getDb, getProjectSlug, getMetaValue, setMetaValue } from './db.js';
 import { getCurrentBranch, getCommitLog, getFilesChanged, findGitRepos } from '../utils/git.js';
@@ -55,7 +56,9 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
     let meta: any = {};
     try {
       meta = JSON.parse(node.metadata);
-    } catch {}
+    } catch (err: any) {
+      logger.debug(`Failed to parse node metadata for node ${node.id}: ${err.message}`);
+    }
 
     if (node.type === 'observation' && meta.commit_hash) {
       observationsByHash.set(meta.commit_hash, node);
@@ -95,7 +98,9 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
     let meta: any = {};
     try {
       meta = JSON.parse(obsNode.metadata);
-    } catch {}
+    } catch (err: any) {
+      logger.debug(`Failed to parse observation metadata for node ${obsNode.id}: ${err.message}`);
+    }
 
     if (meta.files_changed && Array.isArray(meta.files_changed)) {
       for (const file of meta.files_changed) {
@@ -131,7 +136,9 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
       let meta: any = {};
       try {
         meta = JSON.parse(taskNode.metadata);
-      } catch {}
+      } catch (err: any) {
+        logger.debug(`Failed to parse task metadata for node ${taskNode.id}: ${err.message}`);
+      }
 
       if (meta.source === 'git') {
         const edgeExists = db.prepare(`
@@ -165,6 +172,7 @@ export async function scanGit(
   const db = getDb(projectSlug);
 
   try {
+    const ignorePatterns = loadIgnorePatterns(cwd);
     const repoPaths = findGitRepos(cwd, 2);
     if (repoPaths.length === 0) {
       logger.info(`No git repositories found under path: ${cwd}`);
@@ -213,9 +221,12 @@ export async function scanGit(
       for (const commit of mergedCommits) {
         const repoFiles = getFilesChanged(commit.hash, repoPath);
         // Prepend relPath to changed files to get workspace-relative path
-        commit.filesChanged = relPath === '.'
+        const mappedFiles = relPath === '.'
           ? repoFiles
           : repoFiles.map(f => path.join(relPath, f));
+        
+        // Filter out ignored files
+        commit.filesChanged = mappedFiles.filter(f => !isIgnored(f, ignorePatterns));
       }
 
       for (let index = 0; index < mergedCommits.length; index++) {
@@ -347,4 +358,65 @@ export async function scanGit(
       last_processed_commit: null,
     };
   }
+}
+
+export function loadIgnorePatterns(projectRoot: string): string[] {
+  const patterns: string[] = ['node_modules', '.git', '.state-graph-mcp'];
+  const filesToRead = ['.gitignore', '.state-graph-ignore'];
+  for (const file of filesToRead) {
+    const filePath = path.join(projectRoot, file);
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const lines = content.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed && !trimmed.startsWith('#')) {
+            patterns.push(trimmed);
+          }
+        }
+      } catch (err: any) {
+        logger.debug(`Failed to read ignore file ${filePath}: ${err.message}`);
+      }
+    }
+  }
+  return Array.from(new Set(patterns));
+}
+
+export function isIgnored(filePath: string, patterns: string[]): boolean {
+  const normalizedPath = filePath.replace(/\\/g, '/');
+
+  for (const pattern of patterns) {
+    let cleanPattern = pattern.trim().replace(/\\/g, '/');
+    if (!cleanPattern) continue;
+
+    const isDirPattern = cleanPattern.endsWith('/');
+    if (isDirPattern) {
+      cleanPattern = cleanPattern.slice(0, -1);
+    }
+
+    let regexStr = cleanPattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+      .replace(/\?/g, '.');
+
+    if (!cleanPattern.startsWith('/')) {
+      regexStr = '(^|.*/)' + regexStr;
+    } else {
+      regexStr = '^' + regexStr.slice(1);
+    }
+
+    if (isDirPattern) {
+      regexStr += '(/.*|$)';
+    } else {
+      regexStr += '($|/.*)';
+    }
+
+    const regex = new RegExp(regexStr);
+    if (regex.test(normalizedPath)) {
+      return true;
+    }
+  }
+
+  return false;
 }

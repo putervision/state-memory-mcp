@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { NodeType, EdgeType } from '../schema/types.js';
 import { GraphEngine } from './graph.js';
 import { EdgeEngine } from './edges.js';
+import { getDb, getProjectSlug } from './db.js';
 import { logger } from '../utils/logger.js';
 
 interface ScaffoldNodeTemplate {
@@ -263,4 +264,167 @@ export async function runTechStackScaffolder(projectSlug: string, db: Database.D
       }
     }
   }
+}
+
+export function scaffoldTemplate(params: {
+  project?: string;
+  template: 'fdd' | 'rfc';
+  name: string;
+}): { nodes_created: number; edges_created: number } {
+  const projectSlug = getProjectSlug(params.project);
+
+  const cleanName = params.name.trim();
+  if (!cleanName) {
+    throw new Error('Template name is required.');
+  }
+
+  let nodes_created = 0;
+  let edges_created = 0;
+
+  if (params.template === 'fdd') {
+    const milestoneDesign = GraphEngine.addNode({
+      project: projectSlug,
+      type: 'milestone',
+      title: `Design: ${cleanName}`,
+      status: 'pending',
+      tags: ['fdd', 'design', cleanName.toLowerCase().replace(/\s+/g, '-')],
+      metadata: { description: `FDD Design phase for ${cleanName}` }
+    });
+    nodes_created++;
+
+    const milestoneBuild = GraphEngine.addNode({
+      project: projectSlug,
+      type: 'milestone',
+      title: `Build: ${cleanName}`,
+      status: 'pending',
+      tags: ['fdd', 'build', cleanName.toLowerCase().replace(/\s+/g, '-')],
+      metadata: { description: `FDD Build phase for ${cleanName}` }
+    });
+    nodes_created++;
+
+    const tasksDesign = [
+      `Feature Walkthrough: ${cleanName}`,
+      `Design Session: ${cleanName}`,
+      `Design Inspection: ${cleanName}`
+    ];
+    for (const title of tasksDesign) {
+      const task = GraphEngine.addNode({
+        project: projectSlug,
+        type: 'task',
+        title,
+        status: 'pending',
+        tags: ['fdd', 'design', 'task'],
+        metadata: {}
+      });
+      nodes_created++;
+
+      EdgeEngine.addEdge({
+        project: projectSlug,
+        source_id: task.id,
+        target_id: milestoneDesign.id,
+        type: 'part_of'
+      });
+      edges_created++;
+    }
+
+    const tasksBuild = [
+      `Coding & Implementation: ${cleanName}`,
+      `Code Inspection & Review: ${cleanName}`,
+      `Promote to Main: ${cleanName}`
+    ];
+    for (const title of tasksBuild) {
+      const task = GraphEngine.addNode({
+        project: projectSlug,
+        type: 'task',
+        title,
+        status: 'pending',
+        tags: ['fdd', 'build', 'task'],
+        metadata: {}
+      });
+      nodes_created++;
+
+      EdgeEngine.addEdge({
+        project: projectSlug,
+        source_id: task.id,
+        target_id: milestoneBuild.id,
+        type: 'part_of'
+      });
+      edges_created++;
+    }
+
+    EdgeEngine.addEdge({
+      project: projectSlug,
+      source_id: milestoneDesign.id,
+      target_id: milestoneBuild.id,
+      type: 'blocks'
+    });
+    edges_created++;
+
+  } else if (params.template === 'rfc') {
+    const decisionNode = GraphEngine.addNode({
+      project: projectSlug,
+      type: 'decision',
+      title: `RFC: ${cleanName}`,
+      status: 'proposed',
+      tags: ['rfc', cleanName.toLowerCase().replace(/\s+/g, '-')],
+      metadata: { rationale: 'RFC proposal for technical comment.' }
+    });
+    nodes_created++;
+
+    const taskDraft = GraphEngine.addNode({
+      project: projectSlug,
+      type: 'task',
+      title: `Draft RFC document for ${cleanName}`,
+      status: 'pending',
+      tags: ['rfc', 'task'],
+      metadata: {}
+    });
+    nodes_created++;
+
+    const taskReview = GraphEngine.addNode({
+      project: projectSlug,
+      type: 'task',
+      title: `Review RFC feedback for ${cleanName}`,
+      status: 'pending',
+      tags: ['rfc', 'task'],
+      metadata: {}
+    });
+    nodes_created++;
+
+    const taskFinalize = GraphEngine.addNode({
+      project: projectSlug,
+      type: 'task',
+      title: `Finalize RFC decision for ${cleanName}`,
+      status: 'pending',
+      tags: ['rfc', 'task'],
+      metadata: {}
+    });
+    nodes_created++;
+
+    EdgeEngine.addEdge({
+      project: projectSlug,
+      source_id: taskDraft.id,
+      target_id: taskReview.id,
+      type: 'blocks'
+    });
+    edges_created++;
+
+    EdgeEngine.addEdge({
+      project: projectSlug,
+      source_id: taskReview.id,
+      target_id: taskFinalize.id,
+      type: 'blocks'
+    });
+    edges_created++;
+
+    EdgeEngine.addEdge({
+      project: projectSlug,
+      source_id: decisionNode.id,
+      target_id: taskDraft.id,
+      type: 'blocks'
+    });
+    edges_created++;
+  }
+
+  return { nodes_created, edges_created };
 }

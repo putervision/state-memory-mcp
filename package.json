@@ -1,6 +1,6 @@
 {
   "name": "state-graph-mcp",
-  "version": "0.0.4",
+  "version": "0.0.7",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "type": "module",
   "main": "./dist/index.js",
@@ -9,17 +9,39 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "author": "Lucas Armstrong",
+  "homepage": "https://github.com/LucasArmstrong/state-graph-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/LucasArmstrong/state-graph-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "keywords": [
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "model-context-protocol-server",
     "state-graph",
     "workflow",
+    "workflow-state",
+    "dependency-graph",
+    "decision-tracking",
+    "decision-log",
+    "task-tracking",
     "cli",
     "ai-agents",
-    "model-context-protocol",
+    "ai-assistant",
+    "cursor",
+    "cursor-rules",
+    "claude-code",
+    "windsurf",
+    "sqlite",
     "project-management",
-    "decision-tracking"
+    "developer-tools"
   ],
   "license": "MIT",
   "repository": {
@@ -43,12 +65,14 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/better-sqlite3": "^7.6.10",
     "@types/node": "^20.12.7",
     "eslint": "^9.0.0",
     "prettier": "^3.2.5",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
+    "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"
   }
 }

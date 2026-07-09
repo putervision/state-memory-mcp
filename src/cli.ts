@@ -6,9 +6,11 @@ import { exec } from 'child_process';
 import { logger } from './utils/logger.js';
 import { resolveProjectRoot, getBaseDir, getProjectSlug, getProjectDbDir } from './engine/db.js';
 import { QueryEngine } from './engine/queries.js';
-import { exportGraph, importGraph } from './engine/utils.js';
+import { exportGraph, importGraph, backupProjectDb, restoreProjectDb, auditProjectDb, mergeProjectDb } from './engine/utils.js';
 import { runInit } from './cli/init.js';
 import { VERSION } from './utils/version.js';
+import { scanGit } from './engine/git-scanner.js';
+
 
 const program = new Command();
 
@@ -30,10 +32,43 @@ program
 program
   .command('init')
   .description('Initialize state-graph-mcp in the current project (creates data directory, .gitignore, IDE instructions, MCP configs)')
-  .action(() => {
+  .option('--no-git', 'Skip populating graph from git commit history')
+  .option('--commits <n>', 'Number of commits to analyze', '30')
+  .option('--no-tasks', 'Skip creating task nodes from commits')
+  .option('--no-artifacts', 'Skip creating artifact nodes from hot files')
+  .action(async (options) => {
     const root = resolveProjectRoot();
-    runInit(root);
+    await runInit(root, {
+      fromGit: options.git !== false,
+      commits: parseInt(options.commits, 10),
+      createTasks: options.tasks !== false,
+      createArtifacts: options.artifacts !== false
+    });
   });
+
+// Scan-git command to incrementally pull git commits into the graph
+program
+  .command('scan-git')
+  .description('Incrementally scan git history into the graph')
+  .option('-p, --project <name>', 'Project slug name')
+  .option('--commits <n>', 'Number of commits to analyze', '30')
+  .action(async (options) => {
+    const projectSlug = getProjectSlug(options.project);
+    const root = resolveProjectRoot(options.project);
+    logger.info(`Scanning git history for project: ${projectSlug}`);
+
+    try {
+      const result = await scanGit(projectSlug, root, {
+        commits: parseInt(options.commits, 10),
+        createTasks: true,
+        createArtifacts: true
+      });
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error: any) {
+      logger.error('Git scan failed:', error.message);
+    }
+  });
+
 
 // Inspect command to display project status overview
 program
@@ -175,6 +210,155 @@ program
       logger.info(`  - Edges imported: ${summary.imported_edges_count}`);
     } catch (error: any) {
       logger.error('Import failed:', error.message);
+    }
+  });
+
+// Backup command to save database
+program
+  .command('backup')
+  .description('Back up the project database to a SQLite file')
+  .option('-p, --project <name>', 'Project slug name')
+  .option('-o, --out <file>', 'Output backup file path (auto-generated if omitted)')
+  .action(async (options) => {
+    try {
+      const resultPath = await backupProjectDb({
+        project: options.project,
+        outputPath: options.out
+      });
+      logger.info(`Backup completed successfully! Saved to: ${resultPath}`);
+    } catch (error: any) {
+      logger.error('Backup failed:', error.message);
+    }
+  });
+
+// Restore command to restore database from backup file
+program
+  .command('restore <file>')
+  .description('Restore the project database from a SQLite backup file (destructively overwrites current database)')
+  .option('-p, --project <name>', 'Project slug name')
+  .action((file, options) => {
+    try {
+      restoreProjectDb({
+        backupPath: file,
+        project: options.project
+      });
+      logger.info(`Database restored successfully from: ${file}`);
+    } catch (error: any) {
+      logger.error('Restore failed:', error.message);
+    }
+  });
+
+// Audit command to run integrity and cycle checks
+program
+  .command('audit')
+  .description('Audit the project database for integrity, cycle paths, and contradictions')
+  .option('-p, --project <name>', 'Project slug name')
+  .action((options) => {
+    const projectSlug = getProjectSlug(options.project);
+    logger.info(`Auditing project: ${projectSlug}`);
+
+    try {
+      const report = auditProjectDb({ project: options.project });
+      
+      console.log('\n======================================');
+      console.log(` DATABASE AUDIT REPORT: ${projectSlug.toUpperCase()}`);
+      console.log('======================================');
+      console.log(`Total Nodes: ${report.node_count}`);
+      console.log(`Total Edges: ${report.edge_count}`);
+      console.log(`SQLite Integrity: ${report.sqlite_integrity.join(', ')}`);
+      console.log(`Foreign Key Violations: ${report.foreign_key_violations.length}`);
+      console.log(`Orphaned Edges: ${report.orphaned_edges_count}`);
+      console.log(`Circular Dependencies (Cycles): ${report.cycles.length}`);
+      
+      const taskContradictions = report.contradictions.blocked_done_tasks.length;
+      const decisionContradictions = report.contradictions.contradicting_decisions.length;
+      console.log(`Logical Contradictions: ${taskContradictions + decisionContradictions}`);
+      console.log(`  - Blocked Done Tasks: ${taskContradictions}`);
+      console.log(`  - Contradicting Decisions: ${decisionContradictions}`);
+      
+      if (report.cycles.length > 0) {
+        console.log('\nCircular Dependencies Found:');
+        report.cycles.forEach((cycle, idx) => {
+          console.log(`  Cycle ${idx + 1}: ${cycle.join(' -> ')}`);
+        });
+      }
+
+      if (report.contradictions.blocked_done_tasks.length > 0) {
+        console.log('\nBlocked Done Tasks Contradictions:');
+        report.contradictions.blocked_done_tasks.forEach((item, idx) => {
+          console.log(`  ${idx + 1}: Task "${item.task.title}" (${item.task.id}) is done but blocked by active blocker "${item.blocker.title}" (${item.blocker.id})`);
+        });
+      }
+
+      if (report.contradictions.contradicting_decisions.length > 0) {
+        console.log('\nContradicting Decisions Found:');
+        report.contradictions.contradicting_decisions.forEach((item, idx) => {
+          console.log(`  ${idx + 1}: Accepted Decision "${item.decision1.title}" (${item.decision1.id}) contradicts Accepted Decision "${item.decision2.title}" (${item.decision2.id})`);
+        });
+      }
+
+      if (report.warnings.length > 0) {
+        console.log('\nWarnings:');
+        report.warnings.forEach(warn => {
+          console.log(`  ⚠️  ${warn}`);
+        });
+        console.log('\n❌ Audit completed with warnings/errors.');
+      } else {
+        console.log('\n✅ Audit completed successfully: No issues detected!');
+      }
+      console.log('======================================\n');
+    } catch (error: any) {
+      logger.error('Audit failed:', error.message);
+    }
+  });
+
+// Merge command to merge an external database
+program
+  .command('merge <file>')
+  .description('Merge an external SQLite database into the current project database')
+  .option('-p, --project <name>', 'Project slug name')
+  .option('--force', 'Commit the merge even if circular dependencies are introduced')
+  .action((file, options) => {
+    try {
+      const report = mergeProjectDb({
+        sourcePath: file,
+        project: options.project,
+        force: !!options.force
+      });
+
+      console.log('\n======================================');
+      console.log(` DATABASE MERGE REPORT: ${report.project.toUpperCase()}`);
+      console.log('======================================');
+      console.log(`Nodes Added:   ${report.nodes_added}`);
+      console.log(`Nodes Updated: ${report.nodes_updated}`);
+      console.log(`Nodes Skipped: ${report.nodes_skipped}`);
+      console.log(`Edges Added:   ${report.edges_added}`);
+      console.log(`Edges Skipped: ${report.edges_skipped}`);
+      console.log(`Cycles Found:  ${report.cycles_detected.length}`);
+      
+      if (report.cycles_detected.length > 0) {
+        console.log('\nCycles Detected:');
+        report.cycles_detected.forEach((cycle, idx) => {
+          console.log(`  Cycle ${idx + 1}: ${cycle.join(' -> ')}`);
+        });
+      }
+
+      if (report.transaction_rolled_back) {
+        console.log('\n❌ MERGE FAILED: The merge introduces circular dependencies and was rolled back.');
+        console.log('Use --force to override cycle validation and commit the changes anyway.');
+      } else {
+        console.log('\n✅ MERGE COMPLETED SUCCESSFULLY!');
+      }
+
+      if (report.warnings.length > 0) {
+        console.log('\nWarnings:');
+        report.warnings.forEach(w => {
+          console.log(`  ⚠️  ${w}`);
+        });
+      }
+      console.log('======================================\n');
+    } catch (error: any) {
+      logger.error('Merge failed:', error.message);
     }
   });
 

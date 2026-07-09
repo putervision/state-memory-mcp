@@ -32,6 +32,12 @@ You MUST update the graph as you work:
 2. **Task decomposition**: Decompose user requests into tasks and add them to the graph.
 3. **Execution**: Mark tasks as "in_progress", document design decisions as they occur, and log blockers if you hit any obstacles.
 4. **Resolution**: Mark tasks as "done", document completed artifacts, and resolve blockers.
+
+### 4. Codebase Seeding on Initialization
+If the project was just initialized or is missing high-level structure (Plans, Milestones, Decisions):
+1. **Inspect the Codebase**: Read the README and core files to understand the roadmap and architecture.
+2. **Scaffold the Roadmap**: Create a \`plan\` node (e.g., "Project Roadmap") and add \`milestone\` nodes representing key target phases, connecting them using \`part_of\` edges.
+3. **Scaffold Architecture**: Create \`decision\` nodes representing core technical choices (e.g., choice of databases, frameworks) and link them to the milestones/tasks using \`decided_in\` edges.
 `.trimStart();
 
 /**
@@ -92,6 +98,7 @@ ALWAYS update the state graph when performing work.
 2. **Before work**: Create or find the task node, set status to \`in_progress\`
 3. **During work**: Log decisions (\`add_node type: decision\`) and blockers (\`add_node type: blocker\`)
 4. **After work**: Set task status to \`done\`, create artifact nodes for new files
+5. **Initial Seeding**: If the project has no Plan or Milestone nodes, read the README/codebase and scaffold initial Plan, Milestone, and Decision nodes representing the project roadmap and architecture.
 
 ## Priority Order
 1. \`get_project_summary\` — current state and progress

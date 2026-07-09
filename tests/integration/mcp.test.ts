@@ -19,7 +19,7 @@ describe('MCP Server Integration Tests', () => {
     client = new Client(
       {
         name: 'test-client',
-        version: '0.0.4',
+        version: '0.0.6',
       },
       {
         capabilities: {},
@@ -42,7 +42,7 @@ describe('MCP Server Integration Tests', () => {
   it('should list available tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(19);
+    expect(tools.tools.length).toBe(23);
     
     const toolNames = tools.tools.map(t => t.name);
     expect(toolNames).toContain('add_node');
@@ -64,6 +64,10 @@ describe('MCP Server Integration Tests', () => {
     expect(toolNames).toContain('export_graph');
     expect(toolNames).toContain('import_graph');
     expect(toolNames).toContain('query_graph');
+    expect(toolNames).toContain('backup_project_db');
+    expect(toolNames).toContain('restore_project_db');
+    expect(toolNames).toContain('audit_project_db');
+    expect(toolNames).toContain('merge_project_db');
   });
 
   it('should support nodes and edges operations via tools', async () => {

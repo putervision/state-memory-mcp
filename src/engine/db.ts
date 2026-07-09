@@ -160,6 +160,20 @@ export function getDb(project?: string): Database.Database {
   return db;
 }
 
+export function closeDb(project?: string): void {
+  const projectSlug = getProjectSlug(project);
+  const db = dbCache.get(projectSlug);
+  if (db) {
+    try {
+      db.close();
+      logger.info(`Closed database for project "${projectSlug}"`);
+    } catch (err) {
+      logger.error(`Error closing database for project "${projectSlug}":`, err);
+    }
+    dbCache.delete(projectSlug);
+  }
+}
+
 export function closeAllDbs(): void {
   for (const [slug, db] of dbCache.entries()) {
     try {
@@ -171,6 +185,16 @@ export function closeAllDbs(): void {
   }
   dbCache.clear();
 }
+
+export function getMetaValue(db: Database.Database, key: string): string | null {
+  const row = db.prepare('SELECT value FROM schema_meta WHERE key = ?').get(key);
+  return row ? (row as { value: string }).value : null;
+}
+
+export function setMetaValue(db: Database.Database, key: string, value: string): void {
+  db.prepare('INSERT OR REPLACE INTO schema_meta (key, value) VALUES (?, ?)').run(key, value);
+}
+
 
 interface Migration {
   version: number;

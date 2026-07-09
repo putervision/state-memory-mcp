@@ -10,7 +10,7 @@ By using `state-graph-mcp`, your AI coding assistant (such as Cursor, Claude Cod
 
 1. **Deterministic State Graph**: No LLM in the loop; all operations are structured, deterministic, and fast.
 2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-graph-mcp/`) or globally.
-3. **19 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, and blocker analysis.
+3. **23 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, and database administration utilities.
 4. **Interactive HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed visualizer built with `vis-network`.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
@@ -75,6 +75,22 @@ state-graph-mcp export --project my-project --format mermaid
 
 # Import graph data from a JSON file (overwrites existing project data)
 state-graph-mcp import data.json --project my-project
+
+# Incrementally scan git history into the graph
+state-graph-mcp scan-git --project my-project --commits 30
+
+# Back up the project database to a SQLite file
+state-graph-mcp backup --project my-project --out backup.db
+
+# Restore the project database from a SQLite backup file (destructively overwrites)
+state-graph-mcp restore backup.db --project my-project
+
+# Audit the project database for integrity, cycle paths, and contradictions
+state-graph-mcp audit --project my-project
+
+# Merge an external SQLite database into the current project database
+state-graph-mcp merge other-project.db --project my-project
+
 ```
 
 ---
@@ -152,7 +168,7 @@ All operations are idempotent — running `init` multiple times is safe.
 
 ---
 
-## Tool Reference (19 Tools)
+## Tool Reference (23 Tools)
 
 * **Mutation (5 tools)**: `add_node`, `update_node`, `remove_node`, `add_edge`, `remove_edge`.
 * **Query (4 tools)**: `list_nodes` (compact mode, pagination, tag filtering), `get_node` (details + edges), `search_nodes` (FTS5 search), `get_subgraph` (N-hop neighbor fetch).
@@ -165,6 +181,11 @@ All operations are idempotent — running `init` multiple times is safe.
   * `export_graph`: Dumps graph in JSON, DOT, Mermaid, or HTML visualizer.
   * `import_graph`: Bulk imports nodes and edges.
   * `query_graph`: Safe, read-only SELECT SQL interface.
+* **Database Administration (4 tools)**:
+  * `backup_project_db`: Hot backup of project SQLite database.
+  * `restore_project_db`: Destructive restore of project database from a backup file.
+  * `audit_project_db`: Integrity checks, circular dependency detection, and logical contradiction auditing.
+  * `merge_project_db`: Merge another project's database with conflict and cycle safety checks.
 
 ---
 

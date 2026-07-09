@@ -44,7 +44,7 @@ describe('Utility Operations', () => {
 
       const html = exportGraph({ project, format: 'html' });
       expect(html).toContain('<!DOCTYPE html>');
-      expect(html).toContain('vis.Network');
+      expect(html).toContain('ForceGraph3D');
     });
 
     it('should import graph data from JSON bulk data correctly', () => {

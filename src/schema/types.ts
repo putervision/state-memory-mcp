@@ -52,3 +52,34 @@ export interface Edge {
   git_branch?: string;                  // Optional branch name
   created_at: string;                   // ISO 8601
 }
+
+/** A parsed git commit for scanner consumption */
+export interface GitCommit {
+  hash: string;
+  shortHash: string;
+  author: string;
+  authorEmail: string;
+  committedAt: string;       // ISO 8601
+  subject: string;           // First line of commit message
+  message: string;           // Full commit message body
+  conventionalType?: string; // feat, fix, chore, etc.
+  conventionalScope?: string;
+  filesChanged?: string[];
+}
+
+/** Options for the git scanner */
+export interface GitScanOptions {
+  commits: number;           // default 30
+  createTasks: boolean;      // default false
+  createArtifacts: boolean;  // default false
+}
+
+/** Result summary from a git scan run */
+export interface GitScanResult {
+  commits_scanned: number;
+  new_observations: number;
+  new_tasks: number;
+  new_artifacts: number;
+  last_processed_commit: string | null;
+}
+

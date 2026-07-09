@@ -158,4 +158,25 @@ export const QueryGraphSchema = z.object({
   params: z.array(z.unknown()).optional().default([]),
 });
 
+export const BackupProjectDbSchema = z.object({
+  project: z.string().optional(),
+  outputPath: z.string().optional(),
+});
+
+export const RestoreProjectDbSchema = z.object({
+  backupPath: z.string().min(1, 'Backup path is required'),
+  project: z.string().optional(),
+});
+
+export const AuditProjectDbSchema = z.object({
+  project: z.string().optional(),
+});
+
+export const MergeProjectDbSchema = z.object({
+  sourcePath: z.string().min(1, 'Source path is required'),
+  project: z.string().optional(),
+  force: z.boolean().optional().default(false),
+});
+
+
 

@@ -9,15 +9,27 @@ import {
   MCP_CONFIG_VSCODE,
   GLOBAL_RULES_TEMPLATE,
 } from './templates.js';
-import { registerProject } from '../engine/db.js';
+import { registerProject, getDb } from '../engine/db.js';
+import { GraphEngine } from '../engine/graph.js';
+import { findGitRepos } from '../utils/git.js';
+import { scanGit } from '../engine/git-scanner.js';
+import { runStaticScaffolder, runTechStackScaffolder } from '../engine/scaffolder.js';
 
 const MARKER = 'state-graph-mcp';
 
 /**
  * Full init workflow — creates data dir, updates gitignore,
- * scaffolds IDE instructions and MCP configs.
+ * scaffolds IDE instructions and MCP configs, and seeds initial nodes.
  */
-export function runInit(root: string): void {
+export async function runInit(
+  root: string,
+  options?: {
+    fromGit?: boolean;
+    commits?: number;
+    createTasks?: boolean;
+    createArtifacts?: boolean;
+  }
+): Promise<void> {
   console.log('\n🔧 Initializing state-graph-mcp...\n');
 
   // Register project in global registry for global client auto-resolution
@@ -30,7 +42,52 @@ export function runInit(root: string): void {
   scaffoldMcpConfigs(root);
   scaffoldGlobalRules();
 
+  // Step 7 — Seed node (always, on fresh init)
+  const projectSlug = projectName.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+  const db = getDb(projectSlug);
+  
+  const countRow = db.prepare('SELECT COUNT(*) as count FROM nodes WHERE project = ?').get(projectSlug) as { count: number };
+  if (countRow && countRow.count === 0) {
+    GraphEngine.addNode({
+      project: projectSlug,
+      type: 'observation',
+      title: `Project initialized: ${projectName}`,
+      status: 'active',
+      metadata: {
+        source: 'scaffold',
+        initialized_at: new Date().toISOString()
+      },
+      tags: ['init', 'source:scaffold']
+    });
+    console.log('   ✅ Created initial seed Observation node');
+  }
+
+  // Step 7a & 7b — Static and Tech Stack Scaffolding
+  await runStaticScaffolder(projectSlug, db);
+  await runTechStackScaffolder(projectSlug, db, root);
+
+  // Step 8 — Git scan (only when fromGit is passed)
+  if (options?.fromGit) {
+    const repos = findGitRepos(root, 2);
+    if (repos.length > 0) {
+      console.log('   🔍 Scanning git history...');
+      const scanResult = await scanGit(projectSlug, root, {
+        commits: options.commits ?? 30,
+        createTasks: options.createTasks ?? true,
+        createArtifacts: options.createArtifacts ?? true
+      });
+      console.log('   ✅ Git scan complete:');
+      console.log(`      - Commits scanned: ${scanResult.commits_scanned}`);
+      console.log(`      - Observations created: ${scanResult.new_observations}`);
+      console.log(`      - Tasks created: ${scanResult.new_tasks}`);
+      console.log(`      - Artifacts created: ${scanResult.new_artifacts}`);
+    } else {
+      console.log('   ⚠️  Warning: No git repositories found under project root — skipping git scan');
+    }
+  }
+
   console.log('\n✅ state-graph-mcp initialized successfully!\n');
+
   console.log('   For Claude Desktop, add the following to your config manually:');
   console.log('   (macOS: ~/Library/Application Support/Claude/claude_desktop_config.json)');
   console.log('   (Windows: %APPDATA%\\Claude\\claude_desktop_config.json)\n');
@@ -183,7 +240,7 @@ function mergeMcpConfig(
 
       fs.writeFileSync(filePath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
       console.log(`      ✅ ${label} (${relativePath}) — merged state-graph-mcp server`);
-    } catch (err) {
+    } catch {
       logger.warn(`Could not parse ${relativePath}, creating new file`);
       fs.writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
       console.log(`      ✅ ${label} (${relativePath}) — created (replaced invalid JSON)`);

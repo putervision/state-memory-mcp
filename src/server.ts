@@ -25,12 +25,16 @@ import {
   ExportGraphSchema,
   ImportGraphSchema,
   QueryGraphSchema,
+  BackupProjectDbSchema,
+  RestoreProjectDbSchema,
+  AuditProjectDbSchema,
+  MergeProjectDbSchema,
 } from './schema/zod.js';
 import { GraphEngine } from './engine/graph.js';
 import { EdgeEngine } from './engine/edges.js';
 import { QueryEngine } from './engine/queries.js';
 import { AnalyticsEngine } from './engine/analytics.js';
-import { queryGraph, exportGraph, importGraph } from './engine/utils.js';
+import { queryGraph, exportGraph, importGraph, backupProjectDb, restoreProjectDb, auditProjectDb, mergeProjectDb } from './engine/utils.js';
 import { logger } from './utils/logger.js';
 import { VERSION } from './utils/version.js';
 
@@ -522,6 +526,76 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['sql'],
         },
       },
+      {
+        name: 'backup_project_db',
+        description: 'Backup the project\'s sqlite database file to a target destination.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            outputPath: {
+              type: 'string',
+              description: 'Optional absolute path where the backup file should be saved. If omitted, a backup is created in the project\'s default backup folder.',
+            },
+          },
+        },
+      },
+      {
+        name: 'restore_project_db',
+        description: 'Restore the project\'s sqlite database from a backup file (destructively overwrites current project database).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            backupPath: {
+              type: 'string',
+              description: 'The absolute path to the backup file to restore.',
+            },
+          },
+          required: ['backupPath'],
+        },
+      },
+      {
+        name: 'audit_project_db',
+        description: 'Audit the project\'s database for physical integrity, foreign key violations, orphaned edges, circular dependencies, and contradictions.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+          },
+        },
+      },
+      {
+        name: 'merge_project_db',
+        description: 'Merge an external sqlite database file into the existing project database, resolving conflicts by keeping the newer updated_at nodes.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            sourcePath: {
+              type: 'string',
+              description: 'The absolute path to the source database file to merge from.',
+            },
+            force: {
+              type: 'boolean',
+              description: 'Optional. If true, commits the merge even if circular dependencies are introduced.',
+            },
+          },
+          required: ['sourcePath'],
+        },
+      },
     ],
   };
 });
@@ -804,6 +878,62 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           );
         }
         const result = queryGraph(parsed.data);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'backup_project_db': {
+        const parsed = BackupProjectDbSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
+          );
+        }
+        const result = await backupProjectDb(parsed.data);
+        return {
+          content: [{ type: 'text', text: `Backup completed successfully! Saved to: ${result}` }],
+        };
+      }
+
+      case 'restore_project_db': {
+        const parsed = RestoreProjectDbSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
+          );
+        }
+        restoreProjectDb(parsed.data);
+        return {
+          content: [{ type: 'text', text: `Database restored successfully from: ${parsed.data.backupPath}` }],
+        };
+      }
+
+      case 'audit_project_db': {
+        const parsed = AuditProjectDbSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
+          );
+        }
+        const result = auditProjectDb(parsed.data);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case 'merge_project_db': {
+        const parsed = MergeProjectDbSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
+          );
+        }
+        const result = mergeProjectDb(parsed.data);
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         };

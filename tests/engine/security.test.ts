@@ -66,7 +66,7 @@ describe('Security Hardening Tests', () => {
       // By passing a project containing directory traversal that resolves outside baseDir, it should throw DatabaseError
       // Wait, getProjectSlug replaces characters other than a-z0-9-_ with dashes,
       // so if we pass direct traversal in name it gets sanitized to slug.
-      // But if we override process.env.STATE_GRAPH_MCP_DIR, we can test.
+      // But if we override process.env.STATE_MEMORY_MCP_DIR, we can test.
       // Actually, if projectSlug is safe, path traversal is mitigated.
       // What if getProjectDbDir receives a project which resolves to a path outside via registry?
       // Let's register a project in registry with traversal path.
@@ -103,7 +103,7 @@ describe('Security Hardening Tests', () => {
           project: 'security-test-project',
           sourcePath: '../../../../etc/passwd',
         });
-      }).toThrow(Error); // validatePath throws ValidationError, which inherits from StateGraphError / Error
+      }).toThrow(Error); // validatePath throws ValidationError, which inherits from StateMemoryError / Error
     });
   });
 });

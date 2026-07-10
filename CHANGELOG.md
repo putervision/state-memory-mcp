@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-07-08
 
 ### Added
-- Initial release of `state-graph-mcp` workflow management Model Context Protocol (MCP) server.
+- Initial release of `state-memory-mcp` workflow management Model Context Protocol (MCP) server.
 - Support for task, decision, blocker, artifact, plan, and milestone node types.
 - Automatic git history commit scanner engine.
 - Static and tech stack scaffolder rules.

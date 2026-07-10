@@ -16,7 +16,7 @@ export type ProjectConfig = {
 };
 
 export function loadProjectConfig(projectRoot: string): ProjectConfig {
-  const configPath = path.join(projectRoot, '.state-graph-mcp.json');
+  const configPath = path.join(projectRoot, '.state-memory-mcp.json');
   if (fs.existsSync(configPath)) {
     try {
       const raw = fs.readFileSync(configPath, 'utf-8');

@@ -1,14 +1,14 @@
 # Project Instructions Template
 
-> **Note**: Running `state-graph-mcp init` in your project root will automatically create/append these instructions to all supported IDE instruction files. This template is kept as a reference.
+> **Note**: Running `state-memory-mcp init` in your project root will automatically create/append these instructions to all supported IDE instruction files. This template is kept as a reference.
 
 ---
 
 # Project Instructions
 
-## State Graph (state-graph-mcp)
+## State Memory (state-memory-mcp)
 
-This project tracks workflow state, tasks, design decisions, and blockers using `state-graph-mcp`.
+This project tracks workflow state, tasks, design decisions, and blockers using `state-memory-mcp`.
 
 ### 1. Priority Order
 Before doing any coding or investigation:

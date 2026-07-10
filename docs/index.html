@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>state-graph-mcp — Developer Workflow State Graph MCP Server</title>
+  <title>state-memory-mcp — Developer Workflow State Memory MCP Server</title>
   <meta name="description" content="Persistent state graph for LLM-driven software development. Track tasks, decisions, blockers, artifacts, and plans to prevent context-switching and token overhead.">
   
   <!-- Typography -->
@@ -20,7 +20,7 @@
   
   <header>
     <div class="logo">
-      state-graph-mcp
+      state-memory-mcp
     </div>
     <ul class="nav-links">
       <li><a href="#features">Features</a></li>
@@ -28,7 +28,7 @@
       <li><a href="#spec">Spec Compliance</a></li>
       <li><a href="#quickstart">Quickstart</a></li>
     </ul>
-    <a href="https://github.com/LucasArmstrong/state-graph-mcp" class="btn-github" target="_blank" rel="noopener noreferrer">
+    <a href="https://github.com/LucasArmstrong/state-memory-mcp" class="btn-github" target="_blank" rel="noopener noreferrer">
       <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
       </svg>
@@ -41,7 +41,7 @@
     <!-- Hero Section -->
     <section class="hero">
       <span class="badge">Production Ready v0.3.0</span>
-      <h1>State Graph MCP</h1>
+      <h1>State Memory MCP</h1>
       <p>A deterministic, persistent workflow state graph server for AI agents. Track tasks, design decisions, and blockers locally to supercharge agent context and prevent session token memory bloat.</p>
       <div class="cta-group">
         <a href="#quickstart" class="btn-primary">Get Started</a>
@@ -52,7 +52,7 @@
     <!-- Value Proposition Section -->
     <section class="features-section" style="padding: 3rem 0;">
       <div class="section-title">
-        <h2>💡 Why State Graph MCP?</h2>
+        <h2>💡 Why State Memory MCP?</h2>
         <p>Offload your development state from the agent's chat history into a structured, high-performance local database.</p>
       </div>
       <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
@@ -185,10 +185,10 @@
       </div>
     </section>
     
-    <!-- State Graph Anatomy Section -->
+    <!-- State Memory Anatomy Section -->
     <section class="features-section" style="padding: 4rem 0;">
       <div class="section-title">
-        <h2>🧱 Anatomy of the Workflow State Graph</h2>
+        <h2>🧱 Anatomy of the Workflow State Memory</h2>
         <p>A strongly-typed, SQLite-backed vocabulary designed to represent software development states.</p>
       </div>
       
@@ -335,26 +335,26 @@
       <div class="spec-grid">
         <div class="card">
           <h3>📁 Exposed Graph Resources</h3>
-          <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Provides read-only contexts using RFC 6570 templates under the <code>state-graph:///</code> URI scheme:</p>
+          <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Provides read-only contexts using RFC 6570 templates under the <code>state-memory:///</code> URI scheme:</p>
           <ul class="spec-list">
             <li class="spec-item">
-              <h4>state-graph:///{project}/summary</h4>
+              <h4>state-memory:///{project}/summary</h4>
               <p>Project state counts, task breakdowns, progress rates, and recent decisions.</p>
             </li>
             <li class="spec-item">
-              <h4>state-graph:///{project}/blockers</h4>
+              <h4>state-memory:///{project}/blockers</h4>
               <p>Lists active blockers and what transitively blocked tasks they stall.</p>
             </li>
             <li class="spec-item">
-              <h4>state-graph:///{project}/decisions</h4>
+              <h4>state-memory:///{project}/decisions</h4>
               <p>Logs accepted decisions and updates histories.</p>
             </li>
             <li class="spec-item">
-              <h4>state-graph:///{project}/events</h4>
+              <h4>state-memory:///{project}/events</h4>
               <p>Lists recent project events and state-transition mutation ledger.</p>
             </li>
             <li class="spec-item">
-              <h4>state-graph:///{project}/sessions</h4>
+              <h4>state-memory:///{project}/sessions</h4>
               <p>Lists active and past sessions with executing agent identities.</p>
             </li>
           </ul>
@@ -385,7 +385,7 @@
     <section id="config" class="spec-section" style="padding: 2rem 0;">
       <div class="section-title">
         <h2>⚙️ Client Integrations</h2>
-        <p>Add state-graph-mcp to your favorite AI agent tools.</p>
+        <p>Add state-memory-mcp to your favorite AI agent tools.</p>
       </div>
       <div class="spec-grid">
         <div class="card">
@@ -395,8 +395,8 @@
           </p>
           <pre style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border-color); color: #10b981; overflow-x: auto; text-align: left;">{
   "mcpServers": {
-    "state-graph-mcp": {
-      "command": "state-graph-mcp",
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
       "args": ["run"]
     }
   }
@@ -409,8 +409,8 @@
           </p>
           <pre style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border-color); color: #818cf8; overflow-x: auto; text-align: left;">{
   "mcpServers": {
-    "state-graph-mcp": {
-      "command": "state-graph-mcp",
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
       "args": ["run"]
     }
   }
@@ -423,27 +423,27 @@
     <section id="quickstart" class="quickstart-section">
       <div class="section-title">
         <h2>🚀 Quickstart</h2>
-        <p>Get state-graph-mcp configured globally in 10 seconds.</p>
+        <p>Get state-memory-mcp configured globally in 10 seconds.</p>
       </div>
       
       <div style="max-width: 600px; margin: 0 auto;">
         
-        <h3>1. Install state-graph-mcp globally</h3>
+        <h3>1. Install state-memory-mcp globally</h3>
         <div class="code-container">
-          <span class="code-text">npm install -g state-graph-mcp</span>
-          <button class="btn-copy" onclick="copyToClipboard('npm install -g state-graph-mcp')">Copy</button>
+          <span class="code-text">npm install -g state-memory-mcp</span>
+          <button class="btn-copy" onclick="copyToClipboard('npm install -g state-memory-mcp')">Copy</button>
         </div>
         
         <h3>2. Initialize inside your project repository</h3>
         <div class="code-container">
-          <span class="code-text">state-graph-mcp init</span>
-          <button class="btn-copy" onclick="copyToClipboard('state-graph-mcp init')">Copy</button>
+          <span class="code-text">state-memory-mcp init</span>
+          <button class="btn-copy" onclick="copyToClipboard('state-memory-mcp init')">Copy</button>
         </div>
         
         <h3>3. Display value metrics from CLI</h3>
         <div class="code-container">
-          <span class="code-text">state-graph-mcp metrics</span>
-          <button class="btn-copy" onclick="copyToClipboard('state-graph-mcp metrics')">Copy</button>
+          <span class="code-text">state-memory-mcp metrics</span>
+          <button class="btn-copy" onclick="copyToClipboard('state-memory-mcp metrics')">Copy</button>
         </div>
         
       </div>
@@ -452,7 +452,7 @@
   </main>
   
   <footer>
-    <p>&copy; 2026 state-graph-mcp. Released under the MIT License.</p>
+    <p>&copy; 2026 state-memory-mcp. Released under the MIT License.</p>
     <p style="font-size: 0.75rem; margin-top: 1rem; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.4; color: var(--text-muted);">
       <strong>Disclaimer:</strong> This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall the authors or contributors be liable for any database corruption, Git history modification, data loss, or other issues resulting from execution. Always backup your database files before performing destructive operations.
     </p>

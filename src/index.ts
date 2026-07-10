@@ -30,7 +30,7 @@ async function shutdown(signal: string) {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  logger.info('state-graph-mcp server started');
+  logger.info('state-memory-mcp server started');
 }
 
 process.on('SIGINT', () => {

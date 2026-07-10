@@ -73,7 +73,7 @@ export function generateVisualizerHtml(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>state-graph-mcp - ${projectSlug}</title>
+  <title>state-memory-mcp - ${projectSlug}</title>
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script src="https://unpkg.com/3d-force-graph@1.72.0"></script>
   <script src="https://unpkg.com/three-spritetext"></script>
@@ -279,7 +279,7 @@ export function generateVisualizerHtml(
   <div id="graph-container"></div>
   <div id="sidebar">
     <div>
-      <div class="brand">state-graph-mcp</div>
+      <div class="brand">state-memory-mcp</div>
       <div style="font-size: 12px; color: var(--text-muted)">Project Workspace: <b>${projectSlug}</b></div>
     </div>
     

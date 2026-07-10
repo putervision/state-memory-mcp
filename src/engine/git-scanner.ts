@@ -428,14 +428,14 @@ export async function scanGit(
 }
 
 /**
- * Loads ignore patterns from gitignore and state-graph-ignore configuration files.
+ * Loads ignore patterns from gitignore and state-memory-ignore configuration files.
  *
  * @param projectRoot - The absolute path to the project root directory.
  * @returns An array of ignore glob patterns.
  */
 export function loadIgnorePatterns(projectRoot: string): string[] {
-  const patterns: string[] = ['node_modules', '.git', '.state-graph-mcp'];
-  const filesToRead = ['.gitignore', '.state-graph-ignore'];
+  const patterns: string[] = ['node_modules', '.git', '.state-memory-mcp'];
+  const filesToRead = ['.gitignore', '.state-memory-ignore'];
   for (const file of filesToRead) {
     const filePath = path.join(projectRoot, file);
     if (fs.existsSync(filePath)) {

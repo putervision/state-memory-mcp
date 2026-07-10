@@ -1,7 +1,7 @@
 {
   "servers": {
-    "state-graph-mcp": {
-      "command": "state-graph-mcp",
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
       "args": [
         "run"
       ]

@@ -1,6 +1,6 @@
-## State Graph (state-graph-mcp)
+## State Memory (state-memory-mcp)
 
-This project tracks workflow state, tasks, design decisions, and blockers using `state-graph-mcp` with project slug `"state-graph-mcp"`.
+This project tracks workflow state, tasks, design decisions, and blockers using `state-memory-mcp` with project slug `"state-memory-mcp"`.
 
 ### 1. Priority Order
 Before doing any coding or investigation:

@@ -27,7 +27,7 @@ export function validatePath(filePath: string, project?: string): string {
   return resolvedPath;
 }
 
-const REGISTRY_PATH = path.join(os.homedir(), '.state-graph-mcp-registry.json');
+const REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp-registry.json');
 
 function getRegistry(): Record<string, string> {
   try {
@@ -42,7 +42,7 @@ function getRegistry(): Record<string, string> {
 }
 
 /**
- * Registers a project name and path in the global state-graph-mcp registry.
+ * Registers a project name and path in the global state-memory-mcp registry.
  *
  * @param name - The name of the project.
  * @param projectPath - The local path to the project root directory.
@@ -107,10 +107,10 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
   while (true) {
     const isHome = current === os.homedir();
     const hasGit = fs.existsSync(path.join(current, '.git'));
-    // Only count .state-graph-mcp if it is not the user's home directory
-    const hasStateGraph = !isHome && fs.existsSync(path.join(current, '.state-graph-mcp'));
+    // Only count .state-memory-mcp if it is not the user's home directory
+    const hasStateMemory = !isHome && fs.existsSync(path.join(current, '.state-memory-mcp'));
 
-    if (hasGit || hasStateGraph) {
+    if (hasGit || hasStateMemory) {
       return current;
     }
     const parent = path.dirname(current);
@@ -122,9 +122,9 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
   return currentCwd; // default to cwd if none found
 }
 
-// Get the base directory for storing state-graph-mcp databases
+// Get the base directory for storing state-memory-mcp databases
 /**
- * Gets the base directory for storing state-graph-mcp database files.
+ * Gets the base directory for storing state-memory-mcp database files.
  *
  * @param projectRoot - The absolute path to the project root.
  * @returns The resolved directory path where databases are stored.
@@ -134,11 +134,11 @@ export function getBaseDir(projectRoot: string): string {
   if (config.storagePath) {
     return path.resolve(projectRoot, config.storagePath);
   }
-  if (process.env.STATE_GRAPH_MCP_DIR) {
-    return path.resolve(process.env.STATE_GRAPH_MCP_DIR);
+  if (process.env.STATE_MEMORY_MCP_DIR) {
+    return path.resolve(process.env.STATE_MEMORY_MCP_DIR);
   }
-  // Default to project-local .state-graph-mcp directory
-  return path.join(projectRoot, '.state-graph-mcp');
+  // Default to project-local .state-memory-mcp directory
+  return path.join(projectRoot, '.state-memory-mcp');
 }
 
 // Resolve project slug
@@ -165,7 +165,7 @@ export function getProjectSlug(project?: string): string {
     const isRegistered = Object.values(registry).includes(root);
     if (!isRegistered) {
       throw new DatabaseError(
-        `Could not auto-detect project name. You are running in or resolved to the home directory "${root}", which is not registered as a state-graph-mcp project.\n` +
+        `Could not auto-detect project name. You are running in or resolved to the home directory "${root}", which is not registered as a state-memory-mcp project.\n` +
           `Please specify the "project" parameter. Registered projects: ${Object.keys(registry).join(', ')}`
       );
     }
@@ -195,14 +195,14 @@ export function getProjectSlug(project?: string): string {
 export function getProjectDbDir(project?: string): string {
   const root = resolveProjectRoot(project);
 
-  // Enforce that state-graph-mcp init must have been run (unless overridden by env var or in a test environment)
-  if (!process.env.STATE_GRAPH_MCP_DIR && process.env.NODE_ENV !== 'test') {
-    const localDir = path.join(root, '.state-graph-mcp');
+  // Enforce that state-memory-mcp init must have been run (unless overridden by env var or in a test environment)
+  if (!process.env.STATE_MEMORY_MCP_DIR && process.env.NODE_ENV !== 'test') {
+    const localDir = path.join(root, '.state-memory-mcp');
     const isHomeDir = root === os.homedir();
 
     let isInitialized = fs.existsSync(localDir);
     if (isHomeDir) {
-      // Home directory .state-graph-mcp is the global fallback folder,
+      // Home directory .state-memory-mcp is the global fallback folder,
       // so we only count it as initialized if it was explicitly registered as a project.
       const registry = getRegistry();
       const isRegistered = Object.values(registry).includes(root);
@@ -213,7 +213,7 @@ export function getProjectDbDir(project?: string): string {
 
     if (!isInitialized) {
       throw new DatabaseError(
-        `Project "${path.basename(root)}" is not initialized. Please run "state-graph-mcp init" in the project root first.`
+        `Project "${path.basename(root)}" is not initialized. Please run "state-memory-mcp init" in the project root first.`
       );
     }
   }

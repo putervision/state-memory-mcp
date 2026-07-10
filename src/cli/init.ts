@@ -15,7 +15,156 @@ import { findGitRepos } from '../utils/git.js';
 import { scanGit } from '../engine/git-scanner.js';
 import { runStaticScaffolder, runTechStackScaffolder } from '../engine/scaffolder.js';
 
-const MARKER = 'state-graph-mcp';
+const MARKER = 'state-memory-mcp';
+
+/**
+ * Temporary migration function to clean up and rename old state-graph-mcp configuration
+ * and data files to state-memory-mcp.
+ * MIGRATION: remove after all projects migrated.
+ */
+function migrateFromOldName(root: string): void {
+  try {
+    // 1. Data directory rename: .state-graph-mcp/ -> .state-memory-mcp/
+    const oldDir = path.join(root, '.state-graph-mcp');
+    const newDir = path.join(root, '.state-memory-mcp');
+    if (fs.existsSync(oldDir) && !fs.existsSync(newDir)) {
+      fs.renameSync(oldDir, newDir);
+      console.log('   🔄 Migrated project data directory: .state-graph-mcp/ -> .state-memory-mcp/');
+    }
+
+    // 2. Config file rename: .state-graph-mcp.json -> .state-memory-mcp.json
+    const oldConfig = path.join(root, '.state-graph-mcp.json');
+    const newConfig = path.join(root, '.state-memory-mcp.json');
+    if (fs.existsSync(oldConfig) && !fs.existsSync(newConfig)) {
+      fs.renameSync(oldConfig, newConfig);
+      console.log('   🔄 Migrated project config file: .state-graph-mcp.json -> .state-memory-mcp.json');
+    }
+
+    // 3. Ignore file rename: .state-graph-ignore -> .state-memory-ignore
+    const oldIgnore = path.join(root, '.state-graph-ignore');
+    const newIgnore = path.join(root, '.state-memory-ignore');
+    if (fs.existsSync(oldIgnore) && !fs.existsSync(newIgnore)) {
+      fs.renameSync(oldIgnore, newIgnore);
+      console.log('   🔄 Migrated project ignore file: .state-graph-ignore -> .state-memory-ignore');
+    }
+
+    // 4. .gitignore: replace ".state-graph-mcp" entry with ".state-memory-mcp"
+    const gitignorePath = path.join(root, '.gitignore');
+    if (fs.existsSync(gitignorePath)) {
+      let content = fs.readFileSync(gitignorePath, 'utf-8');
+      if (content.includes('.state-graph-mcp') && !content.includes('.state-memory-mcp')) {
+        content = content.replace(/\.state-graph-mcp/g, '.state-memory-mcp');
+        fs.writeFileSync(gitignorePath, content, 'utf-8');
+        console.log('   🔄 Updated .gitignore entry: .state-graph-mcp -> .state-memory-mcp');
+      }
+    }
+
+    // 5. MCP configs — rename server key in-place in .cursor/mcp.json and .vscode/mcp.json
+    const mcpFiles = [
+      { path: '.cursor/mcp.json', key: 'mcpServers' },
+      { path: '.vscode/mcp.json', key: 'servers' }
+    ];
+    for (const f of mcpFiles) {
+      const filePath = path.join(root, f.path);
+      if (fs.existsSync(filePath)) {
+        try {
+          const raw = fs.readFileSync(filePath, 'utf-8');
+          const config = JSON.parse(raw);
+          if (config[f.key] && config[f.key]['state-graph-mcp']) {
+            const oldServer = config[f.key]['state-graph-mcp'];
+            // Update command and env vars if present
+            if (oldServer.command === 'state-graph-mcp') {
+              oldServer.command = 'state-memory-mcp';
+            }
+            if (oldServer.env && oldServer.env.STATE_GRAPH_MCP_PROJECT) {
+              oldServer.env.STATE_MEMORY_MCP_PROJECT = oldServer.env.STATE_GRAPH_MCP_PROJECT;
+              delete oldServer.env.STATE_GRAPH_MCP_PROJECT;
+            }
+            config[f.key]['state-memory-mcp'] = oldServer;
+            delete config[f.key]['state-graph-mcp'];
+            fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+            console.log(`   🔄 Migrated MCP config server key in ${f.path}`);
+          }
+        } catch (e) {
+          // ignore parsing error
+        }
+      }
+    }
+
+    // 6. Cursor rule file rename
+    const oldCursorRule = path.join(root, '.cursor/rules/state-graph-mcp.mdc');
+    const newCursorRule = path.join(root, '.cursor/rules/state-memory-mcp.mdc');
+    if (fs.existsSync(oldCursorRule)) {
+      if (!fs.existsSync(path.dirname(newCursorRule))) {
+        fs.mkdirSync(path.dirname(newCursorRule), { recursive: true });
+      }
+      fs.renameSync(oldCursorRule, newCursorRule);
+      console.log('   🔄 Migrated Cursor rule file to .cursor/rules/state-memory-mcp.mdc');
+    }
+
+    // 7. IDE instructions files — replace "state-graph-mcp" with "state-memory-mcp"
+    const targets = [
+      '.gemini/instructions.md',
+      '.cursor/rules/state-memory-mcp.mdc',
+      '.github/copilot-instructions.md',
+      '.vscode/instructions.md',
+      'CLAUDE.md',
+      '.windsurfrules'
+    ];
+    for (const t of targets) {
+      const filePath = path.join(root, t);
+      if (fs.existsSync(filePath)) {
+        let content = fs.readFileSync(filePath, 'utf-8');
+        if (content.includes('state-graph-mcp')) {
+          content = content.replace(/state-graph-mcp/g, 'state-memory-mcp');
+          content = content.replace(/Workflow State Graph/g, 'Workflow State Memory');
+          content = content.replace(/state-graph:\/\/\//g, 'state-memory:///');
+          content = content.replace(/STATE_GRAPH_MCP_/g, 'STATE_MEMORY_MCP_');
+          fs.writeFileSync(filePath, content, 'utf-8');
+          console.log(`   🔄 Updated instructions in ${t}`);
+        }
+      }
+    }
+
+    // 8. Global user registry migration
+    const homedir = os.homedir();
+    const oldGlobalRegistry = path.join(homedir, '.state-graph-mcp-registry.json');
+    const newGlobalRegistry = path.join(homedir, '.state-memory-mcp-registry.json');
+    if (fs.existsSync(oldGlobalRegistry) && !fs.existsSync(newGlobalRegistry)) {
+      fs.renameSync(oldGlobalRegistry, newGlobalRegistry);
+      console.log('   🔄 Migrated global registry file');
+    }
+
+    // 9. Global home data directory migration
+    const oldGlobalDir = path.join(homedir, '.state-graph-mcp');
+    const newGlobalDir = path.join(homedir, '.state-memory-mcp');
+    if (fs.existsSync(oldGlobalDir) && !fs.existsSync(newGlobalDir)) {
+      fs.renameSync(oldGlobalDir, newGlobalDir);
+      console.log('   🔄 Migrated global home data directory');
+    }
+
+    // 10. Global rules files replacement
+    const globalRules = [
+      path.join(homedir, '.cursorrules'),
+      path.join(homedir, '.gemini/GEMINI.md')
+    ];
+    for (const gr of globalRules) {
+      if (fs.existsSync(gr)) {
+        let content = fs.readFileSync(gr, 'utf-8');
+        if (content.includes('state-graph-mcp') || content.includes('state-graph:///')) {
+          content = content.replace(/state-graph-mcp/g, 'state-memory-mcp');
+          content = content.replace(/Workflow State Graph/g, 'Workflow State Memory');
+          content = content.replace(/state-graph:\/\/\//g, 'state-memory:///');
+          content = content.replace(/STATE_GRAPH_MCP_/g, 'STATE_MEMORY_MCP_');
+          fs.writeFileSync(gr, content, 'utf-8');
+          console.log(`   🔄 Updated global rule file: ${gr}`);
+        }
+      }
+    }
+  } catch (e: any) {
+    console.warn(`   ⚠️ Warning during migration: ${e.message}`);
+  }
+}
 
 /**
  * Full init workflow — creates data dir, updates gitignore,
@@ -30,7 +179,10 @@ export async function runInit(
     createArtifacts?: boolean;
   }
 ): Promise<void> {
-  console.log('\n🔧 Initializing state-graph-mcp...\n');
+  console.log('\n🔧 Initializing state-memory-mcp...\n');
+
+  // MIGRATION: rename/clean up old project files
+  migrateFromOldName(root);
 
   // Register project in global registry for global client auto-resolution
   const projectName = path.basename(root);
@@ -90,15 +242,15 @@ export async function runInit(
     }
   }
 
-  console.log('\n✅ state-graph-mcp initialized successfully!\n');
+  console.log('\n✅ state-memory-mcp initialized successfully!\n');
 
   console.log('   For Claude Desktop, add the following to your config manually:');
   console.log('   (macOS: ~/Library/Application Support/Claude/claude_desktop_config.json)');
   console.log('   (Windows: %APPDATA%\\Claude\\claude_desktop_config.json)\n');
   console.log('   {');
   console.log('     "mcpServers": {');
-  console.log('       "state-graph-mcp": {');
-  console.log('         "command": "state-graph-mcp",');
+  console.log('       "state-memory-mcp": {');
+  console.log('         "command": "state-memory-mcp",');
   console.log('         "args": ["run"]');
   console.log('       }');
   console.log('     }');
@@ -106,29 +258,29 @@ export async function runInit(
 }
 
 /**
- * Create the .state-graph-mcp/ data directory.
+ * Create the .state-memory-mcp/ data directory.
  */
 function initDataDirectory(root: string): void {
-  const dir = path.join(root, '.state-graph-mcp');
+  const dir = path.join(root, '.state-memory-mcp');
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
-    console.log('   ✅ Created .state-graph-mcp/ directory');
+    console.log('   ✅ Created .state-memory-mcp/ directory');
   } else {
-    console.log('   ⏭️  .state-graph-mcp/ directory already exists');
+    console.log('   ⏭️  .state-memory-mcp/ directory already exists');
   }
 }
 
 /**
- * Append .state-graph-mcp to .gitignore if not already present.
+ * Append .state-memory-mcp to .gitignore if not already present.
  */
 function updateGitignore(root: string): void {
   const gitignorePath = path.join(root, '.gitignore');
-  const entry = '.state-graph-mcp';
+  const entry = '.state-memory-mcp';
 
   if (fs.existsSync(gitignorePath)) {
     const content = fs.readFileSync(gitignorePath, 'utf-8');
     if (content.includes(entry)) {
-      console.log('   ⏭️  .gitignore already contains .state-graph-mcp');
+      console.log('   ⏭️  .gitignore already contains .state-memory-mcp');
       return;
     }
     // Append with a newline separator
@@ -220,20 +372,20 @@ function mergeMcpConfig(
       const raw = fs.readFileSync(filePath, 'utf-8');
       const existing = JSON.parse(raw);
 
-      // Check if state-graph-mcp is already configured
-      if (existing[serversKey]?.['state-graph-mcp']) {
+      // Check if state-memory-mcp is already configured
+      if (existing[serversKey]?.['state-memory-mcp']) {
         console.log(`      ⏭️  ${label} (${relativePath}) — already configured`);
         return;
       }
 
-      // Merge: add state-graph-mcp to existing servers
+      // Merge: add state-memory-mcp to existing servers
       if (!existing[serversKey]) {
         existing[serversKey] = {};
       }
-      existing[serversKey]['state-graph-mcp'] = template[serversKey]['state-graph-mcp'];
+      existing[serversKey]['state-memory-mcp'] = template[serversKey]['state-memory-mcp'];
 
       fs.writeFileSync(filePath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
-      console.log(`      ✅ ${label} (${relativePath}) — merged state-graph-mcp server`);
+      console.log(`      ✅ ${label} (${relativePath}) — merged state-memory-mcp server`);
     } catch {
       logger.warn(`Could not parse ${relativePath}, creating new file`);
       fs.writeFileSync(filePath, JSON.stringify(template, null, 2) + '\n', 'utf-8');
@@ -271,7 +423,7 @@ function scaffoldGlobalRules(projectSlug: string): void {
 
     if (fs.existsSync(target.path)) {
       const content = fs.readFileSync(target.path, 'utf-8');
-      if (content.includes('state-graph-mcp')) {
+      if (content.includes('state-memory-mcp')) {
         console.log(`      ⏭️  ${target.label} — already configured`);
         continue;
       }

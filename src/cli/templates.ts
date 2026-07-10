@@ -1,17 +1,17 @@
 /**
- * Embedded template strings for the `state-graph-mcp init` command.
+ * Embedded template strings for the `state-memory-mcp init` command.
  * These are written/appended to IDE instruction files and MCP config files.
  */
 
 /**
  * Agent instructions content appended to IDE instruction files.
- * Teaches agents how to use state-graph-mcp effectively.
+ * Teaches agents how to use state-memory-mcp effectively.
  */
 export function getInstructionsTemplate(projectSlug: string): string {
   return `
-## State Graph (state-graph-mcp)
+## State Memory (state-memory-mcp)
 
-This project tracks workflow state, tasks, design decisions, and blockers using \`state-graph-mcp\` with project slug \`"${projectSlug}"\`.
+This project tracks workflow state, tasks, design decisions, and blockers using \`state-memory-mcp\` with project slug \`"${projectSlug}"\`.
 
 ### 1. Priority Order
 Before doing any coding or investigation:
@@ -50,11 +50,11 @@ If the project was just initialized or is missing high-level structure (Plans, M
 export function getMcpConfigCursor(projectSlug: string) {
   return {
     mcpServers: {
-      'state-graph-mcp': {
-        command: 'state-graph-mcp',
+      'state-memory-mcp': {
+        command: 'state-memory-mcp',
         args: ['run'],
         env: {
-          STATE_GRAPH_MCP_PROJECT: projectSlug,
+          STATE_MEMORY_MCP_PROJECT: projectSlug,
         },
       },
     },
@@ -67,11 +67,11 @@ export function getMcpConfigCursor(projectSlug: string) {
 export function getMcpConfigVscode(projectSlug: string) {
   return {
     servers: {
-      'state-graph-mcp': {
-        command: 'state-graph-mcp',
+      'state-memory-mcp': {
+        command: 'state-memory-mcp',
         args: ['run'],
         env: {
-          STATE_GRAPH_MCP_PROJECT: projectSlug,
+          STATE_MEMORY_MCP_PROJECT: projectSlug,
         },
       },
     },
@@ -93,7 +93,7 @@ export interface InstructionTarget {
 
 export const INSTRUCTION_TARGETS: InstructionTarget[] = [
   { path: '.gemini/instructions.md', label: 'Gemini', standalone: false },
-  { path: '.cursor/rules/state-graph-mcp.mdc', label: 'Cursor', standalone: true },
+  { path: '.cursor/rules/state-memory-mcp.mdc', label: 'Cursor', standalone: true },
   { path: '.github/copilot-instructions.md', label: 'GitHub Copilot', standalone: false },
   { path: '.vscode/instructions.md', label: 'VS Code', standalone: false },
   { path: 'CLAUDE.md', label: 'Claude Code', standalone: false },
@@ -102,10 +102,10 @@ export const INSTRUCTION_TARGETS: InstructionTarget[] = [
 
 export function getGlobalRulesTemplate(projectSlug: string): string {
   return `
-<!-- state-graph-mcp:start -->
-# Workflow State Graph (state-graph-mcp)
+<!-- state-memory-mcp:start -->
+# Workflow State Memory (state-memory-mcp)
 
-This project uses state-graph-mcp with project slug \`"${projectSlug}"\` to track tasks, decisions, blockers, and progress.
+This project uses state-memory-mcp with project slug \`"${projectSlug}"\` to track tasks, decisions, blockers, and progress.
 ALWAYS update the state graph when performing work.
 
 ## Mandatory Workflow
@@ -120,6 +120,6 @@ ALWAYS update the state graph when performing work.
 2. \`find_blockers\` — what's blocking progress
 3. \`list_nodes\` — find pending tasks
 4. \`trace_dependencies\` — understand task relationships
-<!-- state-graph-mcp:end -->
+<!-- state-memory-mcp:end -->
 `.trimStart();
 }

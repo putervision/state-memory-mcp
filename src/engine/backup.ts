@@ -116,12 +116,12 @@ export function restoreProjectDb(params: { backupPath: string; project?: string 
 
     if (!schemaMetaExists || !nodesExists || !edgesExists) {
       throw new ValidationError(
-        "Backup database is missing required state-graph-mcp tables ('schema_meta', 'nodes', or 'edges')."
+        "Backup database is missing required state-memory-mcp tables ('schema_meta', 'nodes', or 'edges')."
       );
     }
   } catch (err: any) {
     if (err instanceof ValidationError) throw err;
-    throw new ValidationError(`Invalid state-graph-mcp backup database file: ${err.message}`);
+    throw new ValidationError(`Invalid state-memory-mcp backup database file: ${err.message}`);
   }
 
   // 3. Close active connection

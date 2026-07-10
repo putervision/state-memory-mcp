@@ -1,6 +1,6 @@
-# Contributing to `state-graph-mcp`
+# Contributing to `state-memory-mcp`
 
-Thank you for your interest in contributing to `state-graph-mcp`! This document outlines the guidelines, codebase architecture, and workflow for developing features, fixing bugs, and improving documentation.
+Thank you for your interest in contributing to `state-memory-mcp`! This document outlines the guidelines, codebase architecture, and workflow for developing features, fixing bugs, and improving documentation.
 
 ---
 
@@ -37,7 +37,7 @@ The project is structured with a single-responsibility architecture:
 
 ## How to Add a New Tool
 
-To introduce a new Model Context Protocol tool to `state-graph-mcp`, follow these steps:
+To introduce a new Model Context Protocol tool to `state-memory-mcp`, follow these steps:
 
 ### 1. Define the Parameter Type and Schema
 Open `src/schema/schemas.ts` and define the parameters validation schema:

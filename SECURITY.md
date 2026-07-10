@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-The following versions of `state-graph-mcp` receive security updates:
+The following versions of `state-memory-mcp` receive security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |

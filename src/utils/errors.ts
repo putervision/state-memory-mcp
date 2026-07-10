@@ -1,4 +1,4 @@
-export class StateGraphError extends Error {
+export class StateMemoryError extends Error {
   public readonly code: string;
   public readonly details?: any;
 
@@ -11,13 +11,13 @@ export class StateGraphError extends Error {
   }
 }
 
-export class DatabaseError extends StateGraphError {
+export class DatabaseError extends StateMemoryError {
   constructor(message: string, details?: any) {
     super(message, 'DATABASE_ERROR', details);
   }
 }
 
-export class ValidationError extends StateGraphError {
+export class ValidationError extends StateMemoryError {
   constructor(message: string, details?: any) {
     super(message, 'VALIDATION_ERROR', details);
   }

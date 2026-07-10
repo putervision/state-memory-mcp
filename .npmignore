@@ -7,7 +7,7 @@ eslint.config.js
 .cursor/
 .vscode/
 .gemini/
-.state-graph-mcp/
+.state-memory-mcp/
 .github/
 .prettierrc
 .npmignore

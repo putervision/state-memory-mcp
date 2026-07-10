@@ -18,7 +18,7 @@ describe('Git Scanner Engine', () => {
 
   beforeAll(() => {
     // Clean up test database directory to ensure fresh migration
-    const dbDir = path.resolve('./.state-graph-mcp/git-scanner-test-project');
+    const dbDir = path.resolve('./.state-memory-mcp/git-scanner-test-project');
     if (fs.existsSync(dbDir)) {
       fs.rmSync(dbDir, { recursive: true, force: true });
     }

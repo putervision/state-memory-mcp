@@ -8,7 +8,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 };
 
 const cachedLogLevel = (() => {
-  const envLevel = process.env.STATE_GRAPH_MCP_LOG_LEVEL?.toLowerCase() as LogLevel | undefined;
+  const envLevel = process.env.STATE_MEMORY_MCP_LOG_LEVEL?.toLowerCase() as LogLevel | undefined;
   if (envLevel && envLevel in LOG_LEVELS) {
     return LOG_LEVELS[envLevel];
   }

@@ -1,6 +1,6 @@
 node_modules
 dist
-.state-graph-mcp
+.state-memory-mcp
 coverage
 *.log
 .DS_Store

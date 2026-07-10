@@ -29,11 +29,11 @@ import * as fs from 'fs';
 import { resolveProjectRoot, getProjectSlug } from '../../src/engine/db.js';
 
 describe('Database Project Resolution Tests', () => {
-  it('should ignore .state-graph-mcp when walking up if it is the home directory', () => {
+  it('should ignore .state-memory-mcp when walking up if it is the home directory', () => {
     const existsSpy = vi.mocked(fs.existsSync);
     existsSpy.mockImplementation((p) => {
-      // Simulate .state-graph-mcp existing in the mock home directory
-      if (typeof p === 'string' && p.startsWith(path.join(mockHomedir, '.state-graph-mcp'))) {
+      // Simulate .state-memory-mcp existing in the mock home directory
+      if (typeof p === 'string' && p.startsWith(path.join(mockHomedir, '.state-memory-mcp'))) {
         return true;
       }
       return false;
@@ -41,7 +41,7 @@ describe('Database Project Resolution Tests', () => {
 
     const root = resolveProjectRoot(undefined, path.join(mockHomedir, 'Downloads'));
 
-    // It should NOT stop at mockHomedir since .state-graph-mcp is in home directory
+    // It should NOT stop at mockHomedir since .state-memory-mcp is in home directory
     // Instead it walks all the way up to root and falls back to currentCwd
     expect(root).not.toBe(mockHomedir);
 
@@ -51,7 +51,7 @@ describe('Database Project Resolution Tests', () => {
   it('should throw DatabaseError in getProjectSlug if resolved root is unregistered home directory', () => {
     const existsSpy = vi.mocked(fs.existsSync);
     existsSpy.mockImplementation((p) => {
-      if (typeof p === 'string' && p.endsWith('.state-graph-mcp-registry.json')) {
+      if (typeof p === 'string' && p.endsWith('.state-memory-mcp-registry.json')) {
         return false;
       }
       return false;

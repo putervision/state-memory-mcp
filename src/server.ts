@@ -82,12 +82,12 @@ function parseArgs<T>(schema: { safeParse: (args: any) => ParseResult<T> }, args
 }
 
 /**
- * The Model Context Protocol (MCP) server instance for the state-graph-mcp toolset.
+ * The Model Context Protocol (MCP) server instance for the state-memory-mcp toolset.
  * Exposes graph database operations, analytics, git scanning, and scaffolding tools.
  */
 export const server = new Server(
   {
-    name: 'state-graph-mcp',
+    name: 'state-memory-mcp',
     version: VERSION,
   },
   {
@@ -98,8 +98,8 @@ export const server = new Server(
     },
     instructions: `This server provides a workflow state graph to track tasks, decisions, blockers, artifacts, plans, and milestones.
 Recommended workflow:
-1. Always start by fetching the project summary via 'get_project_summary' or reading the summary resource 'state-graph:///{project}/summary'.
-2. Check for active blockers using 'find_blockers' or the blockers resource 'state-graph:///{project}/blockers'.
+1. Always start by fetching the project summary via 'get_project_summary' or reading the summary resource 'state-memory:///{project}/summary'.
+2. Check for active blockers using 'find_blockers' or the blockers resource 'state-memory:///{project}/blockers'.
 3. Create new task, decision, and blocker nodes as you make progress, and link them using 'add_edge' relationships.
 4. Keep the graph updated by changing task statuses to 'done' and marking resolved blockers.`,
   }
@@ -1300,37 +1300,37 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
   return {
     resources: [
       {
-        uri: `state-graph:///${projectSlug}/summary`,
+        uri: `state-memory:///${projectSlug}/summary`,
         name: `${projectSlug} Summary`,
         mimeType: 'application/json',
         description: 'High-level project state overview'
       },
       {
-        uri: `state-graph:///${projectSlug}/blockers`,
+        uri: `state-memory:///${projectSlug}/blockers`,
         name: `${projectSlug} Active Blockers`,
         mimeType: 'application/json',
         description: 'Currently active blocker nodes'
       },
       {
-        uri: `state-graph:///${projectSlug}/decisions`,
+        uri: `state-memory:///${projectSlug}/decisions`,
         name: `${projectSlug} Decision Log`,
         mimeType: 'application/json',
         description: 'Recent accepted decisions'
       },
       {
-        uri: `state-graph:///${projectSlug}/graph.json`,
+        uri: `state-memory:///${projectSlug}/graph.json`,
         name: `${projectSlug} Graph Export (JSON)`,
         mimeType: 'application/json',
         description: 'Full node/edge graph export'
       },
       {
-        uri: `state-graph:///${projectSlug}/events`,
+        uri: `state-memory:///${projectSlug}/events`,
         name: `${projectSlug} Event Log`,
         mimeType: 'application/json',
         description: 'Recent project state events'
       },
       {
-        uri: `state-graph:///${projectSlug}/sessions`,
+        uri: `state-memory:///${projectSlug}/sessions`,
         name: `${projectSlug} Active Sessions`,
         mimeType: 'application/json',
         description: 'Recent agent/user sessions'
@@ -1343,32 +1343,32 @@ server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
   return {
     resourceTemplates: [
       {
-        uriTemplate: 'state-graph:///{project}/summary',
+        uriTemplate: 'state-memory:///{project}/summary',
         name: 'Project Summary Template',
         description: 'URI template for high-level project summary'
       },
       {
-        uriTemplate: 'state-graph:///{project}/blockers',
+        uriTemplate: 'state-memory:///{project}/blockers',
         name: 'Project Active Blockers Template',
         description: 'URI template for currently active blocker nodes'
       },
       {
-        uriTemplate: 'state-graph:///{project}/decisions',
+        uriTemplate: 'state-memory:///{project}/decisions',
         name: 'Project Decision Log Template',
         description: 'URI template for recent accepted decisions'
       },
       {
-        uriTemplate: 'state-graph:///{project}/graph.json',
+        uriTemplate: 'state-memory:///{project}/graph.json',
         name: 'Project Graph Export Template',
         description: 'URI template for full node/edge graph export'
       },
       {
-        uriTemplate: 'state-graph:///{project}/events',
+        uriTemplate: 'state-memory:///{project}/events',
         name: 'Project Events Template',
         description: 'URI template for recent state-transition events'
       },
       {
-        uriTemplate: 'state-graph:///{project}/sessions',
+        uriTemplate: 'state-memory:///{project}/sessions',
         name: 'Project Sessions Template',
         description: 'URI template for recent session history'
       }
@@ -1378,7 +1378,7 @@ server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
-  const match = uri.match(/^state-graph:\/\/\/([a-zA-Z0-9-_]+)\/(summary|blockers|decisions|graph\.json|events|sessions)$/);
+  const match = uri.match(/^state-memory:\/\/\/([a-zA-Z0-9-_]+)\/(summary|blockers|decisions|graph\.json|events|sessions)$/);
   if (!match) {
     throw new McpError(ErrorCode.InvalidRequest, `Invalid resource URI: ${uri}`);
   }
@@ -1490,7 +1490,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           role: 'user',
           content: {
             type: 'text',
-            text: `Here is the current state-graph-mcp workflow status for project "${projectSlug}":\n\n${snapshot.formatted_summary}\n\nPlease review these blockers and pending tasks to determine the next work steps.`
+            text: `Here is the current state-memory-mcp workflow status for project "${projectSlug}":\n\n${snapshot.formatted_summary}\n\nPlease review these blockers and pending tasks to determine the next work steps.`
           }
         }
       ]
@@ -1509,7 +1509,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           role: 'user',
           content: {
             type: 'text',
-            text: `I need to plan the implementation of the feature: "${featureName}".\n\nUsing the state-graph-mcp toolset, guide me through:\n1. Creating a milestone node for this feature.\n2. Decomposing it into task nodes with estimated hours.\n3. Linking them using depends_on/part_of edges.\n4. Defining any upfront design decisions.`
+            text: `I need to plan the implementation of the feature: "${featureName}".\n\nUsing the state-memory-mcp toolset, guide me through:\n1. Creating a milestone node for this feature.\n2. Decomposing it into task nodes with estimated hours.\n3. Linking them using depends_on/part_of edges.\n4. Defining any upfront design decisions.`
           }
         }
       ]

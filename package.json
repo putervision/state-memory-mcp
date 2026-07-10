@@ -1,11 +1,11 @@
 {
-  "name": "state-graph-mcp",
-  "version": "0.3.0",
+  "name": "state-memory-mcp",
+  "version": "0.3.1",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "state-graph-mcp": "./dist/cli.js"
+    "state-memory-mcp": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -13,9 +13,9 @@
     "LICENSE"
   ],
   "author": "Lucas Armstrong",
-  "homepage": "https://github.com/LucasArmstrong/state-graph-mcp#readme",
+  "homepage": "https://github.com/LucasArmstrong/state-memory-mcp#readme",
   "bugs": {
-    "url": "https://github.com/LucasArmstrong/state-graph-mcp/issues"
+    "url": "https://github.com/LucasArmstrong/state-memory-mcp/issues"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -25,7 +25,7 @@
     "mcp-server",
     "model-context-protocol",
     "model-context-protocol-server",
-    "state-graph",
+    "state-memory",
     "workflow",
     "workflow-state",
     "dependency-graph",
@@ -53,7 +53,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LucasArmstrong/state-graph-mcp.git"
+    "url": "https://github.com/LucasArmstrong/state-memory-mcp.git"
   },
   "scripts": {
     "build": "tsup src/index.ts src/cli.ts --format esm --clean --dts",

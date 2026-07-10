@@ -6,13 +6,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export function getCurrentBranch(cwd: string = process.cwd()): string {
-  if (process.env.STATE_GRAPH_MCP_DEFAULT_BRANCH) {
-    return process.env.STATE_GRAPH_MCP_DEFAULT_BRANCH;
+  if (process.env.STATE_MEMORY_MCP_DEFAULT_BRANCH) {
+    return process.env.STATE_MEMORY_MCP_DEFAULT_BRANCH;
   }
   try {
     let current = path.resolve(cwd);
     while (true) {
-      const configPath = path.join(current, '.state-graph-mcp.json');
+      const configPath = path.join(current, '.state-memory-mcp.json');
       if (fs.existsSync(configPath)) {
         const raw = fs.readFileSync(configPath, 'utf-8');
         const parsed = JSON.parse(raw);
@@ -22,7 +22,7 @@ export function getCurrentBranch(cwd: string = process.cwd()): string {
       }
       if (
         fs.existsSync(path.join(current, '.git')) ||
-        fs.existsSync(path.join(current, '.state-graph-mcp'))
+        fs.existsSync(path.join(current, '.state-memory-mcp'))
       ) {
         break; // reached project root
       }

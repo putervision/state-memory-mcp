@@ -1,42 +1,42 @@
-# state-graph-mcp
+# state-memory-mcp
 
-[![npm version](https://img.shields.io/npm/v/state-graph-mcp.svg)](https://www.npmjs.com/package/state-graph-mcp)
-[![Build Status](https://github.com/LucasArmstrong/state-graph-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasArmstrong/state-graph-mcp/actions/workflows/ci.yml)
-[![License](https://img.shields.io/npm/l/state-graph-mcp.svg)](https://github.com/LucasArmstrong/state-graph-mcp/blob/main/LICENSE)
-[![Node.js Version](https://img.shields.io/node/v/state-graph-mcp.svg)](https://nodejs.org)
+[![npm version](https://img.shields.io/npm/v/state-memory-mcp.svg)](https://www.npmjs.com/package/state-memory-mcp)
+[![Build Status](https://github.com/LucasArmstrong/state-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasArmstrong/state-memory-mcp/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/state-memory-mcp.svg)](https://github.com/LucasArmstrong/state-memory-mcp/blob/main/LICENSE)
+[![Node.js Version](https://img.shields.io/node/v/state-memory-mcp.svg)](https://nodejs.org)
 
-`state-graph-mcp` is a zero-infrastructure, deterministic Model Context Protocol (MCP) server that provides AI agents with a structured, persistent graph for tracking workflow state—tasks, decisions, artifacts, plans, blockers, and their semantic relationships.
+`state-memory-mcp` is a zero-infrastructure, deterministic Model Context Protocol (MCP) server that provides AI agents with a structured, persistent graph for tracking workflow state—tasks, decisions, artifacts, plans, blockers, and their semantic relationships.
 
-By using `state-graph-mcp`, your AI coding assistant (such as Cursor, Claude Code, Gemini, or Copilot) maintains long-term project coherence, manages complex dependencies, and audits architectural decisions across sessions.
+By using `state-memory-mcp`, your AI coding assistant (such as Cursor, Claude Code, Gemini, or Copilot) maintains long-term project coherence, manages complex dependencies, and audits architectural decisions across sessions.
 
 ---
 
 ## Key Features
 
-1. **Deterministic State Graph**: No LLM in the loop; all operations are structured, deterministic, and fast.
-2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-graph-mcp/`) or globally.
+1. **Deterministic State Memory**: No LLM in the loop; all operations are structured, deterministic, and fast.
+2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-memory-mcp/`) or globally.
 3. **37 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, and state rollback/undo.
 4. **Interactive 3D HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed WebGL 3D Force-Directed Graph visualizer built with `3d-force-graph` / Three.js.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
-7. **One-Command Setup**: `state-graph-mcp init` scaffolds the data directory, `.gitignore`, IDE instruction files, and MCP configs for all major editors.
+7. **One-Command Setup**: `state-memory-mcp init` scaffolds the data directory, `.gitignore`, IDE instruction files, and MCP configs for all major editors.
 8. **Event-Sourced Audit Trail**: Every node and edge mutation is logged to an append-only events table with before/after state snapshots, session attribution, and timestamps.
 9. **Session & Agent Tracking**: First-class session lifecycle with agent identity, enabling multi-agent collaboration and full provenance of who changed what.
 10. **Persistent Context Snapshots**: Save, list, and diff context snapshots across sessions to detect drift and answer "what changed since last time?"
 
 ---
 
-## Why State Graph MCP? (Agent Value Proposition)
+## Why State Memory MCP? (Agent Value Proposition)
 
-AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within strict context window and performance limits. Storing your project's workflow state in the chat history or forcing agents to search files repeatedly is inefficient. `state-graph-mcp` solves this by introducing a structured, external state engine:
+AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within strict context window and performance limits. Storing your project's workflow state in the chat history or forcing agents to search files repeatedly is inefficient. `state-memory-mcp` solves this by introducing a structured, external state engine:
 
 * **🧠 Cognitive Externalization**: Grounded in Cognitive Load Theory, this offloads the agent's extraneous load ($CL_E$). By relocating state from the model's weights and active context window into SQLite, it converts complex recall tasks into simple recognition tasks. Only the active node's schema and target variables are paged into context, preserving attention budget.
 * **🚀 Faster Agent Executions**: Instead of running expensive, multi-step text search loops or file scans to figure out what to do next, agents can query `get_project_summary` or `find_blockers` in milliseconds. They immediately understand current blockers, goals, and outstanding tasks, reducing end-to-end execution latency by **67% to 74%** in multi-agent workflows.
-* **📉 Massive Token Savings**: Storing logs, decisions, and task statuses in chat prompts wastes tokens on every turn. With `state-graph-mcp`, agents keep this state offloaded in a local SQLite database, fetching only relevant subgraphs when needed. This reduces context bloat and reduces API costs by **128× to 462×** when utilizing compiled trajectory models.
+* **📉 Massive Token Savings**: Storing logs, decisions, and task statuses in chat prompts wastes tokens on every turn. With `state-memory-mcp`, agents keep this state offloaded in a local SQLite database, fetching only relevant subgraphs when needed. This reduces context bloat and reduces API costs by **128× to 462×** when utilizing compiled trajectory models.
 * **🎯 Increased Quality of Responses**: Hallucinations and duplicate work happen when agents forget past context. A branch-aware state graph provides agents with a single, clear source of truth for all architectural decisions, milestones, and task requirements. Agents write better code because they always know *why* a decision was made.
-* **🔒 First-Hop Determinism**: Unlike probabilistic vector RAG (cosine similarity), `state-graph-mcp` graph queries use deterministic SQL/CTE traversals. This eliminates the "first-hop" retrieval error that propagates cascading hallucinations down multi-agent execution pipelines.
+* **🔒 First-Hop Determinism**: Unlike probabilistic vector RAG (cosine similarity), `state-memory-mcp` graph queries use deterministic SQL/CTE traversals. This eliminates the "first-hop" retrieval error that propagates cascading hallucinations down multi-agent execution pipelines.
 * **🔗 Simplified Relationship Modeling**: Relationships are explicitly mapped with typed links (e.g. `blocks`, `produces`, `depends_on`). The server automatically validates dependencies and rejects circular reference loops, maintaining a clean, easily-navigable project structure.
-* **🤝 Supercharged Multi-Agent Collaboration**: When deploying parallel subagents (e.g., one writing code, one running tests, one scanning logs), they lack a shared memory pool. `state-graph-mcp` acts as a local blackboard (Shared Context Store) where all subagents publish decisions, tasks, and blocker updates, ensuring coordinate-level alignment without passing massive chat histories. This limits central LLM invocations to a constant $O(1)$ (Plan + Summarize) instead of scaling linearly $O(N)$ with task steps.
+* **🤝 Supercharged Multi-Agent Collaboration**: When deploying parallel subagents (e.g., one writing code, one running tests, one scanning logs), they lack a shared memory pool. `state-memory-mcp` acts as a local blackboard (Shared Context Store) where all subagents publish decisions, tasks, and blocker updates, ensuring coordinate-level alignment without passing massive chat histories. This limits central LLM invocations to a constant $O(1)$ (Plan + Summarize) instead of scaling linearly $O(N)$ with task steps.
 
 ---
 
@@ -44,14 +44,14 @@ AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within stric
 
 ```bash
 # Install globally
-npm install -g state-graph-mcp
+npm install -g state-memory-mcp
 
 # Navigate to your project
 cd your-project
 
-# Initialize — creates .state-graph-mcp/, updates .gitignore,
+# Initialize — creates .state-memory-mcp/, updates .gitignore,
 # scaffolds IDE instructions and MCP configs
-state-graph-mcp init
+state-memory-mcp init
 
 # Done! Your IDE now has MCP configs + agent instructions.
 ```
@@ -62,21 +62,21 @@ state-graph-mcp init
 
 ```bash
 # Global install (recommended)
-npm install -g state-graph-mcp
+npm install -g state-memory-mcp
 
 # Or use directly with npx (no install)
-npx state-graph-mcp
+npx state-memory-mcp
 
 # Or install as a project dev dependency
-npm install --save-dev state-graph-mcp
+npm install --save-dev state-memory-mcp
 ```
 
 
 ---
 
-## State Graph Concepts
+## State Memory Concepts
 
-`state-graph-mcp` models your development workspace as a directed acyclic graph (DAG) where nodes represent development objects and edges represent their semantic relationships.
+`state-memory-mcp` models your development workspace as a directed acyclic graph (DAG) where nodes represent development objects and edges represent their semantic relationships.
 
 ### 📋 Node Types (The Vocabulary)
 
@@ -115,10 +115,10 @@ Exposing your state as a graph enables the server to run advanced graph query to
 
 ## Theoretical Foundations
 
-`state-graph-mcp` is designed to address the key bottlenecks of stateless agentic workflows identified in cognitive science and multi-agent system design:
+`state-memory-mcp` is designed to address the key bottlenecks of stateless agentic workflows identified in cognitive science and multi-agent system design:
 
 ### 1. Cognitive Externalization (Cognitive Load Theory)
-In a stateless agentic loop, packing the context window with conversation histories, full schemas, and system guidelines quickly exceeds the active attention budget, leading to attention diffusion and constraint hallucination. By separating the irreducible complexity of a task (Intrinsic Cognitive Load, $CL_I$) from formatting and presentation clutter (Extraneous Cognitive Load, $CL_E$), `state-graph-mcp` externalizes state. Offloading state into a local SQLite database reduces $CL_E$ and converts a difficult *recall* task into a deterministic *recognition* task.
+In a stateless agentic loop, packing the context window with conversation histories, full schemas, and system guidelines quickly exceeds the active attention budget, leading to attention diffusion and constraint hallucination. By separating the irreducible complexity of a task (Intrinsic Cognitive Load, $CL_I$) from formatting and presentation clutter (Extraneous Cognitive Load, $CL_E$), `state-memory-mcp` externalizes state. Offloading state into a local SQLite database reduces $CL_E$ and converts a difficult *recall* task into a deterministic *recognition* task.
 
 ### 2. Finite State Machine (FSM) Formalism & Boundary Guarantees
 In unconstrained environments, language models suffer from greediness and exploration loops. Formalizing transitions using a state-driven graph provides mathematical guarantees of correctness. Key execution rules enabled by this include:
@@ -139,7 +139,7 @@ Empirical studies of stateful context protocol architectures show massive improv
 
 ## Session & Event Tracking (v0.3.0)
 
-With v0.3.0, `state-graph-mcp` introduces full session management, change logging, and state rollback:
+With v0.3.0, `state-memory-mcp` introduces full session management, change logging, and state rollback:
 
 ### 📋 Session Lifecycle
 Track concurrent agents or sequential tasks using tracked sessions. Starting a session returns a `session_id` that stamps all subsequent graph mutations:
@@ -165,63 +165,63 @@ All mutations to nodes and edges are recorded in an append-only `events` ledger.
 
 ## CLI Usage
 
-`state-graph-mcp` comes with a powerful command line interface to manage project databases:
+`state-memory-mcp` comes with a powerful command line interface to manage project databases:
 
 ```bash
-# Initialize state-graph-mcp in your project (creates .state-graph-mcp/,
+# Initialize state-memory-mcp in your project (creates .state-memory-mcp/,
 # updates .gitignore, scaffolds IDE instructions and MCP configs)
-state-graph-mcp init [--no-git] [--commits <n>] [--no-tasks] [--no-artifacts]
+state-memory-mcp init [--no-git] [--commits <n>] [--no-tasks] [--no-artifacts]
 
 # Start the MCP server (used by IDE configs)
-state-graph-mcp run
+state-memory-mcp run
 
 # View the interactive 3D graph visualizer in your default browser
-state-graph-mcp view --project my-project
+state-memory-mcp view --project my-project
 
 # Inspect project nodes in ASCII format
-state-graph-mcp inspect --project my-project
+state-memory-mcp inspect --project my-project
 
 # Display project graph ROI, productivity, and token savings metrics
-state-graph-mcp metrics --project my-project
+state-memory-mcp metrics --project my-project
 
 # Export graph data (JSON, DOT, Mermaid, HTML formats supported)
-state-graph-mcp export --project my-project --format html --out graph.html
-state-graph-mcp export --project my-project --format mermaid
+state-memory-mcp export --project my-project --format html --out graph.html
+state-memory-mcp export --project my-project --format mermaid
 
 # Import graph data from a JSON file (overwrites existing project data)
-state-graph-mcp import data.json --project my-project
+state-memory-mcp import data.json --project my-project
 
 # Incrementally scan git history into the graph
-state-graph-mcp scan-git --project my-project --commits 30
+state-memory-mcp scan-git --project my-project --commits 30
 
 # Back up the project database to a SQLite file
-state-graph-mcp backup --project my-project --out backup.db
+state-memory-mcp backup --project my-project --out backup.db
 
 # Restore the project database from a SQLite backup file (destructively overwrites)
-state-graph-mcp restore backup.db --project my-project
+state-memory-mcp restore backup.db --project my-project
 
 # Audit the project database for integrity, cycle paths, and contradictions
-state-graph-mcp audit --project my-project
+state-memory-mcp audit --project my-project
 
 # Merge an external SQLite database into the current project database
-state-graph-mcp merge other-project.db --project my-project [--force]
+state-memory-mcp merge other-project.db --project my-project [--force]
 ```
 
 ---
 
 ## MCP Configuration Examples
 
-Running `state-graph-mcp init` automatically creates these configuration files for you. If you prefer to configure manually:
+Running `state-memory-mcp init` automatically creates these configuration files for you. If you prefer to configure manually:
 
 ### Cursor (`.cursor/mcp.json`)
 ```json
 {
   "mcpServers": {
-    "state-graph-mcp": {
-      "command": "state-graph-mcp",
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
       "args": ["run"],
       "env": {
-        "STATE_GRAPH_MCP_PROJECT": "your-project-slug"
+        "STATE_MEMORY_MCP_PROJECT": "your-project-slug"
       }
     }
   }
@@ -232,11 +232,11 @@ Running `state-graph-mcp init` automatically creates these configuration files f
 ```json
 {
   "servers": {
-    "state-graph-mcp": {
-      "command": "state-graph-mcp",
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
       "args": ["run"],
       "env": {
-        "STATE_GRAPH_MCP_PROJECT": "your-project-slug"
+        "STATE_MEMORY_MCP_PROJECT": "your-project-slug"
       }
     }
   }
@@ -251,11 +251,11 @@ Running `state-graph-mcp init` automatically creates these configuration files f
 ```json
 {
   "mcpServers": {
-    "state-graph-mcp": {
-      "command": "state-graph-mcp",
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
       "args": ["run"],
       "env": {
-        "STATE_GRAPH_MCP_PROJECT": "your-project-slug"
+        "STATE_MEMORY_MCP_PROJECT": "your-project-slug"
       }
     }
   }
@@ -269,11 +269,11 @@ For Google Antigravity (AGY), custom MCP servers are configured globally in your
 ```json
 {
   "mcpServers": {
-    "state-graph-mcp": {
-      "command": "state-graph-mcp",
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
       "args": ["run"],
       "env": {
-        "STATE_GRAPH_MCP_PROJECT": "your-project-slug"
+        "STATE_MEMORY_MCP_PROJECT": "your-project-slug"
       }
     }
   }
@@ -284,13 +284,13 @@ For Google Antigravity (AGY), custom MCP servers are configured globally in your
 
 ## What `init` Sets Up
 
-Running `state-graph-mcp init` in your project root will:
+Running `state-memory-mcp init` in your project root will:
 
-1. Create the `.state-graph-mcp/` data directory
-2. Add `.state-graph-mcp` to your `.gitignore`
+1. Create the `.state-memory-mcp/` data directory
+2. Add `.state-memory-mcp` to your `.gitignore`
 3. Create/append IDE instruction files for:
    - **Gemini** (`.gemini/instructions.md`)
-   - **Cursor** (`.cursor/rules/state-graph-mcp.mdc`)
+   - **Cursor** (`.cursor/rules/state-memory-mcp.mdc`)
    - **GitHub Copilot** (`.github/copilot-instructions.md`)
    - **VS Code** (`.vscode/instructions.md`)
    - **Claude Code** (`CLAUDE.md`)
@@ -331,10 +331,10 @@ For maximum developer-agent alignment, seed your graph immediately after initial
 
 | Variable | Description | Default Value |
 |---|---|---|
-| `STATE_GRAPH_MCP_DIR` | Absolute path to directory where database files are stored. | `.state-graph-mcp/` (Project-local, in CWD) |
-| `STATE_GRAPH_MCP_PROJECT` | Active project slug identifier. | Resolved from working directory name |
-| `STATE_GRAPH_MCP_LOG_LEVEL` | Logging verbosity on `stderr` (`debug`, `info`, `warn`, `error`). | `info` |
-| `STATE_GRAPH_MCP_DEFAULT_BRANCH` | Fallback branch name if Git cannot be queried on startup. | `main` |
+| `STATE_MEMORY_MCP_DIR` | Absolute path to directory where database files are stored. | `.state-memory-mcp/` (Project-local, in CWD) |
+| `STATE_MEMORY_MCP_PROJECT` | Active project slug identifier. | Resolved from working directory name |
+| `STATE_MEMORY_MCP_LOG_LEVEL` | Logging verbosity on `stderr` (`debug`, `info`, `warn`, `error`). | `info` |
+| `STATE_MEMORY_MCP_DEFAULT_BRANCH` | Fallback branch name if Git cannot be queried on startup. | `main` |
 
 ---
 
@@ -410,16 +410,16 @@ For maximum developer-agent alignment, seed your graph immediately after initial
 
 ## MCP Resources & Prompts
 
-`state-graph-mcp` is fully compliant with the latest Model Context Protocol specification, exposing read-only data resources and reusable prompt templates to client applications.
+`state-memory-mcp` is fully compliant with the latest Model Context Protocol specification, exposing read-only data resources and reusable prompt templates to client applications.
 
 ### 📁 Resources
 
-Resources provide read-only context to LLMs. `state-graph-mcp` registers the following resources under the `state-graph:///` URI scheme:
+Resources provide read-only context to LLMs. `state-memory-mcp` registers the following resources under the `state-memory:///` URI scheme:
 
-* **`state-graph:///{project}/summary`**: Returns the structured project summary (counts, task progress, recent decisions).
-* **`state-graph:///{project}/blockers`**: Returns the list of all active blockers and their affected nodes.
-* **`state-graph:///{project}/decisions`**: Returns the log of recent accepted decisions.
-* **`state-graph:///{project}/graph.json`**: Returns a full node/edge database export as raw JSON.
+* **`state-memory:///{project}/summary`**: Returns the structured project summary (counts, task progress, recent decisions).
+* **`state-memory:///{project}/blockers`**: Returns the list of all active blockers and their affected nodes.
+* **`state-memory:///{project}/decisions`**: Returns the log of recent accepted decisions.
+* **`state-memory:///{project}/graph.json`**: Returns a full node/edge database export as raw JSON.
 
 ### 💬 Prompts
 
@@ -438,12 +438,12 @@ Prompts are reusable workflow templates that streamline agent interactions:
 
 ## Interactive 3D HTML Visualizer
 
-`state-graph-mcp` offers an interactive, dark-mode browser 3D visualization using WebGL/Three.js to explore your project's workflow state graph.
+`state-memory-mcp` offers an interactive, dark-mode browser 3D visualization using WebGL/Three.js to explore your project's workflow state graph.
 
 ### Viewing the Visualizer
 To generate and view the visualizer instantly in your default web browser, run:
 ```bash
-state-graph-mcp view --project my-project
+state-memory-mcp view --project my-project
 ```
 This command:
 1. Generates a standalone `viewer.html` containing the embedded graph dataset.
@@ -453,7 +453,7 @@ This command:
 ### Exporting the Visualizer
 To export the visualizer to a specific file:
 ```bash
-state-graph-mcp export --project my-project --format html --out ./my-graph.html
+state-memory-mcp export --project my-project --format html --out ./my-graph.html
 ```
 You can share the exported HTML file with your team. The file contains a responsive 3D Force-Directed network graph rendering with:
 - Interactive zoom, pan, and 360-degree rotation.

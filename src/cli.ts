@@ -303,8 +303,8 @@ class Table {
 const program = new Command();
 
 program
-  .name('state-graph-mcp')
-  .description('MCP server and CLI tool for state-graph-mcp')
+  .name('state-memory-mcp')
+  .description('MCP server and CLI tool for state-memory-mcp')
   .version(VERSION);
 
 // Default run command to launch MCP server
@@ -319,7 +319,7 @@ program
 // Init command to scaffold workspace
 program
   .command('init')
-  .description('Initialize state-graph-mcp in the current project (creates data directory, .gitignore, IDE instructions, MCP configs)')
+  .description('Initialize state-memory-mcp in the current project (creates data directory, .gitignore, IDE instructions, MCP configs)')
   .option('--no-git', 'Skip populating graph from git commit history')
   .option('--commits <n>', 'Number of commits to analyze', '30')
   .option('--no-tasks', 'Skip creating task nodes from commits')

@@ -384,6 +384,7 @@ export const SearchNodesSchema = z.object({
   type: NodeTypeSchema.optional(),
   status: z.string().optional(),
   limit: z.number().optional().default(20),
+  algorithm: z.enum(['fts', 'tfidf']).optional().default('fts'),
 });
 
 export const GetSubgraphSchema = z.object({

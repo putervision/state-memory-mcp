@@ -1,6 +1,6 @@
 {
   "name": "state-graph-mcp",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "type": "module",
   "main": "./dist/index.js",

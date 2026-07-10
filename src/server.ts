@@ -273,7 +273,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'search_nodes',
-        description: 'Search nodes using full-text search (FTS5) across title, metadata, and tags.',
+        description: 'Search nodes using full-text search (FTS5) or local TF-IDF vector similarity across title, metadata, and tags.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -297,6 +297,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             limit: {
               type: 'number',
               description: 'Maximum number of results. Defaults to 20.',
+            },
+            algorithm: {
+              type: 'string',
+              enum: ['fts', 'tfidf'],
+              description: 'The search algorithm: "fts" (default, keyword full-text search) or "tfidf" (local TF-IDF vector similarity search).',
             },
           },
           required: ['query'],

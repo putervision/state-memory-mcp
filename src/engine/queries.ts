@@ -2,6 +2,7 @@ import { getDb, getProjectSlug } from './db.js';
 import { BaseNode, Edge, NodeType } from '../schema/types.js';
 import { getCurrentBranch } from '../utils/git.js';
 import { logger } from '../utils/logger.js';
+import { searchTfidf } from './tfidf.js';
 
 export class QueryEngine {
   /**
@@ -84,7 +85,7 @@ export class QueryEngine {
   }
 
   /**
-   * Search nodes using FTS5 virtual table.
+   * Search nodes using FTS5 virtual table or TF-IDF cosine similarity.
    */
   static searchNodes(params: {
     project?: string;
@@ -93,9 +94,50 @@ export class QueryEngine {
     status?: string;
     limit?: number;
     git_branch?: string;
+    algorithm?: 'fts' | 'tfidf';
   }): { nodes: BaseNode[]; total_count: number } {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
+
+    if (params.algorithm === 'tfidf') {
+      let sql = 'SELECT * FROM nodes WHERE project = ?';
+      const queryParams: any[] = [projectSlug];
+
+      const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
+      if (branch !== '*') {
+        sql += ' AND git_branch = ?';
+        queryParams.push(branch);
+      }
+
+      if (params.type) {
+        sql += ' AND type = ?';
+        queryParams.push(params.type);
+      }
+
+      if (params.status) {
+        sql += ' AND status = ?';
+        queryParams.push(params.status);
+      }
+
+      const rows = db.prepare(sql).all(...queryParams) as any[];
+      const candidates: BaseNode[] = rows.map((row) => ({
+        id: row.id,
+        type: row.type as NodeType,
+        title: row.title,
+        status: row.status,
+        project: row.project,
+        git_branch: row.git_branch,
+        metadata: row.metadata ? JSON.parse(row.metadata) : {},
+        tags: row.tags ? JSON.parse(row.tags) : [],
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      }));
+
+      const limit = params.limit !== undefined ? params.limit : 20;
+      const matched = searchTfidf(candidates, params.query, limit);
+
+      return { nodes: matched, total_count: matched.length };
+    }
 
     // SQLite FTS5 query matching n.rowid to f.rowid
     let sql = `

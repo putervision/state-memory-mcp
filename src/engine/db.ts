@@ -64,7 +64,12 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
   // 3. Fallback: walk up directory tree
   let current = currentCwd;
   while (true) {
-    if (fs.existsSync(path.join(current, '.git')) || fs.existsSync(path.join(current, '.state-graph-mcp'))) {
+    const isHome = current === os.homedir();
+    const hasGit = fs.existsSync(path.join(current, '.git'));
+    // Only count .state-graph-mcp if it is not the user's home directory
+    const hasStateGraph = !isHome && fs.existsSync(path.join(current, '.state-graph-mcp'));
+
+    if (hasGit || hasStateGraph) {
       return current;
     }
     const parent = path.dirname(current);
@@ -96,6 +101,19 @@ export function getProjectSlug(project?: string): string {
     return project.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
   }
   const root = resolveProjectRoot(project);
+
+  // Guard against using the home directory as a project root fallback
+  if (root === os.homedir()) {
+    const registry = getRegistry();
+    const isRegistered = Object.values(registry).includes(root);
+    if (!isRegistered) {
+      throw new DatabaseError(
+        `Could not auto-detect project name. You are running in or resolved to the home directory "${root}", which is not registered as a state-graph-mcp project.\n` +
+        `Please specify the "project" parameter. Registered projects: ${Object.keys(registry).join(', ')}`
+      );
+    }
+  }
+
   const config = loadProjectConfig(root);
   if (config.projectName) {
     return config.projectName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');

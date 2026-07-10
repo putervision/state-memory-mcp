@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-07-10
+
+### Added
+- Integrated Interactive 3D Force-Directed Graph Visualizer screenshot into website (`docs/index.html`) and repository `README.md`.
+
+## [0.3.2] - 2026-07-10
+
+### Removed
+- Legacy configuration and data migration code from the CLI `init` command.
+
+## [0.3.1] - 2026-07-10
+
+### Changed
+- Project renamed from `state-graph-mcp` to `state-memory-mcp` across all files, docs, config templates, and environment variables.
+
 ## [0.3.0] - 2026-07-10
 
 ### Added

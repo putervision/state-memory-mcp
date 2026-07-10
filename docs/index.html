@@ -40,12 +40,23 @@
     
     <!-- Hero Section -->
     <section class="hero">
-      <span class="badge">Production Ready v0.3.2</span>
+      <span class="badge">Production Ready v0.3.3</span>
       <h1>State Memory MCP</h1>
       <p>A deterministic, persistent workflow state graph server for AI agents. Track tasks, design decisions, and blockers locally to supercharge agent context and prevent session token memory bloat.</p>
       <div class="cta-group">
         <a href="#quickstart" class="btn-primary">Get Started</a>
         <a href="#calculator" class="btn-secondary">Calculate ROI</a>
+      </div>
+    </section>
+
+    <!-- Viewer Showcase Section -->
+    <section class="viewer-showcase">
+      <div class="viewer-preview-container">
+        <img src="viewer-screenshot.png" alt="State Memory MCP 3D Force-Directed Graph Viewer" class="viewer-preview-img">
+        <div class="viewer-caption">
+          <span>Interactive 3D Force-Directed Graph Visualizer</span>
+          <code>state-memory-mcp view</code>
+        </div>
       </div>
     </section>
     
@@ -90,6 +101,11 @@
           <div class="feature-icon" style="background: rgba(139, 92, 246, 0.1); color: #a78bfa;">🤝</div>
           <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Multi-Agent Blackboard</h3>
           <p style="font-size: 0.9rem;">Limits central LLM invocations to O(1) instead of O(N) by letting parallel subagents update and sync state directly on SQLite.</p>
+        </div>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <div class="feature-icon" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24;">📈</div>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Compounding Flywheel</h3>
+          <p style="font-size: 0.9rem;">Accumulating decisions and historical tasks builds deep project context. Future agents onboard faster and avoid repeating past design pitfalls.</p>
         </div>
       </div>
     </section>

@@ -37,6 +37,7 @@ AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within stric
 * **🔒 First-Hop Determinism**: Unlike probabilistic vector RAG (cosine similarity), `state-memory-mcp` graph queries use deterministic SQL/CTE traversals. This eliminates the "first-hop" retrieval error that propagates cascading hallucinations down multi-agent execution pipelines.
 * **🔗 Simplified Relationship Modeling**: Relationships are explicitly mapped with typed links (e.g. `blocks`, `produces`, `depends_on`). The server automatically validates dependencies and rejects circular reference loops, maintaining a clean, easily-navigable project structure.
 * **🤝 Supercharged Multi-Agent Collaboration**: When deploying parallel subagents (e.g., one writing code, one running tests, one scanning logs), they lack a shared memory pool. `state-memory-mcp` acts as a local blackboard (Shared Context Store) where all subagents publish decisions, tasks, and blocker updates, ensuring coordinate-level alignment without passing massive chat histories. This limits central LLM invocations to a constant $O(1)$ (Plan + Summarize) instead of scaling linearly $O(N)$ with task steps.
+* **📈 Compounding Memory Flywheel**: As you log more tasks, architectural decisions, and observations, the state memory transitions from a simple checklist into a rich repository of project intelligence. Future agents can trace the `decision_trail`, reuse established subgraphs, avoid repeating past failures (recorded as blockers/observations), and instantly query context snapshots to understand code rationale. The more context is recorded, the less onboarding/discovery overhead is required for new agents, creating a compounding productivity flywheel.
 
 ---
 
@@ -439,6 +440,8 @@ Prompts are reusable workflow templates that streamline agent interactions:
 ## Interactive 3D HTML Visualizer
 
 `state-memory-mcp` offers an interactive, dark-mode browser 3D visualization using WebGL/Three.js to explore your project's workflow state graph.
+
+![Interactive 3D Graph Visualizer](docs/viewer-screenshot.png)
 
 ### Viewing the Visualizer
 To generate and view the visualizer instantly in your default web browser, run:

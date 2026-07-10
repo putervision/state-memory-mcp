@@ -22,15 +22,3 @@ export class ValidationError extends StateGraphError {
     super(message, 'VALIDATION_ERROR', details);
   }
 }
-
-export class GitScannerError extends StateGraphError {
-  constructor(message: string, details?: any) {
-    super(message, 'GIT_SCANNER_ERROR', details);
-  }
-}
-
-export class McpServerError extends StateGraphError {
-  constructor(message: string, details?: any) {
-    super(message, 'MCP_SERVER_ERROR', details);
-  }
-}

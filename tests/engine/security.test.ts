@@ -1,7 +1,9 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { queryGraph } from '../../src/engine/utils.js';
+import { queryGraph } from '../../src/engine/query-raw.js';
 import { getProjectDbDir, closeAllDbs, getDb } from '../../src/engine/db.js';
 import { ValidationError, DatabaseError } from '../../src/utils/errors.js';
+import { backupProjectDb, restoreProjectDb } from '../../src/engine/backup.js';
+import { mergeProjectDb } from '../../src/engine/merge.js';
 
 describe('Security Hardening Tests', () => {
   afterAll(() => {
@@ -33,8 +35,11 @@ describe('Security Hardening Tests', () => {
         'SELECT load_extension("some_lib")',
         'SELECT LOAD_EXTENSION("some_lib")',
         'SELECT writefile("out.txt", "content")',
+        'SELECT readfile("in.txt")',
         'ATTACH DATABASE "malicious.db" AS mal',
+        'DETACH DATABASE mal',
         'SELECT fts3_tokenizer("test")',
+        'PRAGMA integrity_check',
       ];
 
       for (const payload of payloads) {
@@ -45,6 +50,14 @@ describe('Security Hardening Tests', () => {
           });
         }).toThrow(ValidationError);
       }
+    });
+
+    it('should allow valid words containing forbidden substrings due to word boundaries', () => {
+      const rows = queryGraph({
+        project: 'security-test-project',
+        sql: 'SELECT 1 as attachments, 2 as detaching',
+      });
+      expect(rows).toEqual([{ attachments: 1, detaching: 2 }]);
     });
   });
 
@@ -64,6 +77,33 @@ describe('Security Hardening Tests', () => {
       // Let's see if we can trigger the check by passing a project value that causes getProjectDbDir to fail or we can mock/test it.
       // Wait, we can test that standard project names resolve safely.
       expect(getProjectDbDir('normal-project')).toContain('normal-project');
+    });
+
+    it('should reject backupProjectDb with path traversal target', async () => {
+      await expect(async () => {
+        await backupProjectDb({
+          project: 'security-test-project',
+          outputPath: '../../../../etc/passwd',
+        });
+      }).rejects.toThrow(ValidationError);
+    });
+
+    it('should reject restoreProjectDb with path traversal target', () => {
+      expect(() => {
+        restoreProjectDb({
+          project: 'security-test-project',
+          backupPath: '../../../../etc/passwd',
+        });
+      }).toThrow(ValidationError);
+    });
+
+    it('should reject mergeProjectDb with path traversal target', () => {
+      expect(() => {
+        mergeProjectDb({
+          project: 'security-test-project',
+          sourcePath: '../../../../etc/passwd',
+        });
+      }).toThrow(Error); // validatePath throws ValidationError, which inherits from StateGraphError / Error
     });
   });
 });

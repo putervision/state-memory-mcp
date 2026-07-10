@@ -4,11 +4,11 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { closeAllDbs, getDb } from '../../src/engine/db.js';
 import { GraphEngine } from '../../src/engine/graph.js';
-import { 
-  scanGit, 
-  commitAlreadyProcessed, 
-  shouldCreateTask, 
-  detectHotFiles 
+import {
+  scanGit,
+  commitAlreadyProcessed,
+  shouldCreateTask,
+  detectHotFiles,
 } from '../../src/engine/git-scanner.js';
 import { GitCommit } from '../../src/schema/types.js';
 
@@ -91,9 +91,36 @@ describe('Git Scanner Engine', () => {
 
   it('should detect hot files correctly', () => {
     const mockCommits: GitCommit[] = [
-      { hash: '1', shortHash: '1', author: '', authorEmail: '', committedAt: '', subject: '', message: '', filesChanged: ['a.txt', 'b.txt'] },
-      { hash: '2', shortHash: '2', author: '', authorEmail: '', committedAt: '', subject: '', message: '', filesChanged: ['a.txt'] },
-      { hash: '3', shortHash: '3', author: '', authorEmail: '', committedAt: '', subject: '', message: '', filesChanged: ['a.txt', 'c.txt'] },
+      {
+        hash: '1',
+        shortHash: '1',
+        author: '',
+        authorEmail: '',
+        committedAt: '',
+        subject: '',
+        message: '',
+        filesChanged: ['a.txt', 'b.txt'],
+      },
+      {
+        hash: '2',
+        shortHash: '2',
+        author: '',
+        authorEmail: '',
+        committedAt: '',
+        subject: '',
+        message: '',
+        filesChanged: ['a.txt'],
+      },
+      {
+        hash: '3',
+        shortHash: '3',
+        author: '',
+        authorEmail: '',
+        committedAt: '',
+        subject: '',
+        message: '',
+        filesChanged: ['a.txt', 'c.txt'],
+      },
     ];
 
     expect(detectHotFiles(mockCommits, 2)).toContain('a.txt');
@@ -116,32 +143,38 @@ describe('Git Scanner Engine', () => {
 
     const db = getDb(project);
     const nodes = db.prepare('SELECT * FROM nodes WHERE project = ?').all(project) as any[];
-    expect(nodes.some(n => n.type === 'observation' && n.title.includes('feat: added awesome feature'))).toBe(true);
-    expect(nodes.some(n => n.type === 'task' && n.title.includes('Continue work on added awesome feature'))).toBe(true);
-    expect(nodes.some(n => n.type === 'artifact' && n.title === 'hot.txt')).toBe(true);
-    expect(nodes.some(n => n.type === 'artifact' && n.title === 'cold.txt')).toBe(false);
+    expect(
+      nodes.some((n) => n.type === 'observation' && n.title.includes('feat: added awesome feature'))
+    ).toBe(true);
+    expect(
+      nodes.some(
+        (n) => n.type === 'task' && n.title.includes('Continue work on added awesome feature')
+      )
+    ).toBe(true);
+    expect(nodes.some((n) => n.type === 'artifact' && n.title === 'hot.txt')).toBe(true);
+    expect(nodes.some((n) => n.type === 'artifact' && n.title === 'cold.txt')).toBe(false);
 
     const edges = db.prepare('SELECT * FROM edges WHERE project = ?').all(project) as any[];
-    expect(edges.some(e => e.type === 'extends')).toBe(true);
-    expect(edges.some(e => e.type === 'modifies')).toBe(true);
+    expect(edges.some((e) => e.type === 'extends')).toBe(true);
+    expect(edges.some((e) => e.type === 'modifies')).toBe(true);
   });
 
   it('should decouple observation and task creation, and heal links to milestone:core:v1', async () => {
     const db = getDb(project);
-    
+
     // First, run static scaffolding so milestone:core:v1 exists
     const coreMilestone = GraphEngine.addNode({
       project,
       type: 'milestone',
       title: 'Core Milestone',
-      metadata: { scaffold_key: 'milestone:core:v1' }
+      metadata: { scaffold_key: 'milestone:core:v1' },
     });
 
     // 1. Run git scan with createTasks = false
     const res1 = await scanGit(project, tempRepoDir, {
       commits: 10,
       createTasks: false,
-      createArtifacts: false
+      createArtifacts: false,
     });
 
     expect(res1.new_observations).toBe(4);
@@ -151,7 +184,7 @@ describe('Git Scanner Engine', () => {
     const res2 = await scanGit(project, tempRepoDir, {
       commits: 10,
       createTasks: true,
-      createArtifacts: false
+      createArtifacts: false,
     });
 
     // It should NOT create new observations, but should create the 3 tasks!
@@ -159,10 +192,14 @@ describe('Git Scanner Engine', () => {
     expect(res2.new_tasks).toBe(3);
 
     // Verify tasks are linked to milestone:core:v1 with 'part_of' edge
-    const edges = db.prepare(`
+    const edges = db
+      .prepare(
+        `
       SELECT * FROM edges 
       WHERE project = ? AND target_id = ? AND type = 'part_of'
-    `).all(project, coreMilestone.id) as any[];
+    `
+      )
+      .all(project, coreMilestone.id) as any[];
 
     expect(edges.length).toBe(3);
   });
@@ -212,7 +249,9 @@ describe('Git Scanner Engine', () => {
 
       // Init repo-a
       execSync('git init', { cwd: repoADir, stdio: 'ignore' });
-      try { execSync('git checkout -b main', { cwd: repoADir, stdio: 'ignore' }); } catch {}
+      try {
+        execSync('git checkout -b main', { cwd: repoADir, stdio: 'ignore' });
+      } catch {}
       execSync('git config user.name "Test User"', { cwd: repoADir, stdio: 'ignore' });
       execSync('git config user.email "test@example.com"', { cwd: repoADir, stdio: 'ignore' });
       fs.writeFileSync(path.join(repoADir, 'fileA.txt'), 'hello A', 'utf-8');
@@ -221,7 +260,9 @@ describe('Git Scanner Engine', () => {
 
       // Init repo-b
       execSync('git init', { cwd: repoBDir, stdio: 'ignore' });
-      try { execSync('git checkout -b main', { cwd: repoBDir, stdio: 'ignore' }); } catch {}
+      try {
+        execSync('git checkout -b main', { cwd: repoBDir, stdio: 'ignore' });
+      } catch {}
       execSync('git config user.name "Test User"', { cwd: repoBDir, stdio: 'ignore' });
       execSync('git config user.email "test@example.com"', { cwd: repoBDir, stdio: 'ignore' });
       fs.writeFileSync(path.join(repoBDir, 'fileB.txt'), 'hello B', 'utf-8');
@@ -257,21 +298,33 @@ describe('Git Scanner Engine', () => {
       const nodes = db.prepare('SELECT * FROM nodes WHERE project = ?').all(project) as any[];
 
       // Check observation node for repo-a
-      const obsA = nodes.find(n => n.type === 'observation' && n.title.includes('repo-a') && n.title.includes('commit in repo A'));
+      const obsA = nodes.find(
+        (n) =>
+          n.type === 'observation' &&
+          n.title.includes('repo-a') &&
+          n.title.includes('commit in repo A')
+      );
       expect(obsA).toBeDefined();
       const metaA = JSON.parse(obsA.metadata);
       expect(metaA.repo_path).toBe('repo-a');
       expect(metaA.files_changed).toContain('repo-a/fileA.txt');
 
       // Check observation node for repo-b
-      const obsB = nodes.find(n => n.type === 'observation' && n.title.includes('repo-b') && n.title.includes('commit in repo B'));
+      const obsB = nodes.find(
+        (n) =>
+          n.type === 'observation' &&
+          n.title.includes('repo-b') &&
+          n.title.includes('commit in repo B')
+      );
       expect(obsB).toBeDefined();
       const metaB = JSON.parse(obsB.metadata);
       expect(metaB.repo_path).toBe('repo-b');
       expect(metaB.files_changed).toContain('repo-b/fileB.txt');
 
       // Check task node for repo-a
-      const taskA = nodes.find(n => n.type === 'task' && n.title.includes('Continue work on commit in repo A (repo-a)'));
+      const taskA = nodes.find(
+        (n) => n.type === 'task' && n.title.includes('Continue work on commit in repo A (repo-a)')
+      );
       expect(taskA).toBeDefined();
     });
   });

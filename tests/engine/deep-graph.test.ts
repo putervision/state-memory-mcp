@@ -54,7 +54,7 @@ describe('Deep Graph CTE and Concurrency Tests', () => {
   it('should handle concurrent read and write operations gracefully using WAL mode', async () => {
     // Perform multiple read/write actions concurrently
     const promises: Promise<any>[] = [];
-    
+
     // Launch 20 concurrent inserts
     for (let i = 0; i < 20; i++) {
       promises.push(

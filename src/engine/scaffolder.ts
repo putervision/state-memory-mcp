@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { NodeType, EdgeType } from '../schema/types.js';
 import { GraphEngine } from './graph.js';
 import { EdgeEngine } from './edges.js';
-import { getDb, getProjectSlug } from './db.js';
+import { getProjectSlug } from './db.js';
 import { logger } from '../utils/logger.js';
 
 interface ScaffoldNodeTemplate {
@@ -22,6 +22,9 @@ interface ScaffoldEdgeTemplate {
   type: EdgeType;
 }
 
+/**
+ * Static baseline workflow node templates used during project initialization.
+ */
 export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
   {
     scaffold_key: 'plan:main:v1',
@@ -29,7 +32,7 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     title: 'Main Development Plan',
     status: 'active',
     tags: ['scaffold', 'plan'],
-    metadata: { description: 'Primary roadmap for the project development.' }
+    metadata: { description: 'Primary roadmap for the project development.' },
   },
   // Milestones
   {
@@ -38,7 +41,7 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     title: 'Project Setup & Scaffolding',
     status: 'in_progress',
     tags: ['scaffold', 'milestone'],
-    metadata: { description: 'Initial environment configuration and codebase baseline.' }
+    metadata: { description: 'Initial environment configuration and codebase baseline.' },
   },
   {
     scaffold_key: 'milestone:core:v1',
@@ -46,7 +49,7 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     title: 'Core Feature Development',
     status: 'upcoming',
     tags: ['scaffold', 'milestone'],
-    metadata: { description: 'Implementation of essential system functionality.' }
+    metadata: { description: 'Implementation of essential system functionality.' },
   },
   {
     scaffold_key: 'milestone:quality:v1',
@@ -54,7 +57,7 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     title: 'Quality Assurance & Testing',
     status: 'upcoming',
     tags: ['scaffold', 'milestone'],
-    metadata: { description: 'Linting, testing, CI pipelines, and overall code quality.' }
+    metadata: { description: 'Linting, testing, CI pipelines, and overall code quality.' },
   },
   // Default Tasks
   {
@@ -63,7 +66,7 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     title: 'Set up CI/CD pipeline',
     status: 'pending',
     tags: ['scaffold', 'task'],
-    metadata: { description: 'Automate build, test, and release checks.' }
+    metadata: { description: 'Automate build, test, and release checks.' },
   },
   {
     scaffold_key: 'task:testing:v1',
@@ -71,7 +74,7 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     title: 'Add automated testing framework',
     status: 'pending',
     tags: ['scaffold', 'task'],
-    metadata: { description: 'Configure unit and integration tests.' }
+    metadata: { description: 'Configure unit and integration tests.' },
   },
   {
     scaffold_key: 'task:linting:v1',
@@ -79,7 +82,7 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     title: 'Configure linting and formatting rules',
     status: 'pending',
     tags: ['scaffold', 'task'],
-    metadata: { description: 'Enforce code standards and styling configurations.' }
+    metadata: { description: 'Enforce code standards and styling configurations.' },
   },
   {
     scaffold_key: 'task:documentation:v1',
@@ -87,7 +90,7 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     title: 'Improve project documentation',
     status: 'pending',
     tags: ['scaffold', 'task'],
-    metadata: { description: 'Keep README, APIs, and plans up to date.' }
+    metadata: { description: 'Keep README, APIs, and plans up to date.' },
   },
   // Decision Templates
   {
@@ -98,17 +101,20 @@ export const STATIC_NODE_TEMPLATES: ScaffoldNodeTemplate[] = [
     tags: ['scaffold', 'decision'],
     metadata: {
       rationale: 'Base technology selection for robustness and developer speed.',
-      alternatives: 'Listed in design documentation.'
-    }
-  }
+      alternatives: 'Listed in design documentation.',
+    },
+  },
 ];
 
+/**
+ * Static baseline workflow edge templates linking scaffolded plan, milestones, and tasks.
+ */
 export const STATIC_EDGE_TEMPLATES: ScaffoldEdgeTemplate[] = [
   // Link Milestones to Main Plan
   { source_key: 'milestone:setup:v1', target_key: 'plan:main:v1', type: 'part_of' },
   { source_key: 'milestone:core:v1', target_key: 'plan:main:v1', type: 'part_of' },
   { source_key: 'milestone:quality:v1', target_key: 'plan:main:v1', type: 'part_of' },
-  
+
   // Link Tasks to Milestones
   { source_key: 'task:linting:v1', target_key: 'milestone:setup:v1', type: 'part_of' },
   { source_key: 'task:testing:v1', target_key: 'milestone:quality:v1', type: 'part_of' },
@@ -116,23 +122,37 @@ export const STATIC_EDGE_TEMPLATES: ScaffoldEdgeTemplate[] = [
   { source_key: 'task:documentation:v1', target_key: 'milestone:setup:v1', type: 'part_of' },
 
   // Link Decisions to setup
-  { source_key: 'decision:architecture:v1', target_key: 'milestone:setup:v1', type: 'decided_in' }
+  { source_key: 'decision:architecture:v1', target_key: 'milestone:setup:v1', type: 'decided_in' },
 ];
 
 /**
  * Runs static scaffolding to idempotently add baseline nodes and edges.
  */
-export async function runStaticScaffolder(projectSlug: string, db: Database.Database): Promise<void> {
+/**
+ * Runs static scaffolding to idempotently populate baseline plan, milestones, tasks, and decisions.
+ *
+ * @param projectSlug - The sanitized project slug.
+ * @param db - The better-sqlite3 Database connection.
+ * @returns A promise resolving when static scaffolding is complete.
+ */
+export async function runStaticScaffolder(
+  projectSlug: string,
+  db: Database.Database
+): Promise<void> {
   logger.info(`Running static scaffolding for project: ${projectSlug}`);
 
   const keyToIdMap = new Map<string, string>();
 
   // 1. Process Nodes
   for (const template of STATIC_NODE_TEMPLATES) {
-    const existingNode = db.prepare(`
+    const existingNode = db
+      .prepare(
+        `
       SELECT id FROM nodes 
       WHERE project = ? AND type = ? AND json_extract(metadata, '$.scaffold_key') = ?
-    `).get(projectSlug, template.type, template.scaffold_key) as { id: string } | undefined;
+    `
+      )
+      .get(projectSlug, template.type, template.scaffold_key) as { id: string } | undefined;
 
     if (existingNode) {
       keyToIdMap.set(template.scaffold_key, existingNode.id);
@@ -145,8 +165,8 @@ export async function runStaticScaffolder(projectSlug: string, db: Database.Data
         tags: template.tags,
         metadata: {
           ...template.metadata,
-          scaffold_key: template.scaffold_key
-        }
+          scaffold_key: template.scaffold_key,
+        },
       });
       keyToIdMap.set(template.scaffold_key, newNode.id);
       logger.info(`Scaffolded node: ${template.title} (${newNode.id})`);
@@ -163,10 +183,14 @@ export async function runStaticScaffolder(projectSlug: string, db: Database.Data
       continue;
     }
 
-    const edgeExists = db.prepare(`
+    const edgeExists = db
+      .prepare(
+        `
       SELECT 1 FROM edges
       WHERE project = ? AND source_id = ? AND target_id = ? AND type = ?
-    `).get(projectSlug, sourceId, targetId, edge.type);
+    `
+      )
+      .get(projectSlug, sourceId, targetId, edge.type);
 
     if (!edgeExists) {
       try {
@@ -174,7 +198,7 @@ export async function runStaticScaffolder(projectSlug: string, db: Database.Data
           project: projectSlug,
           source_id: sourceId,
           target_id: targetId,
-          type: edge.type
+          type: edge.type,
         });
         logger.info(`Scaffolded edge: ${edge.source_key} --${edge.type}--> ${edge.target_key}`);
       } catch (err: any) {
@@ -197,20 +221,36 @@ const TECH_STACK_CONFIGS: TechStackMatch[] = [
   { file: 'requirements.txt', tag: 'python' },
   { file: 'setup.py', tag: 'python' },
   { file: 'pom.xml', tag: 'java' },
-  { file: 'build.gradle', tag: 'java' }
+  { file: 'build.gradle', tag: 'java' },
 ];
 
 /**
  * Discovers technology stack configuration files and creates config Artifact nodes.
  */
-export async function runTechStackScaffolder(projectSlug: string, db: Database.Database, root: string): Promise<void> {
+/**
+ * Discovers technology stack configuration files in a directory and creates corresponding Artifact nodes.
+ *
+ * @param projectSlug - The sanitized project slug.
+ * @param db - The better-sqlite3 Database connection.
+ * @param root - The absolute path to the directory root to scan.
+ * @returns A promise resolving when tech stack discovery is complete.
+ */
+export async function runTechStackScaffolder(
+  projectSlug: string,
+  db: Database.Database,
+  root: string
+): Promise<void> {
   logger.info(`Running tech stack discovery in root: ${root}`);
 
   // Resolve Milestone Setup ID
-  const setupMilestone = db.prepare(`
+  const setupMilestone = db
+    .prepare(
+      `
     SELECT id FROM nodes 
     WHERE project = ? AND type = 'milestone' AND json_extract(metadata, '$.scaffold_key') = 'milestone:setup:v1'
-  `).get(projectSlug) as { id: string } | undefined;
+  `
+    )
+    .get(projectSlug) as { id: string } | undefined;
 
   for (const match of TECH_STACK_CONFIGS) {
     const fullPath = path.join(root, match.file);
@@ -219,10 +259,14 @@ export async function runTechStackScaffolder(projectSlug: string, db: Database.D
     }
 
     // Check if artifact node already exists for this file
-    let artNode = db.prepare(`
+    const artNode = db
+      .prepare(
+        `
       SELECT id FROM nodes
       WHERE project = ? AND type = 'artifact' AND title = ?
-    `).get(projectSlug, match.file) as { id: string } | undefined;
+    `
+      )
+      .get(projectSlug, match.file) as { id: string } | undefined;
 
     let artNodeId = artNode?.id;
 
@@ -234,9 +278,9 @@ export async function runTechStackScaffolder(projectSlug: string, db: Database.D
         status: 'current',
         metadata: {
           file_path: match.file,
-          source: 'scaffold'
+          source: 'scaffold',
         },
-        tags: ['scaffold', 'config-file', match.tag]
+        tags: ['scaffold', 'config-file', match.tag],
       });
       artNodeId = newNode.id;
       logger.info(`Scaffolded tech stack artifact: ${match.file} (${artNodeId})`);
@@ -244,10 +288,14 @@ export async function runTechStackScaffolder(projectSlug: string, db: Database.D
 
     // Link artifact to setup milestone
     if (setupMilestone && artNodeId) {
-      const edgeExists = db.prepare(`
+      const edgeExists = db
+        .prepare(
+          `
         SELECT 1 FROM edges
         WHERE project = ? AND source_id = ? AND target_id = ? AND type = 'produces'
-      `).get(projectSlug, setupMilestone.id, artNodeId);
+      `
+        )
+        .get(projectSlug, setupMilestone.id, artNodeId);
 
       if (!edgeExists) {
         try {
@@ -255,7 +303,7 @@ export async function runTechStackScaffolder(projectSlug: string, db: Database.D
             project: projectSlug,
             source_id: setupMilestone.id,
             target_id: artNodeId,
-            type: 'produces'
+            type: 'produces',
           });
           logger.info(`Linked setup milestone to artifact produces: ${match.file}`);
         } catch (err: any) {
@@ -266,6 +314,15 @@ export async function runTechStackScaffolder(projectSlug: string, db: Database.D
   }
 }
 
+/**
+ * Scaffolds standard Feature-Driven Development (FDD) design/build loops or RFC decision templates into the project graph.
+ *
+ * @param params - The template scaffolding parameters.
+ * @param params.project - Optional project identifier.
+ * @param params.template - The template type ('fdd' or 'rfc').
+ * @param params.name - The name of the feature or RFC (e.g. "User Authentication").
+ * @returns An object containing counts of nodes and edges created.
+ */
 export function scaffoldTemplate(params: {
   project?: string;
   template: 'fdd' | 'rfc';
@@ -288,7 +345,7 @@ export function scaffoldTemplate(params: {
       title: `Design: ${cleanName}`,
       status: 'pending',
       tags: ['fdd', 'design', cleanName.toLowerCase().replace(/\s+/g, '-')],
-      metadata: { description: `FDD Design phase for ${cleanName}` }
+      metadata: { description: `FDD Design phase for ${cleanName}` },
     });
     nodes_created++;
 
@@ -298,14 +355,14 @@ export function scaffoldTemplate(params: {
       title: `Build: ${cleanName}`,
       status: 'pending',
       tags: ['fdd', 'build', cleanName.toLowerCase().replace(/\s+/g, '-')],
-      metadata: { description: `FDD Build phase for ${cleanName}` }
+      metadata: { description: `FDD Build phase for ${cleanName}` },
     });
     nodes_created++;
 
     const tasksDesign = [
       `Feature Walkthrough: ${cleanName}`,
       `Design Session: ${cleanName}`,
-      `Design Inspection: ${cleanName}`
+      `Design Inspection: ${cleanName}`,
     ];
     for (const title of tasksDesign) {
       const task = GraphEngine.addNode({
@@ -314,7 +371,7 @@ export function scaffoldTemplate(params: {
         title,
         status: 'pending',
         tags: ['fdd', 'design', 'task'],
-        metadata: {}
+        metadata: {},
       });
       nodes_created++;
 
@@ -322,7 +379,7 @@ export function scaffoldTemplate(params: {
         project: projectSlug,
         source_id: task.id,
         target_id: milestoneDesign.id,
-        type: 'part_of'
+        type: 'part_of',
       });
       edges_created++;
     }
@@ -330,7 +387,7 @@ export function scaffoldTemplate(params: {
     const tasksBuild = [
       `Coding & Implementation: ${cleanName}`,
       `Code Inspection & Review: ${cleanName}`,
-      `Promote to Main: ${cleanName}`
+      `Promote to Main: ${cleanName}`,
     ];
     for (const title of tasksBuild) {
       const task = GraphEngine.addNode({
@@ -339,7 +396,7 @@ export function scaffoldTemplate(params: {
         title,
         status: 'pending',
         tags: ['fdd', 'build', 'task'],
-        metadata: {}
+        metadata: {},
       });
       nodes_created++;
 
@@ -347,7 +404,7 @@ export function scaffoldTemplate(params: {
         project: projectSlug,
         source_id: task.id,
         target_id: milestoneBuild.id,
-        type: 'part_of'
+        type: 'part_of',
       });
       edges_created++;
     }
@@ -356,10 +413,9 @@ export function scaffoldTemplate(params: {
       project: projectSlug,
       source_id: milestoneDesign.id,
       target_id: milestoneBuild.id,
-      type: 'blocks'
+      type: 'blocks',
     });
     edges_created++;
-
   } else if (params.template === 'rfc') {
     const decisionNode = GraphEngine.addNode({
       project: projectSlug,
@@ -367,7 +423,7 @@ export function scaffoldTemplate(params: {
       title: `RFC: ${cleanName}`,
       status: 'proposed',
       tags: ['rfc', cleanName.toLowerCase().replace(/\s+/g, '-')],
-      metadata: { rationale: 'RFC proposal for technical comment.' }
+      metadata: { rationale: 'RFC proposal for technical comment.' },
     });
     nodes_created++;
 
@@ -377,7 +433,7 @@ export function scaffoldTemplate(params: {
       title: `Draft RFC document for ${cleanName}`,
       status: 'pending',
       tags: ['rfc', 'task'],
-      metadata: {}
+      metadata: {},
     });
     nodes_created++;
 
@@ -387,7 +443,7 @@ export function scaffoldTemplate(params: {
       title: `Review RFC feedback for ${cleanName}`,
       status: 'pending',
       tags: ['rfc', 'task'],
-      metadata: {}
+      metadata: {},
     });
     nodes_created++;
 
@@ -397,7 +453,7 @@ export function scaffoldTemplate(params: {
       title: `Finalize RFC decision for ${cleanName}`,
       status: 'pending',
       tags: ['rfc', 'task'],
-      metadata: {}
+      metadata: {},
     });
     nodes_created++;
 
@@ -405,7 +461,7 @@ export function scaffoldTemplate(params: {
       project: projectSlug,
       source_id: taskDraft.id,
       target_id: taskReview.id,
-      type: 'blocks'
+      type: 'blocks',
     });
     edges_created++;
 
@@ -413,7 +469,7 @@ export function scaffoldTemplate(params: {
       project: projectSlug,
       source_id: taskReview.id,
       target_id: taskFinalize.id,
-      type: 'blocks'
+      type: 'blocks',
     });
     edges_created++;
 
@@ -421,7 +477,7 @@ export function scaffoldTemplate(params: {
       project: projectSlug,
       source_id: decisionNode.id,
       target_id: taskDraft.id,
-      type: 'blocks'
+      type: 'blocks',
     });
     edges_created++;
   }

@@ -4,6 +4,11 @@ import {
   ErrorCode,
   ListToolsRequestSchema,
   McpError,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   AddNodeSchema,
@@ -33,6 +38,8 @@ import {
   FindRelatedDecisionsSchema,
   FindBlockedTasksSchema,
   ScaffoldTemplateSchema,
+  ValueMetricsSchema,
+  ParseResult,
 } from './schema/schemas.js';
 import { GraphEngine } from './engine/graph.js';
 import { EdgeEngine } from './engine/edges.js';
@@ -40,10 +47,31 @@ import { QueryEngine } from './engine/queries.js';
 import { AnalyticsEngine } from './engine/analytics.js';
 import { scaffoldTemplate } from './engine/scaffolder.js';
 import { getDb, getProjectSlug } from './engine/db.js';
-import { queryGraph, exportGraph, importGraph, backupProjectDb, restoreProjectDb, auditProjectDb, mergeProjectDb } from './engine/utils.js';
+import { exportGraph } from './engine/export.js';
+import { importGraph } from './engine/import.js';
+import { backupProjectDb, restoreProjectDb } from './engine/backup.js';
+import { auditProjectDb } from './engine/audit.js';
+import { mergeProjectDb } from './engine/merge.js';
+import { queryGraph } from './engine/query-raw.js';
 import { logger } from './utils/logger.js';
 import { VERSION } from './utils/version.js';
 
+function parseArgs<T>(schema: { safeParse: (args: any) => ParseResult<T> }, args: any): T {
+  const parsed = schema.safeParse(args);
+  if (!parsed.success || !parsed.data) {
+    const errorMsg = parsed.error?.errors.map((e) => e.message).join(', ') || 'Unknown validation error';
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `Invalid parameters: ${errorMsg}`
+    );
+  }
+  return parsed.data;
+}
+
+/**
+ * The Model Context Protocol (MCP) server instance for the state-graph-mcp toolset.
+ * Exposes graph database operations, analytics, git scanning, and scaffolding tools.
+ */
 export const server = new Server(
   {
     name: 'state-graph-mcp',
@@ -52,15 +80,22 @@ export const server = new Server(
   {
     capabilities: {
       tools: {},
+      resources: { subscribe: false, listChanged: false },
+      prompts: { listChanged: false },
     },
+    instructions: `This server provides a workflow state graph to track tasks, decisions, blockers, artifacts, plans, and milestones.
+Recommended workflow:
+1. Always start by fetching the project summary via 'get_project_summary' or reading the summary resource 'state-graph:///{project}/summary'.
+2. Check for active blockers using 'find_blockers' or the blockers resource 'state-graph:///{project}/blockers'.
+3. Create new task, decision, and blocker nodes as you make progress, and link them using 'add_edge' relationships.
+4. Keep the graph updated by changing task statuses to 'done' and marking resolved blockers.`,
   }
 );
 
 // Register tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      {
+  const tools = [
+    {
         name: 'add_node',
         description: 'Create a new node in the workflow graph (e.g. task, decision, artifact, plan, blocker, milestone, observation).',
         inputSchema: {
@@ -492,7 +527,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'import_graph',
-        description: 'Bulk import nodes and edges (replaces existing project data).',
+        description: 'Bulk import nodes and edges (replaces existing project data, requires force parameter if data exists).',
         inputSchema: {
           type: 'object',
           properties: {
@@ -509,6 +544,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'array',
               items: { type: 'object' },
               description: 'List of edge objects.',
+            },
+            force: {
+              type: 'boolean',
+              description: 'Force overwrite if the database already contains nodes or edges.',
             },
           },
           required: ['nodes', 'edges'],
@@ -679,13 +718,50 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['template', 'name'],
         },
       },
-    ],
-  };
-});
+      {
+        name: 'value_metrics',
+        description: 'Retrieve ROI and productivity health metrics for a project (e.g. estimated time and tokens saved, graph health).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+          },
+        },
+      },
+    ];
+
+    return {
+      tools: tools.map(t => {
+        const title = t.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const isDestructive = ['remove_node', 'remove_edge', 'restore_project_db', 'import_graph'].includes(t.name);
+        const isReadOnly = [
+          'get_node', 'list_nodes', 'search_nodes', 'get_subgraph', 'trace_dependencies',
+          'find_blockers', 'get_project_summary', 'decision_trail', 'critical_path',
+          'impact_analysis', 'detect_contradictions', 'export_graph', 'query_graph',
+          'backup_project_db', 'audit_project_db', 'get_context_snapshot',
+          'find_related_decisions', 'find_blocked_tasks', 'value_metrics'
+        ].includes(t.name);
+
+        return {
+          ...t,
+          title,
+          annotations: {
+            readOnlyHint: isReadOnly,
+            destructiveHint: isDestructive,
+            openWorldHint: false
+          }
+        };
+      })
+    };
+  });
 
 function suggestLinks(projectSlug: string, node: any) {
   try {
     const db = getDb(projectSlug);
+    const suggestions: string[] = [];
     if (node.type === 'decision') {
       const recentTasks = db.prepare(`
         SELECT id, title FROM nodes 
@@ -693,9 +769,9 @@ function suggestLinks(projectSlug: string, node: any) {
         ORDER BY updated_at DESC LIMIT 3
       `).all(projectSlug) as any[];
       if (recentTasks.length > 0) {
-        logger.info(`[SUGGESTION] Created/updated decision "${node.title}" (${node.id}). Consider linking it to pending tasks using add_edge (type: 'decided_in' or 'blocks'):`);
+        suggestions.push(`Consider linking decision "${node.title}" (${node.id}) to pending tasks using add_edge (type: 'decided_in' or 'blocks'):`);
         for (const t of recentTasks) {
-          logger.info(`  - Task: "${t.title}" (ID: ${t.id})`);
+          suggestions.push(`- Task: "${t.title}" (ID: ${t.id})`);
         }
       }
     } else if (node.type === 'task') {
@@ -705,423 +781,195 @@ function suggestLinks(projectSlug: string, node: any) {
         ORDER BY updated_at DESC LIMIT 3
       `).all(projectSlug) as any[];
       if (recentDecisions.length > 0) {
-        logger.info(`[SUGGESTION] Created/updated task "${node.title}" (${node.id}). Did this task originate from a decision? Consider linking them via decided_in:`);
+        suggestions.push(`Did task "${node.title}" (${node.id}) originate from a decision? Consider linking them via decided_in:`);
         for (const d of recentDecisions) {
-          logger.info(`  - Decision: "${d.title}" (ID: ${d.id})`);
+          suggestions.push(`- Decision: "${d.title}" (ID: ${d.id})`);
         }
       }
+    }
+    if (suggestions.length > 0) {
+      node._suggestions = suggestions;
     }
   } catch {
     // Ignore suggestion errors
   }
 }
 
+const toolHandlers: Record<string, (args: any) => Promise<any> | any> = {
+  add_node: (args) => {
+    const data = parseArgs(AddNodeSchema, args);
+    const node = GraphEngine.addNode(data);
+    suggestLinks(node.project, node);
+    return node;
+  },
+  update_node: (args) => {
+    const data = parseArgs(UpdateNodeSchema, args);
+    const node = GraphEngine.updateNode(data);
+    if (!node) {
+      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
+    }
+    suggestLinks(node.project, node);
+    return node;
+  },
+  get_node: (args) => {
+    const data = parseArgs(GetNodeSchema, args);
+    const result = GraphEngine.getNode(data);
+    if (!result) {
+      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
+    }
+    return result;
+  },
+  remove_node: (args) => {
+    const data = parseArgs(RemoveNodeSchema, args);
+    const result = GraphEngine.removeNode(data);
+    if (!result) {
+      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
+    }
+    return result;
+  },
+  add_edge: (args) => {
+    const data = parseArgs(AddEdgeSchema, args);
+    return EdgeEngine.addEdge(data);
+  },
+  remove_edge: (args) => {
+    const data = parseArgs(RemoveEdgeSchema, args);
+    const result = EdgeEngine.removeEdge(data);
+    if (!result) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        `Edge not found: relationship from ${data.source_id} to ${data.target_id} of type ${data.type}`
+      );
+    }
+    return { removed: true };
+  },
+  list_nodes: (args) => {
+    const data = parseArgs(ListNodesSchema, args);
+    return QueryEngine.listNodes(data);
+  },
+  search_nodes: (args) => {
+    const data = parseArgs(SearchNodesSchema, args);
+    return QueryEngine.searchNodes(data);
+  },
+  get_subgraph: (args) => {
+    const data = parseArgs(GetSubgraphSchema, args);
+    return QueryEngine.getSubgraph(data);
+  },
+  trace_dependencies: (args) => {
+    const data = parseArgs(TraceDependenciesSchema, args);
+    return AnalyticsEngine.traceDependencies({
+      ...data,
+      direction: data.direction as 'upstream' | 'downstream',
+    });
+  },
+  find_blockers: (args) => {
+    const data = parseArgs(FindBlockersSchema, args);
+    return AnalyticsEngine.findBlockers(data);
+  },
+  get_project_summary: (args) => {
+    const data = parseArgs(GetProjectSummarySchema, args);
+    return AnalyticsEngine.getProjectSummary(data);
+  },
+  decision_trail: (args) => {
+    const data = parseArgs(DecisionTrailSchema, args);
+    return AnalyticsEngine.decisionTrail(data);
+  },
+  critical_path: (args) => {
+    const data = parseArgs(CriticalPathSchema, args);
+    return AnalyticsEngine.criticalPath(data);
+  },
+  impact_analysis: (args) => {
+    const data = parseArgs(ImpactAnalysisSchema, args);
+    return AnalyticsEngine.impactAnalysis(data);
+  },
+  detect_contradictions: (args) => {
+    const data = parseArgs(DetectContradictionsSchema, args);
+    return AnalyticsEngine.detectContradictions(data);
+  },
+  export_graph: (args) => {
+    const data = parseArgs(ExportGraphSchema, args);
+    return exportGraph(data);
+  },
+  import_graph: (args) => {
+    const data = parseArgs(ImportGraphSchema, args);
+    return importGraph(data);
+  },
+  query_graph: (args) => {
+    const data = parseArgs(QueryGraphSchema, args);
+    return queryGraph(data);
+  },
+  backup_project_db: async (args) => {
+    const data = parseArgs(BackupProjectDbSchema, args);
+    const path = await backupProjectDb(data);
+    return `Backup completed successfully! Saved to: ${path}`;
+  },
+  restore_project_db: (args) => {
+    const data = parseArgs(RestoreProjectDbSchema, args);
+    restoreProjectDb(data);
+    return `Database restored successfully from: ${data.backupPath}`;
+  },
+  audit_project_db: (args) => {
+    const data = parseArgs(AuditProjectDbSchema, args);
+    return auditProjectDb(data);
+  },
+  merge_project_db: (args) => {
+    const data = parseArgs(MergeProjectDbSchema, args);
+    return mergeProjectDb(data);
+  },
+  get_context_snapshot: (args) => {
+    const data = parseArgs(GetContextSnapshotSchema, args);
+    const result = AnalyticsEngine.getContextSnapshot(data);
+    return {
+      content: [
+        { type: 'text', text: JSON.stringify(result, null, 2) },
+        { type: 'text', text: result.formatted_summary }
+      ]
+    };
+  },
+  find_related_decisions: (args) => {
+    const data = parseArgs(FindRelatedDecisionsSchema, args);
+    return AnalyticsEngine.findRelatedDecisions(data);
+  },
+  find_blocked_tasks: (args) => {
+    const data = parseArgs(FindBlockedTasksSchema, args);
+    return AnalyticsEngine.findBlockedTasks(data);
+  },
+  scaffold_template: (args) => {
+    const data = parseArgs(ScaffoldTemplateSchema, args);
+    return scaffoldTemplate({
+      ...data,
+      template: data.template as 'fdd' | 'rfc',
+    });
+  },
+  value_metrics: (args) => {
+    const data = parseArgs(ValueMetricsSchema, args);
+    const result = AnalyticsEngine.valueMetrics(data);
+    return {
+      content: [
+        { type: 'text', text: JSON.stringify(result, null, 2) },
+        { type: 'text', text: result.markdown_summary }
+      ]
+    };
+  },
+};
+
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
+  const handler = toolHandlers[name];
+  if (!handler) {
+    throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+  }
+
   try {
-    switch (name) {
-      case 'add_node': {
-        const parsed = AddNodeSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const node = GraphEngine.addNode(parsed.data);
-        suggestLinks(node.project, node);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(node, null, 2) }],
-        };
-      }
-
-      case 'update_node': {
-        const parsed = UpdateNodeSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const node = GraphEngine.updateNode(parsed.data);
-        if (!node) {
-          throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${parsed.data.id}`);
-        }
-        suggestLinks(node.project, node);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(node, null, 2) }],
-        };
-      }
-
-      case 'get_node': {
-        const parsed = GetNodeSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = GraphEngine.getNode(parsed.data);
-        if (!result) {
-          throw new McpError(
-            ErrorCode.InvalidRequest,
-            `Node not found: ${parsed.data.id}`
-          );
-        }
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'remove_node': {
-        const parsed = RemoveNodeSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = GraphEngine.removeNode(parsed.data);
-        if (!result) {
-          throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${parsed.data.id}`);
-        }
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'add_edge': {
-        const parsed = AddEdgeSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const edge = EdgeEngine.addEdge(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(edge, null, 2) }],
-        };
-      }
-
-      case 'remove_edge': {
-        const parsed = RemoveEdgeSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const removed = EdgeEngine.removeEdge(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify({ removed }, null, 2) }],
-        };
-      }
-
-      case 'list_nodes': {
-        const parsed = ListNodesSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = QueryEngine.listNodes(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'search_nodes': {
-        const parsed = SearchNodesSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = QueryEngine.searchNodes(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'get_subgraph': {
-        const parsed = GetSubgraphSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = QueryEngine.getSubgraph(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'trace_dependencies': {
-        const parsed = TraceDependenciesSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.traceDependencies(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'find_blockers': {
-        const parsed = FindBlockersSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.findBlockers(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'get_project_summary': {
-        const parsed = GetProjectSummarySchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.getProjectSummary(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'decision_trail': {
-        const parsed = DecisionTrailSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.decisionTrail(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'critical_path': {
-        const parsed = CriticalPathSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.criticalPath(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'impact_analysis': {
-        const parsed = ImpactAnalysisSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.impactAnalysis(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'detect_contradictions': {
-        const parsed = DetectContradictionsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.detectContradictions(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'export_graph': {
-        const parsed = ExportGraphSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = exportGraph(parsed.data);
-        return {
-          content: [{ type: 'text', text: result }],
-        };
-      }
-
-      case 'import_graph': {
-        const parsed = ImportGraphSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = importGraph(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'query_graph': {
-        const parsed = QueryGraphSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = queryGraph(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'backup_project_db': {
-        const parsed = BackupProjectDbSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = await backupProjectDb(parsed.data);
-        return {
-          content: [{ type: 'text', text: `Backup completed successfully! Saved to: ${result}` }],
-        };
-      }
-
-      case 'restore_project_db': {
-        const parsed = RestoreProjectDbSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        restoreProjectDb(parsed.data);
-        return {
-          content: [{ type: 'text', text: `Database restored successfully from: ${parsed.data.backupPath}` }],
-        };
-      }
-
-      case 'audit_project_db': {
-        const parsed = AuditProjectDbSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = auditProjectDb(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'merge_project_db': {
-        const parsed = MergeProjectDbSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = mergeProjectDb(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'get_context_snapshot': {
-        const parsed = GetContextSnapshotSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.getContextSnapshot(parsed.data);
-        return {
-          content: [
-            { type: 'text', text: JSON.stringify(result, null, 2) },
-            { type: 'text', text: result.formatted_summary }
-          ],
-        };
-      }
-
-      case 'find_related_decisions': {
-        const parsed = FindRelatedDecisionsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.findRelatedDecisions(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'find_blocked_tasks': {
-        const parsed = FindBlockedTasksSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = AnalyticsEngine.findBlockedTasks(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      case 'scaffold_template': {
-        const parsed = ScaffoldTemplateSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            `Invalid parameters: ${parsed.error.errors.map((e) => e.message).join(', ')}`
-          );
-        }
-        const result = scaffoldTemplate(parsed.data);
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        };
-      }
-
-      default:
-        throw new McpError(
-          ErrorCode.MethodNotFound,
-          `Unknown tool: ${name}`
-        );
+    const result = await handler(args);
+    if (result && typeof result === 'object' && 'content' in result) {
+      return result;
     }
+    const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+    
+    return {
+      content: [{ type: 'text', text }],
+    };
   } catch (error: any) {
     logger.error(`Error executing tool ${name}:`, error);
     if (error instanceof McpError) {
@@ -1129,11 +977,248 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     throw new McpError(
       ErrorCode.InternalError,
-      error.message || 'Internal server error'
+      error instanceof Error ? error.message : String(error)
     );
   }
 });
 
-export { GraphEngine };
-export { closeAllDbs };
+// Register Resource handlers
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  const projectSlug = getProjectSlug();
+  return {
+    resources: [
+      {
+        uri: `state-graph:///${projectSlug}/summary`,
+        name: `${projectSlug} Summary`,
+        mimeType: 'application/json',
+        description: 'High-level project state overview'
+      },
+      {
+        uri: `state-graph:///${projectSlug}/blockers`,
+        name: `${projectSlug} Active Blockers`,
+        mimeType: 'application/json',
+        description: 'Currently active blocker nodes'
+      },
+      {
+        uri: `state-graph:///${projectSlug}/decisions`,
+        name: `${projectSlug} Decision Log`,
+        mimeType: 'application/json',
+        description: 'Recent accepted decisions'
+      },
+      {
+        uri: `state-graph:///${projectSlug}/graph.json`,
+        name: `${projectSlug} Graph Export (JSON)`,
+        mimeType: 'application/json',
+        description: 'Full node/edge graph export'
+      }
+    ]
+  };
+});
 
+server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  return {
+    resourceTemplates: [
+      {
+        uriTemplate: 'state-graph:///{project}/summary',
+        name: 'Project Summary Template',
+        description: 'URI template for high-level project summary'
+      },
+      {
+        uriTemplate: 'state-graph:///{project}/blockers',
+        name: 'Project Active Blockers Template',
+        description: 'URI template for currently active blocker nodes'
+      },
+      {
+        uriTemplate: 'state-graph:///{project}/decisions',
+        name: 'Project Decision Log Template',
+        description: 'URI template for recent accepted decisions'
+      },
+      {
+        uriTemplate: 'state-graph:///{project}/graph.json',
+        name: 'Project Graph Export Template',
+        description: 'URI template for full node/edge graph export'
+      }
+    ]
+  };
+});
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params;
+  const match = uri.match(/^state-graph:\/\/\/([a-zA-Z0-9-_]+)\/(summary|blockers|decisions|graph\.json)$/);
+  if (!match) {
+    throw new McpError(ErrorCode.InvalidRequest, `Invalid resource URI: ${uri}`);
+  }
+
+  const projectSlug = match[1];
+  const resourceType = match[2];
+
+  let text = '';
+  if (resourceType === 'summary') {
+    const data = AnalyticsEngine.getProjectSummary({ project: projectSlug });
+    text = JSON.stringify(data, null, 2);
+  } else if (resourceType === 'blockers') {
+    const data = AnalyticsEngine.findBlockers({ project: projectSlug });
+    text = JSON.stringify(data, null, 2);
+  } else if (resourceType === 'decisions') {
+    const data = QueryEngine.listNodes({ project: projectSlug, type: 'decision', status: 'accepted' });
+    text = JSON.stringify(data.nodes, null, 2);
+  } else if (resourceType === 'graph.json') {
+    const data = exportGraph({ project: projectSlug, format: 'json' });
+    text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  }
+
+  return {
+    contents: [
+      {
+        uri,
+        mimeType: 'application/json',
+        text
+      }
+    ]
+  };
+});
+
+// Register Prompt handlers
+server.setRequestHandler(ListPromptsRequestSchema, async () => {
+  return {
+    prompts: [
+      {
+        name: 'session-start',
+        description: 'Generate session startup context: summary + blockers + pending tasks',
+        arguments: [
+          {
+            name: 'project',
+            description: 'Optional project identifier',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'plan-feature',
+        description: 'Guide creating a Feature-Driven Development (FDD) scaffold',
+        arguments: [
+          {
+            name: 'feature_name',
+            description: 'The name of the feature to plan',
+            required: true
+          },
+          {
+            name: 'project',
+            description: 'Optional project identifier',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'review-decisions',
+        description: 'Review recent decisions and check for logical contradictions',
+        arguments: [
+          {
+            name: 'project',
+            description: 'Optional project identifier',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'triage-blockers',
+        description: 'Analyze blockers and suggest resolution strategies',
+        arguments: [
+          {
+            name: 'project',
+            description: 'Optional project identifier',
+            required: false
+          }
+        ]
+      }
+    ]
+  };
+});
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+  const projectSlug = getProjectSlug(args?.project);
+
+  if (name === 'session-start') {
+    const snapshot = AnalyticsEngine.getContextSnapshot({ project: projectSlug });
+    return {
+      description: 'Startup session overview',
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Here is the current state-graph-mcp workflow status for project "${projectSlug}":\n\n${snapshot.formatted_summary}\n\nPlease review these blockers and pending tasks to determine the next work steps.`
+          }
+        }
+      ]
+    };
+  }
+
+  if (name === 'plan-feature') {
+    const featureName = args?.feature_name;
+    if (!featureName) {
+      throw new McpError(ErrorCode.InvalidParams, 'Argument feature_name is required');
+    }
+    return {
+      description: `Planning scaffold for feature: ${featureName}`,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `I need to plan the implementation of the feature: "${featureName}".\n\nUsing the state-graph-mcp toolset, guide me through:\n1. Creating a milestone node for this feature.\n2. Decomposing it into task nodes with estimated hours.\n3. Linking them using depends_on/part_of edges.\n4. Defining any upfront design decisions.`
+          }
+        }
+      ]
+    };
+  }
+
+  if (name === 'review-decisions') {
+    const summary = AnalyticsEngine.getProjectSummary({ project: projectSlug });
+    const contradictions = AnalyticsEngine.detectContradictions({ project: projectSlug });
+    
+    let contradictionsText = 'No contradictions detected!';
+    const totalAnomalies = contradictions.blocked_done_tasks.length + contradictions.contradicting_decisions.length;
+    if (totalAnomalies > 0) {
+      contradictionsText = `Detected ${totalAnomalies} logical anomalies:\n` +
+        contradictions.blocked_done_tasks.map(t => `- Task "${t.task.title}" is done but blocked by "${t.blocker.title}"`).join('\n') + '\n' +
+        contradictions.contradicting_decisions.map(d => `- Decision "${d.decision1.title}" contradicts decision "${d.decision2.title}"`).join('\n');
+    }
+
+    return {
+      description: 'Decision log and contradictions audit',
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please review the decision log for project "${projectSlug}".\n\nAccepted Decisions:\n${JSON.stringify(summary.recent_decisions, null, 2)}\n\nLogical Contradictions:\n${contradictionsText}\n\nSuggest any updates or corrections needed.`
+          }
+        }
+      ]
+    };
+  }
+
+  if (name === 'triage-blockers') {
+    const blockers = AnalyticsEngine.findBlockers({ project: projectSlug });
+    const blockersText = blockers.length > 0
+      ? blockers.map(b => `- Blocker: "${b.blocker_node.title}" (Status: ${b.blocker_node.status})\n  Blocks: ${b.blocked_nodes.map(n => `"${n.node.title}" (depth ${n.depth})`).join(', ')}`).join('\n')
+      : 'No active blockers!';
+
+    return {
+      description: 'Triage active blockers',
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `I need to triage the active blockers for project "${projectSlug}".\n\nActive Blockers:\n${blockersText}\n\nHelp me analyze the critical path and suggest mitigation strategies to resolve these blockers.`
+          }
+        }
+      ]
+    };
+  }
+
+  throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${name}`);
+});

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { isGitRepo, parseConventionalCommit, getCommitLog, getFilesChanged } from '../../src/utils/git.js';
+import { parseConventionalCommit, getCommitLog, getFilesChanged } from '../../src/utils/git.js';
 
 describe('Git Utilities', () => {
   const tempDir = path.resolve('./temp-git-test-repo');
@@ -38,11 +38,6 @@ describe('Git Utilities', () => {
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
-  });
-
-  it('should detect if a directory is a git repo', () => {
-    expect(isGitRepo(tempDir)).toBe(true);
-    expect(isGitRepo('/')).toBe(false);
   });
 
   it('should parse conventional commit messages correctly', () => {

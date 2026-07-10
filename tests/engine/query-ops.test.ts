@@ -116,7 +116,7 @@ describe('QueryEngine Operations', () => {
     it('should update FTS index automatically via triggers on node update', () => {
       // Find node 2
       const list = QueryEngine.listNodes({ project, type: 'task' });
-      const nodeToUpdate = list.nodes.find(n => n.title.includes('Authentication'))!;
+      const nodeToUpdate = list.nodes.find((n) => n.title.includes('Authentication'))!;
 
       GraphEngine.updateNode({
         project,
@@ -135,8 +135,8 @@ describe('QueryEngine Operations', () => {
     it('should retrieve a node and its N-hop neighbors', () => {
       // API auth routes (node 2) depends_on Database schema (node 1) decided_in Use ULID (node 3)
       const list = QueryEngine.listNodes({ project, type: 'task' });
-      const node1 = list.nodes.find(n => n.title.includes('Schema'))!;
-      const node2 = list.nodes.find(n => n.title.includes('Authentication'))!;
+      const node1 = list.nodes.find((n) => n.title.includes('Schema'))!;
+      const node2 = list.nodes.find((n) => n.title.includes('Authentication'))!;
       const node3 = QueryEngine.listNodes({ project, type: 'decision' }).nodes[0];
 
       // Get 1-hop subgraph of node 1
@@ -150,7 +150,7 @@ describe('QueryEngine Operations', () => {
       expect(sub.nodes.length).toBe(3);
       expect(sub.edges.length).toBe(2);
 
-      const nodeIds = sub.nodes.map(n => n.id);
+      const nodeIds = sub.nodes.map((n) => n.id);
       expect(nodeIds).toContain(node1.id);
       expect(nodeIds).toContain(node2.id);
       expect(nodeIds).toContain(node3.id);

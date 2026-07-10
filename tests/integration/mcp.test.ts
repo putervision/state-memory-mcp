@@ -15,7 +15,7 @@ describe('MCP Server Integration Tests', () => {
     db.prepare('DELETE FROM nodes').run();
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    
+
     client = new Client(
       {
         name: 'test-client',
@@ -27,10 +27,7 @@ describe('MCP Server Integration Tests', () => {
     );
 
     // Connect client and server in-process
-    await Promise.all([
-      server.connect(serverTransport),
-      client.connect(clientTransport),
-    ]);
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   });
 
   afterAll(async () => {
@@ -42,9 +39,10 @@ describe('MCP Server Integration Tests', () => {
   it('should list available tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(27);
-    
-    const toolNames = tools.tools.map(t => t.name);
+    expect(tools.tools.length).toBe(28);
+
+    const toolNames = tools.tools.map((t) => t.name);
+    expect(toolNames).toContain('value_metrics');
     expect(toolNames).toContain('scaffold_template');
     expect(toolNames).toContain('add_node');
     expect(toolNames).toContain('update_node');
@@ -118,7 +116,7 @@ describe('MCP Server Integration Tests', () => {
     const updatedNode = JSON.parse((updateNodeResult.content[0] as any).text);
     expect(updatedNode.status).toBe('blocked');
     expect(updatedNode.metadata.priority).toBe('high'); // Kept original
-    expect(updatedNode.metadata.estimate).toBe('2h');   // Merged new
+    expect(updatedNode.metadata.estimate).toBe('2h'); // Merged new
 
     // 4. Link Node and Blocker with Edge
     const addEdgeResult = await client.callTool({

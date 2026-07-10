@@ -5,7 +5,9 @@ import * as fs from 'fs';
 import { GraphEngine } from '../../src/engine/graph.js';
 import { EdgeEngine } from '../../src/engine/edges.js';
 import { closeAllDbs, getDb, getDbPath, closeDb } from '../../src/engine/db.js';
-import { backupProjectDb, restoreProjectDb, auditProjectDb, mergeProjectDb } from '../../src/engine/utils.js';
+import { backupProjectDb, restoreProjectDb } from '../../src/engine/backup.js';
+import { auditProjectDb } from '../../src/engine/audit.js';
+import { mergeProjectDb } from '../../src/engine/merge.js';
 
 describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
   const targetProject = 'test-db-ops-target';
@@ -56,8 +58,12 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
 
     // Verify backup DB contents directly
     const backupDb = new Database(backupPath, { readonly: true });
-    const nodesCount = backupDb.prepare('SELECT COUNT(*) as count FROM nodes').get() as { count: number };
-    const edgesCount = backupDb.prepare('SELECT COUNT(*) as count FROM edges').get() as { count: number };
+    const nodesCount = backupDb.prepare('SELECT COUNT(*) as count FROM nodes').get() as {
+      count: number;
+    };
+    const edgesCount = backupDb.prepare('SELECT COUNT(*) as count FROM edges').get() as {
+      count: number;
+    };
     backupDb.close();
 
     expect(nodesCount.count).toBe(2);
@@ -73,14 +79,18 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
 
     // Verify target DB has 3 nodes now
     const targetDbBeforeRestore = getDb(targetProject);
-    expect((targetDbBeforeRestore.prepare('SELECT COUNT(*) as count FROM nodes').get() as any).count).toBe(3);
+    expect(
+      (targetDbBeforeRestore.prepare('SELECT COUNT(*) as count FROM nodes').get() as any).count
+    ).toBe(3);
 
     // 4. Restore target DB from backup
     restoreProjectDb({ project: targetProject, backupPath });
 
     // Verify target DB is back to 2 nodes
     const targetDbAfterRestore = getDb(targetProject);
-    expect((targetDbAfterRestore.prepare('SELECT COUNT(*) as count FROM nodes').get() as any).count).toBe(2);
+    expect(
+      (targetDbAfterRestore.prepare('SELECT COUNT(*) as count FROM nodes').get() as any).count
+    ).toBe(2);
 
     // Cleanup backup file
     if (fs.existsSync(backupPath)) {
@@ -112,15 +122,19 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
 
     // Directly insert the cycle bypass graph validation
     const db = getDb(targetProject);
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO edges (id, source_id, target_id, type, project, git_branch, created_at)
       VALUES ('edge-1', ?, ?, 'blocks', ?, 'main', '2026-07-08T10:00:00Z')
-    `).run(nodeA.id, nodeB.id, targetProject);
+    `
+    ).run(nodeA.id, nodeB.id, targetProject);
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO edges (id, source_id, target_id, type, project, git_branch, created_at)
       VALUES ('edge-2', ?, ?, 'blocks', ?, 'main', '2026-07-08T10:00:00Z')
-    `).run(nodeB.id, nodeA.id, targetProject);
+    `
+    ).run(nodeB.id, nodeA.id, targetProject);
 
     // Audit and verify cycle detected
     const reportCycle = auditProjectDb({ project: targetProject });
@@ -141,10 +155,12 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
       status: 'active',
     });
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO edges (id, source_id, target_id, type, project, git_branch, created_at)
       VALUES ('edge-3', ?, ?, 'blocks', ?, 'main', '2026-07-08T10:00:00Z')
-    `).run(nodeD.id, nodeC.id, targetProject);
+    `
+    ).run(nodeD.id, nodeC.id, targetProject);
 
     // Audit and verify contradiction detected
     const reportContradiction = auditProjectDb({ project: targetProject });
@@ -163,22 +179,32 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
     });
     // Set target node updated_at back in time
     const dbTarget = getDb(targetProject);
-    dbTarget.prepare("UPDATE nodes SET updated_at = '2026-07-08T10:00:00Z' WHERE id = ?").run(nodeA.id);
+    dbTarget
+      .prepare("UPDATE nodes SET updated_at = '2026-07-08T10:00:00Z' WHERE id = ?")
+      .run(nodeA.id);
 
     // 2. Source database setup
     // Node A exists in source with newer timestamp and new title
     const dbSource = getDb(sourceProject);
-    dbSource.prepare(`
+    dbSource
+      .prepare(
+        `
       INSERT INTO nodes (id, type, title, status, project, git_branch, metadata, tags, created_at, updated_at)
       VALUES (?, 'task', 'New Title A', 'pending', ?, 'main', '{}', '[]', '2026-07-08T10:00:00Z', '2026-07-08T12:00:00Z')
-    `).run(nodeA.id, sourceProject);
+    `
+      )
+      .run(nodeA.id, sourceProject);
 
     // Node B is a new node in source
     const nodeBId = 'new-node-b';
-    dbSource.prepare(`
+    dbSource
+      .prepare(
+        `
       INSERT INTO nodes (id, type, title, status, project, git_branch, metadata, tags, created_at, updated_at)
       VALUES (?, 'task', 'Node B', 'pending', ?, 'main', '{}', '[]', '2026-07-08T10:00:00Z', '2026-07-08T10:00:00Z')
-    `).run(nodeBId, sourceProject);
+    `
+      )
+      .run(nodeBId, sourceProject);
 
     // Close source DB connection to release lock so it can be merged
     closeDb(sourceProject);
@@ -196,11 +222,15 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
 
     // 4. Verify target DB has correct titles and merged nodes
     const targetDb = getDb(targetProject);
-    const mergedNodeA = targetDb.prepare('SELECT title, updated_at FROM nodes WHERE id = ?').get(nodeA.id) as any;
+    const mergedNodeA = targetDb
+      .prepare('SELECT title, updated_at FROM nodes WHERE id = ?')
+      .get(nodeA.id) as any;
     expect(mergedNodeA.title).toBe('New Title A');
     expect(mergedNodeA.updated_at).toBe('2026-07-08T12:00:00Z');
 
-    const mergedNodeB = targetDb.prepare('SELECT title FROM nodes WHERE id = ?').get(nodeBId) as any;
+    const mergedNodeB = targetDb
+      .prepare('SELECT title FROM nodes WHERE id = ?')
+      .get(nodeBId) as any;
     expect(mergedNodeB.title).toBe('Node B');
   });
 
@@ -227,20 +257,32 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
 
     // 2. Source database setup: Node B blocks Node A (creating a cycle)
     const dbSource = getDb(sourceProject);
-    dbSource.prepare(`
+    dbSource
+      .prepare(
+        `
       INSERT INTO nodes (id, type, title, status, project, git_branch, metadata, tags, created_at, updated_at)
       VALUES (?, 'task', 'Node A', 'pending', ?, 'main', '{}', '[]', '2026-07-08T10:00:00Z', '2026-07-08T10:00:00Z')
-    `).run(nodeA.id, sourceProject);
+    `
+      )
+      .run(nodeA.id, sourceProject);
 
-    dbSource.prepare(`
+    dbSource
+      .prepare(
+        `
       INSERT INTO nodes (id, type, title, status, project, git_branch, metadata, tags, created_at, updated_at)
       VALUES (?, 'task', 'Node B', 'pending', ?, 'main', '{}', '[]', '2026-07-08T10:00:00Z', '2026-07-08T10:00:00Z')
-    `).run(nodeB.id, sourceProject);
+    `
+      )
+      .run(nodeB.id, sourceProject);
 
-    dbSource.prepare(`
+    dbSource
+      .prepare(
+        `
       INSERT INTO edges (id, source_id, target_id, type, project, git_branch, created_at)
       VALUES ('edge-cycle-source', ?, ?, 'blocks', ?, 'main', '2026-07-08T10:00:00Z')
-    `).run(nodeB.id, nodeA.id, sourceProject);
+    `
+      )
+      .run(nodeB.id, nodeA.id, sourceProject);
 
     closeDb(sourceProject);
     const sourceDbPath = getDbPath(sourceProject);
@@ -270,7 +312,9 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
     expect(reportForce.transaction_rolled_back).toBe(false);
 
     // Verify target DB has the cycle edge now
-    const cycleEdgeForce = targetDb.prepare('SELECT 1 FROM edges WHERE id = ?').get('edge-cycle-source');
+    const cycleEdgeForce = targetDb
+      .prepare('SELECT 1 FROM edges WHERE id = ?')
+      .get('edge-cycle-source');
     expect(cycleEdgeForce).toBeDefined();
   });
 });

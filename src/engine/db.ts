@@ -3,8 +3,29 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { logger } from '../utils/logger.js';
-import { DatabaseError } from '../utils/errors.js';
+import { DatabaseError, ValidationError } from '../utils/errors.js';
 import { loadProjectConfig } from './config.js';
+
+/**
+ * Validates a file path to ensure it resolves within the project root, preventing path traversal.
+ *
+ * @param filePath - The file path to validate.
+ * @param project - Optional project identifier.
+ * @returns The resolved absolute file path if safe.
+ * @throws {ValidationError} If path traversal outside the project root is detected.
+ */
+export function validatePath(filePath: string, project?: string): string {
+  const projectRoot = resolveProjectRoot(project);
+  const resolvedPath = path.resolve(filePath);
+  const relative = path.relative(projectRoot, resolvedPath);
+  const isSafe = relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  if (!isSafe) {
+    throw new ValidationError(
+      `Path traversal detected: path "${filePath}" resolves outside project root "${projectRoot}"`
+    );
+  }
+  return resolvedPath;
+}
 
 const REGISTRY_PATH = path.join(os.homedir(), '.state-graph-mcp-registry.json');
 
@@ -20,6 +41,13 @@ function getRegistry(): Record<string, string> {
   return {};
 }
 
+/**
+ * Registers a project name and path in the global state-graph-mcp registry.
+ *
+ * @param name - The name of the project.
+ * @param projectPath - The local path to the project root directory.
+ * @returns void
+ */
 export function registerProject(name: string, projectPath: string): void {
   try {
     const registry = getRegistry();
@@ -34,12 +62,25 @@ export function registerProject(name: string, projectPath: string): void {
   }
 }
 
+/**
+ * Retrieves a registered project's path from the global registry.
+ *
+ * @param name - The name of the project.
+ * @returns The registered project path, or undefined if not registered.
+ */
 export function getProjectFromRegistry(name: string): string | undefined {
   const registry = getRegistry();
   return registry[name.toLowerCase()];
 }
 
 // Resolve project root by walking up from CWD or using global registry
+/**
+ * Resolves the absolute project root directory, walking up the tree or looking up in the global registry.
+ *
+ * @param project - Optional project identifier.
+ * @param cwd - The working directory to start walking up from (defaults to process.cwd()).
+ * @returns The resolved absolute project root path.
+ */
 export function resolveProjectRoot(project?: string, cwd: string = process.cwd()): string {
   // 1. Try resolving via project parameter lookup in global registry
   if (project) {
@@ -82,6 +123,12 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
 }
 
 // Get the base directory for storing state-graph-mcp databases
+/**
+ * Gets the base directory for storing state-graph-mcp database files.
+ *
+ * @param projectRoot - The absolute path to the project root.
+ * @returns The resolved directory path where databases are stored.
+ */
 export function getBaseDir(projectRoot: string): string {
   const config = loadProjectConfig(projectRoot);
   if (config.storagePath) {
@@ -95,10 +142,20 @@ export function getBaseDir(projectRoot: string): string {
 }
 
 // Resolve project slug
+/**
+ * Resolves and sanitizes a project identifier into a safe database slug.
+ *
+ * @param project - Optional project identifier.
+ * @returns The sanitized project slug containing only alphanumeric characters, dashes, and underscores.
+ * @throws {DatabaseError} If the project name cannot be auto-detected because it resolves to the home directory.
+ */
 export function getProjectSlug(project?: string): string {
   if (project && project.trim() !== '') {
     // Sanitize project name to be a safe slug (alphanumeric, dashes, underscores)
-    return project.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+    return project
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, '-');
   }
   const root = resolveProjectRoot(project);
 
@@ -109,27 +166,40 @@ export function getProjectSlug(project?: string): string {
     if (!isRegistered) {
       throw new DatabaseError(
         `Could not auto-detect project name. You are running in or resolved to the home directory "${root}", which is not registered as a state-graph-mcp project.\n` +
-        `Please specify the "project" parameter. Registered projects: ${Object.keys(registry).join(', ')}`
+          `Please specify the "project" parameter. Registered projects: ${Object.keys(registry).join(', ')}`
       );
     }
   }
 
   const config = loadProjectConfig(root);
   if (config.projectName) {
-    return config.projectName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+    return config.projectName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, '-');
   }
-  return path.basename(root).toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+  return path
+    .basename(root)
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]/g, '-');
 }
 
 // Get the directory where a project's database is stored
+/**
+ * Gets the directory where the project's SQLite database is stored.
+ *
+ * @param project - Optional project identifier.
+ * @returns The absolute path to the project's database folder.
+ * @throws {DatabaseError} If the project is not initialized or path traversal is detected.
+ */
 export function getProjectDbDir(project?: string): string {
   const root = resolveProjectRoot(project);
-  
+
   // Enforce that state-graph-mcp init must have been run (unless overridden by env var or in a test environment)
   if (!process.env.STATE_GRAPH_MCP_DIR && process.env.NODE_ENV !== 'test') {
     const localDir = path.join(root, '.state-graph-mcp');
     const isHomeDir = root === os.homedir();
-    
+
     let isInitialized = fs.existsSync(localDir);
     if (isHomeDir) {
       // Home directory .state-graph-mcp is the global fallback folder,
@@ -142,7 +212,9 @@ export function getProjectDbDir(project?: string): string {
     }
 
     if (!isInitialized) {
-      throw new DatabaseError(`Project "${path.basename(root)}" is not initialized. Please run "state-graph-mcp init" in the project root first.`);
+      throw new DatabaseError(
+        `Project "${path.basename(root)}" is not initialized. Please run "state-graph-mcp init" in the project root first.`
+      );
     }
   }
 
@@ -154,13 +226,21 @@ export function getProjectDbDir(project?: string): string {
   const relative = path.relative(baseDir, targetDir);
   const isSafe = relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
   if (!isSafe) {
-    throw new DatabaseError(`Path traversal detected: target directory "${targetDir}" is outside allowed base directory "${baseDir}"`);
+    throw new DatabaseError(
+      `Path traversal detected: target directory "${targetDir}" is outside allowed base directory "${baseDir}"`
+    );
   }
 
   return targetDir;
 }
 
 // Get the absolute path to the project's SQLite database file
+/**
+ * Gets the absolute path to the project's SQLite database file.
+ *
+ * @param project - Optional project identifier.
+ * @returns The absolute path to the project's graph.db file.
+ */
 export function getDbPath(project?: string): string {
   return path.join(getProjectDbDir(project), 'graph.db');
 }
@@ -170,6 +250,12 @@ import { migrations } from './migrations.js';
 const MAX_CACHED_DBS = 5;
 const dbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 
+/**
+ * Opens or retrieves a cached better-sqlite3 database connection for the given project, performing migrations if needed.
+ *
+ * @param project - Optional project identifier.
+ * @returns The active better-sqlite3 Database instance.
+ */
 export function getDb(project?: string): Database.Database {
   const projectSlug = getProjectSlug(project);
   const cached = dbCache.get(projectSlug);
@@ -189,7 +275,9 @@ export function getDb(project?: string): Database.Database {
       }
     }
     if (oldestSlug) {
-      logger.info(`Evicting database connection for project "${oldestSlug}" from cache due to limit.`);
+      logger.info(
+        `Evicting database connection for project "${oldestSlug}" from cache due to limit.`
+      );
       closeDb(oldestSlug);
     }
   }
@@ -218,6 +306,12 @@ export function getDb(project?: string): Database.Database {
   return db;
 }
 
+/**
+ * Closes the cached database connection for a specific project.
+ *
+ * @param project - Optional project identifier.
+ * @returns void
+ */
 export function closeDb(project?: string): void {
   const projectSlug = getProjectSlug(project);
   const cached = dbCache.get(projectSlug);
@@ -232,6 +326,11 @@ export function closeDb(project?: string): void {
   }
 }
 
+/**
+ * Closes all active and cached database connections.
+ *
+ * @returns void
+ */
 export function closeAllDbs(): void {
   for (const [slug, cached] of dbCache.entries()) {
     try {
@@ -244,46 +343,73 @@ export function closeAllDbs(): void {
   dbCache.clear();
 }
 
+/**
+ * Retrieves a metadata value from the database's schema_meta table.
+ *
+ * @param db - The better-sqlite3 Database connection.
+ * @param key - The metadata key.
+ * @returns The metadata value or null if not found.
+ */
 export function getMetaValue(db: Database.Database, key: string): string | null {
   const row = db.prepare('SELECT value FROM schema_meta WHERE key = ?').get(key);
   return row ? (row as { value: string }).value : null;
 }
 
+/**
+ * Inserts or replaces a metadata key-value pair in the database's schema_meta table.
+ *
+ * @param db - The better-sqlite3 Database connection.
+ * @param key - The metadata key.
+ * @param value - The metadata value.
+ * @returns void
+ */
 export function setMetaValue(db: Database.Database, key: string, value: string): void {
   db.prepare('INSERT OR REPLACE INTO schema_meta (key, value) VALUES (?, ?)').run(key, value);
 }
 
 function initializeSchema(db: Database.Database): void {
   // Check if schema_meta exists
-  const tableExists = db.prepare(`
+  const tableExists = db
+    .prepare(
+      `
     SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'
-  `).get();
+  `
+    )
+    .get();
 
   let currentVersion = 0;
 
   if (!tableExists) {
     db.transaction(() => {
-      db.prepare(`
+      db.prepare(
+        `
         CREATE TABLE schema_meta (
           key   TEXT PRIMARY KEY,
           value TEXT NOT NULL
         )
-      `).run();
+      `
+      ).run();
 
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO schema_meta (key, value) VALUES ('version', '0')
-      `).run();
+      `
+      ).run();
     })();
   } else {
-    const versionRow = db.prepare(`
+    const versionRow = db
+      .prepare(
+        `
       SELECT value FROM schema_meta WHERE key = 'version'
-    `).get() as any;
+    `
+      )
+      .get() as any;
     currentVersion = versionRow ? parseInt(versionRow.value, 10) : 0;
   }
 
   // Sort migrations and run pending ones
   const pendingMigrations = migrations
-    .filter(m => m.version > currentVersion)
+    .filter((m) => m.version > currentVersion)
     .sort((a, b) => a.version - b.version);
 
   if (pendingMigrations.length > 0) {
@@ -291,9 +417,11 @@ function initializeSchema(db: Database.Database): void {
       for (const migration of pendingMigrations) {
         logger.info(`Running database migration version ${migration.version}...`);
         migration.up(db);
-        db.prepare(`
+        db.prepare(
+          `
           UPDATE schema_meta SET value = ? WHERE key = 'version'
-        `).run(migration.version.toString());
+        `
+        ).run(migration.version.toString());
         currentVersion = migration.version;
       }
       logger.info(`Database schema is up to date at version ${currentVersion}`);

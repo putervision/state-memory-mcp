@@ -40,11 +40,11 @@ describe('Database Project Resolution Tests', () => {
     });
 
     const root = resolveProjectRoot(undefined, path.join(mockHomedir, 'Downloads'));
-    
+
     // It should NOT stop at mockHomedir since .state-graph-mcp is in home directory
     // Instead it walks all the way up to root and falls back to currentCwd
     expect(root).not.toBe(mockHomedir);
-    
+
     existsSpy.mockReset();
   });
 

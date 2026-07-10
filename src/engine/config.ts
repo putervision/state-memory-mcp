@@ -9,7 +9,11 @@ export const ProjectConfigSchema = z.object({
   storagePath: z.string().optional(),
 });
 
-export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
+export type ProjectConfig = {
+  projectName?: string;
+  defaultBranch?: string;
+  storagePath?: string;
+};
 
 export function loadProjectConfig(projectRoot: string): ProjectConfig {
   const configPath = path.join(projectRoot, '.state-graph-mcp.json');
@@ -18,11 +22,11 @@ export function loadProjectConfig(projectRoot: string): ProjectConfig {
       const raw = fs.readFileSync(configPath, 'utf-8');
       const parsed = JSON.parse(raw);
       const result = ProjectConfigSchema.safeParse(parsed);
-      if (result.success) {
+      if (result.success && result.data) {
         logger.debug(`Loaded configuration from ${configPath}`);
         return result.data;
       } else {
-        logger.warn(`Invalid configuration in ${configPath}:`, result.error.format());
+        logger.warn(`Invalid configuration in ${configPath}:`, result.error?.format());
       }
     } catch (err: any) {
       logger.warn(`Failed to read/parse configuration from ${configPath}: ${err.message}`);

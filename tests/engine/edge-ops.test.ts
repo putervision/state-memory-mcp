@@ -126,7 +126,7 @@ describe('EdgeEngine Operations & Cycle Detection', () => {
     const nodeB = GraphEngine.addNode({ project, type: 'task', title: 'Task B' });
 
     EdgeEngine.addEdge({ project, source_id: nodeA.id, target_id: nodeB.id, type: 'references' });
-    
+
     // References cycle is fine
     expect(() => {
       EdgeEngine.addEdge({

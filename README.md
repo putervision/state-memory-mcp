@@ -1,8 +1,13 @@
 # state-graph-mcp
 
+[![npm version](https://img.shields.io/npm/v/state-graph-mcp.svg)](https://www.npmjs.com/package/state-graph-mcp)
+[![Build Status](https://github.com/LucasArmstrong/state-graph-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasArmstrong/state-graph-mcp/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/state-graph-mcp.svg)](https://github.com/LucasArmstrong/state-graph-mcp/blob/main/LICENSE)
+[![Node.js Version](https://img.shields.io/node/v/state-graph-mcp.svg)](https://nodejs.org)
+
 `state-graph-mcp` is a zero-infrastructure, deterministic Model Context Protocol (MCP) server that provides AI agents with a structured, persistent graph for tracking workflow state—tasks, decisions, artifacts, plans, blockers, and their semantic relationships.
 
-By using `state-graph-mcp`, your AI coding assistant (such as Cursor, Claude Code, or Copilot) maintains long-term project coherence, manages complex dependencies, and audits architectural decisions across sessions.
+By using `state-graph-mcp`, your AI coding assistant (such as Cursor, Claude Code, Gemini, or Copilot) maintains long-term project coherence, manages complex dependencies, and audits architectural decisions across sessions.
 
 ---
 
@@ -10,11 +15,23 @@ By using `state-graph-mcp`, your AI coding assistant (such as Cursor, Claude Cod
 
 1. **Deterministic State Graph**: No LLM in the loop; all operations are structured, deterministic, and fast.
 2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-graph-mcp/`) or globally.
-3. **27 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, database administration utilities, template scaffolding, and agent QoL context tools.
-4. **Interactive HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed visualizer built with `vis-network`.
+3. **28 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, and agent QoL context tools.
+4. **Interactive 3D HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed WebGL 3D Force-Directed Graph visualizer built with `3d-force-graph` / Three.js.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
 7. **One-Command Setup**: `state-graph-mcp init` scaffolds the data directory, `.gitignore`, IDE instruction files, and MCP configs for all major editors.
+
+---
+
+## Why State Graph MCP? (Agent Value Proposition)
+
+AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within strict context window and performance limits. Storing your project's workflow state in the chat history or forcing agents to search files repeatedly is inefficient. `state-graph-mcp` solves this by introducing a structured, external state engine:
+
+* **🚀 Faster Agent Executions**: Instead of running expensive, multi-step text search loops or file scans to figure out what to do next, agents can query `get_project_summary` or `find_blockers` in milliseconds. They immediately understand current blockers, goals, and outstanding tasks, speeding up execution.
+* **📉 Massive Token Savings**: Storing logs, decisions, and task statuses in chat prompts wastes tokens on every turn. With `state-graph-mcp`, agents keep this state offloaded in a local SQLite database, fetching only relevant subgraphs when needed. This reduces context bloat and lowers API usage costs.
+* **🎯 Increased Quality of Responses**: Hallucinations and duplicate work happen when agents forget past context. A branch-aware state graph provides agents with a single, clear source of truth for all architectural decisions, milestones, and task requirements. Agents write better code because they always know *why* a decision was made.
+* **🔗 Simplified Relationship Modeling**: Relationships are explicitly mapped with typed links (e.g. `blocks`, `produces`, `depends_on`). The server automatically validates dependencies and rejects circular reference loops, maintaining a clean, easily-navigable project structure.
+* **🤝 Supercharged Multi-Agent Collaboration**: When deploying parallel subagents (e.g., one writing code, one running tests, one scanning logs), they lack a shared memory pool. `state-graph-mcp` acts as a local blackboard where all subagents publish decisions, tasks, and blocker updates, ensuring coordinate-level alignment without passing massive chat histories.
 
 ---
 
@@ -49,6 +66,44 @@ npx state-graph-mcp
 npm install --save-dev state-graph-mcp
 ```
 
+
+---
+
+## State Graph Concepts
+
+`state-graph-mcp` models your development workspace as a directed acyclic graph (DAG) where nodes represent development objects and edges represent their semantic relationships.
+
+### 📋 Node Types (The Vocabulary)
+
+1. **`task`**: Incremental items of work or coding TODOs (e.g. "Implement database mappers").
+2. **`decision`**: Architectural choices, pattern selections, and rationale (e.g. "Use isolated SQLite databases").
+3. **`artifact`**: Coding output, documentation, or schemas generated (e.g. `src/server.ts`, `docs/index.html`).
+4. **`plan`**: High-level development specifications and roadmaps containing milestones.
+5. **`milestone`**: Progress checkpoints representing a grouped set of related tasks.
+6. **`blocker`**: Impediments or bugs preventing tasks from being completed.
+7. **`observation`**: Contextual findings, codebase notes, or runtime constraints recorded by the agent.
+
+### 🔗 Edge Relationships
+
+Nodes are linked together to represent workflow connections:
+* `depends_on`: Declares that a task or milestone depends on another.
+* `blocks`: Connects a blocker to the task/milestone it stalls.
+* `produces`: Connects a task or milestone to the file artifact it generates.
+* `references`: Relates nodes to other source files or documentation.
+* `updates` / `contradicts`: Traces the historical chain of decisions or flags conflicting requirements.
+* `part_of` / `child_of`: Establishes hierarchical groupings (e.g., tasks belonging to milestones, milestones in plans).
+* `implements` / `decided_in`: Links tasks/artifacts to their design decisions or plans.
+
+*Note: Cycle detection is automatically enforced. If an agent tries to link nodes in a loop (e.g. Task A blocking Task B which depends on Task A), the server immediately rejects the edge creation.*
+
+### 🧠 Advanced Graph Queries
+
+Exposing your state as a graph enables the server to run advanced graph query tools:
+* **`critical_path`**: Computes the longest chain of unfinished tasks blocking a milestone so the agent knows what to prioritize.
+* **`impact_analysis`**: Calculates the "blast radius" or downstream dependency chain affected if a node (or code file) is edited or deleted.
+* **`detect_contradictions`**: Audits the database for logical flaws (e.g. finished tasks that still have active blockers, or contradicting design decisions).
+* **`decision_trail`**: Traces the historical lineage of updates and contradictions back to the original architectural choice.
+
 ---
 
 ## CLI Usage
@@ -58,16 +113,19 @@ npm install --save-dev state-graph-mcp
 ```bash
 # Initialize state-graph-mcp in your project (creates .state-graph-mcp/,
 # updates .gitignore, scaffolds IDE instructions and MCP configs)
-state-graph-mcp init
+state-graph-mcp init [--no-git] [--commits <n>] [--no-tasks] [--no-artifacts]
 
 # Start the MCP server (used by IDE configs)
 state-graph-mcp run
 
-# View the interactive graph visualizer in your default browser
+# View the interactive 3D graph visualizer in your default browser
 state-graph-mcp view --project my-project
 
 # Inspect project nodes in ASCII format
 state-graph-mcp inspect --project my-project
+
+# Display project graph ROI, productivity, and token savings metrics
+state-graph-mcp metrics --project my-project
 
 # Export graph data (JSON, DOT, Mermaid, HTML formats supported)
 state-graph-mcp export --project my-project --format html --out graph.html
@@ -89,8 +147,7 @@ state-graph-mcp restore backup.db --project my-project
 state-graph-mcp audit --project my-project
 
 # Merge an external SQLite database into the current project database
-state-graph-mcp merge other-project.db --project my-project
-
+state-graph-mcp merge other-project.db --project my-project [--force]
 ```
 
 ---
@@ -105,7 +162,10 @@ Running `state-graph-mcp init` automatically creates these configuration files f
   "mcpServers": {
     "state-graph-mcp": {
       "command": "state-graph-mcp",
-      "args": ["run"]
+      "args": ["run"],
+      "env": {
+        "STATE_GRAPH_MCP_PROJECT": "your-project-slug"
+      }
     }
   }
 }
@@ -117,21 +177,47 @@ Running `state-graph-mcp init` automatically creates these configuration files f
   "servers": {
     "state-graph-mcp": {
       "command": "state-graph-mcp",
-      "args": ["run"]
+      "args": ["run"],
+      "env": {
+        "STATE_GRAPH_MCP_PROJECT": "your-project-slug"
+      }
     }
   }
 }
 ```
 
 ### Claude Desktop (`claude_desktop_config.json`)
-On macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-On Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
 ```json
 {
   "mcpServers": {
     "state-graph-mcp": {
       "command": "state-graph-mcp",
-      "args": ["run"]
+      "args": ["run"],
+      "env": {
+        "STATE_GRAPH_MCP_PROJECT": "your-project-slug"
+      }
+    }
+  }
+}
+```
+
+### Google Antigravity (`~/.gemini/antigravity/settings.json`)
+
+For Google Antigravity (AGY), custom MCP servers are configured globally in your `~/.gemini/antigravity/settings.json` (or locally in your workspace `.agents/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "state-graph-mcp": {
+      "command": "state-graph-mcp",
+      "args": ["run"],
+      "env": {
+        "STATE_GRAPH_MCP_PROJECT": "your-project-slug"
+      }
     }
   }
 }
@@ -152,9 +238,35 @@ Running `state-graph-mcp init` in your project root will:
    - **VS Code** (`.vscode/instructions.md`)
    - **Claude Code** (`CLAUDE.md`)
    - **Windsurf** (`.windsurfrules`)
-4. Create MCP server configs for Cursor and VS Code
+4. Create MCP server configs for Cursor and VS Code with project slug auto-injected.
 
 All operations are idempotent — running `init` multiple times is safe.
+
+---
+
+## Git Commit History Scanner
+
+The Git Scanner (`scanGit`) hooks directly into your local git repository to automatically construct a semantic workflow map of your commits:
+
+- **Conventional Commit Parsing**: Commit messages are parsed for conventional type tags (e.g. `feat:`, `fix:`, `docs:`, `refactor:`).
+- **Observation Creation**: Every scanned commit generates an `observation` node carrying metadata like commit hash, author email, timestamp, and files modified.
+- **Task Seeding**: High-value commits (like those containing active feature work) automatically generate associated `task` nodes linked to the commit observation via an `extends` relationship.
+- **Artifact Tracking**: The scanner tracks modified files. If a file is frequently modified (exceeding hotness thresholds), the scanner creates an `artifact` node and links the corresponding commit observation to it using a `modifies` relationship.
+
+---
+
+## Project Seeding Guidelines
+
+For maximum developer-agent alignment, seed your graph immediately after initializing the project:
+
+1. **Add a Plan Node**: Create a high-level `plan` node representing your project roadmap:
+   - `add_node(type: "plan", title: "Project Roadmap")`
+2. **Define Milestones**: Establish target milestones representing project phases and link them to the plan:
+   - `add_node(type: "milestone", title: "v1.0 MVP Release")`
+   - `add_edge(source_id: mvp_id, target_id: roadmap_id, type: "part_of")`
+3. **Log Core Decisions**: Create `decision` nodes describing architectural components and link them to the milestones:
+   - `add_node(type: "decision", title: "SQLite Database Choice", metadata: { "rationale": "Simple, local storage" })`
+   - `add_edge(source_id: db_choice_id, target_id: mvp_id, type: "decided_in")`
 
 ---
 
@@ -163,12 +275,13 @@ All operations are idempotent — running `init` multiple times is safe.
 | Variable | Description | Default Value |
 |---|---|---|
 | `STATE_GRAPH_MCP_DIR` | Absolute path to directory where database files are stored. | `.state-graph-mcp/` (Project-local, in CWD) |
+| `STATE_GRAPH_MCP_PROJECT` | Active project slug identifier. | Resolved from working directory name |
 | `STATE_GRAPH_MCP_LOG_LEVEL` | Logging verbosity on `stderr` (`debug`, `info`, `warn`, `error`). | `info` |
 | `STATE_GRAPH_MCP_DEFAULT_BRANCH` | Fallback branch name if Git cannot be queried on startup. | `main` |
 
 ---
 
-## Tool Reference (27 Tools)
+## Tool Reference (28 Tools)
 
 ### 🟢 Node & Relationship Management (6 Tools)
 * **`add_node`**: Creates a node (`task`, `decision`, `artifact`, `plan`, `observation`, `blocker`, `milestone`).
@@ -209,6 +322,8 @@ All operations are idempotent — running `init` multiple times is safe.
   * Inputs: `node_id`, `project`.
 * **`detect_contradictions`**: Scans the project for logical flaws (e.g. completed tasks that still have active blockers, contradicting accepted decisions).
   * Inputs: `project`.
+* **`value_metrics`**: Computes estimated time and token savings, graph density, orphan count, decision reuse rate, task velocity, and active blocker ages. Returns both structured JSON and a formatted Markdown report.
+  * Inputs: `project`.
 
 ### 🤖 Agent QoL & Templates (4 Tools)
 * **`get_context_snapshot`**: Dual-format context snapshot returning structured JSON data (blockers, pending tasks) and pre-rendered Markdown for quick agent prompting.
@@ -236,9 +351,37 @@ All operations are idempotent — running `init` multiple times is safe.
 
 ---
 
-## Interactive HTML Visualizer
+## MCP Resources & Prompts
 
-`state-graph-mcp` offers an interactive, dark-mode browser visualization to explore your project's workflow state graph.
+`state-graph-mcp` is fully compliant with the latest Model Context Protocol specification, exposing read-only data resources and reusable prompt templates to client applications.
+
+### 📁 Resources
+
+Resources provide read-only context to LLMs. `state-graph-mcp` registers the following resources under the `state-graph:///` URI scheme:
+
+* **`state-graph:///{project}/summary`**: Returns the structured project summary (counts, task progress, recent decisions).
+* **`state-graph:///{project}/blockers`**: Returns the list of all active blockers and their affected nodes.
+* **`state-graph:///{project}/decisions`**: Returns the log of recent accepted decisions.
+* **`state-graph:///{project}/graph.json`**: Returns a full node/edge database export as raw JSON.
+
+### 💬 Prompts
+
+Prompts are reusable workflow templates that streamline agent interactions:
+
+* **`session-start`**: Generates a startup workspace overview, outlining the project summary, active blockers, and immediate pending tasks.
+  * Arguments: `project` (optional).
+* **`plan-feature`**: Prompts the agent to plan out a new feature, guiding the milestone creation, task decomposition, dependency mapping, and design decisions.
+  * Arguments: `feature_name` (required), `project` (optional).
+* **`review-decisions`**: Prompts the agent to review the decision log and logical contradictions audit, recommending improvements or fixes.
+  * Arguments: `project` (optional).
+* **`triage-blockers`**: Triages active blockers, helping to analyze the critical path and devise mitigation strategies.
+  * Arguments: `project` (optional).
+
+---
+
+## Interactive 3D HTML Visualizer
+
+`state-graph-mcp` offers an interactive, dark-mode browser 3D visualization using WebGL/Three.js to explore your project's workflow state graph.
 
 ### Viewing the Visualizer
 To generate and view the visualizer instantly in your default web browser, run:
@@ -248,17 +391,18 @@ state-graph-mcp view --project my-project
 This command:
 1. Generates a standalone `viewer.html` containing the embedded graph dataset.
 2. Saves it in the project database folder.
-3. Automatically launches the page in your browser.
+3. Automatically launches the page in your default browser.
 
 ### Exporting the Visualizer
 To export the visualizer to a specific file:
 ```bash
 state-graph-mcp export --project my-project --format html --out ./my-graph.html
 ```
-You can share the exported HTML file with your team. The file contains a responsive Force-Directed network graph rendering with:
+You can share the exported HTML file with your team. The file contains a responsive 3D Force-Directed network graph rendering with:
+- Interactive zoom, pan, and 360-degree rotation.
 - Hover details for nodes and relationships.
 - Distinct color-coded nodes based on types.
-- Zooming, panning, and automatic physics layouts.
+- Automatic force layouts.
 
 ---
 
@@ -268,3 +412,15 @@ You can share the exported HTML file with your team. The file contains a respons
 # Run unit and integration tests
 npm run test
 ```
+
+---
+
+## License & Disclaimer
+
+This project is licensed under the MIT License.
+
+### Limitation of Liability
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+By using this software, you acknowledge and agree that the authors and contributors are not liable for any database corruption, Git repository modification, data loss, or other issues resulting from execution. Always backup your database files before performing destructive operations.

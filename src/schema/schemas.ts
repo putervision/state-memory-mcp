@@ -201,7 +201,9 @@ export class RecordSchema<V> extends Schema<Record<string, V>> {
   }
 }
 
-export class ObjectSchema<T extends Record<string, Schema<any>>> extends Schema<{ [K in keyof T]: T[K] extends Schema<infer U> ? U : never }> {
+export class ObjectSchema<T extends Record<string, Schema<any>>> extends Schema<{
+  [K in keyof T]: T[K] extends Schema<infer U> ? U : never;
+}> {
   private shape: T;
 
   constructor(shape: T) {
@@ -209,7 +211,10 @@ export class ObjectSchema<T extends Record<string, Schema<any>>> extends Schema<
     this.shape = shape;
   }
 
-  parse(val: unknown, path = 'value'): { [K in keyof T]: T[K] extends Schema<infer U> ? U : never } {
+  parse(
+    val: unknown,
+    path = 'value'
+  ): { [K in keyof T]: T[K] extends Schema<infer U> ? U : never } {
     if (val === undefined || val === null) {
       if (this.defaultValue !== undefined) return this.defaultValue;
       if (this.isOptional) return undefined as any;
@@ -225,7 +230,11 @@ export class ObjectSchema<T extends Record<string, Schema<any>>> extends Schema<
       }
       const fieldSchema = this.shape[key];
       const fieldValue = (val as any)[key];
-      if (fieldValue === undefined && fieldSchema.defaultValue === undefined && fieldSchema.isOptional) {
+      if (
+        fieldValue === undefined &&
+        fieldSchema.defaultValue === undefined &&
+        fieldSchema.isOptional
+      ) {
         // Skip optional fields that aren't set
         continue;
       }
@@ -257,10 +266,6 @@ export const z = {
   object: <T extends Record<string, Schema<any>>>(shape: T) => new ObjectSchema<T>(shape),
   unknown: () => new UnknownSchema(),
 };
-
-export namespace z {
-  export type infer<T extends Schema<any>> = Infer<T>;
-}
 
 // ==========================================
 // Existing Schemas Definitions
@@ -350,6 +355,8 @@ export const EdgeTypeSchema = z.enum([
   'part_of',
   'implements',
   'child_of',
+  'extends',
+  'modifies',
 ]);
 
 export const AddEdgeSchema = z.object({
@@ -441,6 +448,7 @@ export const ImportGraphSchema = z.object({
   project: z.string().optional(),
   nodes: z.array(z.record(z.unknown())),
   edges: z.array(z.record(z.unknown())),
+  force: z.boolean().optional().default(false),
 });
 
 export const QueryGraphSchema = z.object({
@@ -487,4 +495,8 @@ export const ScaffoldTemplateSchema = z.object({
   project: z.string().optional(),
   template: z.enum(['fdd', 'rfc']),
   name: z.string().min(1, 'Template name is required'),
+});
+
+export const ValueMetricsSchema = z.object({
+  project: z.string().optional(),
 });

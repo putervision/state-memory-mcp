@@ -10,7 +10,8 @@ export const migrations: Migration[] = [
   {
     version: 1,
     up: (db) => {
-      db.prepare(`
+      db.prepare(
+        `
         CREATE TABLE nodes (
           id          TEXT PRIMARY KEY,
           type        TEXT NOT NULL,
@@ -23,9 +24,11 @@ export const migrations: Migration[] = [
           created_at  TEXT NOT NULL,
           updated_at  TEXT NOT NULL
         )
-      `).run();
+      `
+      ).run();
 
-      db.prepare(`
+      db.prepare(
+        `
         CREATE TABLE edges (
           id          TEXT PRIMARY KEY,
           source_id   TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
@@ -37,7 +40,8 @@ export const migrations: Migration[] = [
           created_at  TEXT NOT NULL,
           UNIQUE(source_id, target_id, type)
         )
-      `).run();
+      `
+      ).run();
 
       db.prepare(`CREATE INDEX idx_nodes_type ON nodes(type)`).run();
       db.prepare(`CREATE INDEX idx_nodes_status ON nodes(status)`).run();
@@ -52,42 +56,54 @@ export const migrations: Migration[] = [
       db.prepare(`CREATE INDEX idx_edges_project ON edges(project)`).run();
       db.prepare(`CREATE INDEX idx_edges_project_branch ON edges(project, git_branch)`).run();
 
-      db.prepare(`
+      db.prepare(
+        `
         CREATE VIRTUAL TABLE nodes_fts USING fts5(
           title, metadata, tags,
           content='nodes',
           content_rowid='rowid'
         )
-      `).run();
+      `
+      ).run();
 
-      db.prepare(`
+      db.prepare(
+        `
         CREATE TRIGGER nodes_ai AFTER INSERT ON nodes BEGIN
           INSERT INTO nodes_fts(rowid, title, metadata, tags) VALUES (new.rowid, new.title, new.metadata, new.tags);
         END
-      `).run();
+      `
+      ).run();
 
-      db.prepare(`
+      db.prepare(
+        `
         CREATE TRIGGER nodes_ad AFTER DELETE ON nodes BEGIN
           INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', old.rowid, old.title, old.metadata, old.tags);
         END
-      `).run();
+      `
+      ).run();
 
-      db.prepare(`
+      db.prepare(
+        `
         CREATE TRIGGER nodes_au AFTER UPDATE ON nodes BEGIN
           INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', old.rowid, old.title, old.metadata, old.tags);
           INSERT INTO nodes_fts(rowid, title, metadata, tags) VALUES (new.rowid, new.title, new.metadata, new.tags);
         END
-      `).run();
-    }
+      `
+      ).run();
+    },
   },
   // Version 2: Add composite indexes
   {
     version: 2,
     up: (db) => {
       logger.info('Running migration v2: adding composite indexes...');
-      db.prepare(`CREATE INDEX IF NOT EXISTS idx_nodes_project_type_status ON nodes(project, type, status)`).run();
-      db.prepare(`CREATE INDEX IF NOT EXISTS idx_nodes_project_branch_type ON nodes(project, git_branch, type)`).run();
-    }
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_nodes_project_type_status ON nodes(project, type, status)`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_nodes_project_branch_type ON nodes(project, git_branch, type)`
+      ).run();
+    },
   },
   // Version 3: Optimize FTS5 update triggers (only re-index on actual text/tag changes)
   {
@@ -95,12 +111,14 @@ export const migrations: Migration[] = [
     up: (db) => {
       logger.info('Running migration v3: optimizing FTS5 update trigger...');
       db.prepare(`DROP TRIGGER IF EXISTS nodes_au`).run();
-      db.prepare(`
+      db.prepare(
+        `
         CREATE TRIGGER nodes_au AFTER UPDATE OF title, metadata, tags ON nodes BEGIN
           INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', old.rowid, old.title, old.metadata, old.tags);
           INSERT INTO nodes_fts(rowid, title, metadata, tags) VALUES (new.rowid, new.title, new.metadata, new.tags);
         END
-      `).run();
-    }
-  }
+      `
+      ).run();
+    },
+  },
 ];

@@ -1,4 +1,4 @@
-import { Database } from 'better-sqlite3';
+import type { Database } from 'better-sqlite3';
 import { getDb, getProjectSlug } from './db.js';
 import { Edge, EdgeType } from '../schema/types.js';
 import { generateId } from '../utils/id.js';
@@ -9,9 +9,15 @@ import { logger } from '../utils/logger.js';
 /**
  * Cycle detection for dependency-like edges (depends_on, blocks, child_of).
  * Performs a recursive CTE query to see if a dependency path would be violated.
+ *
+ * @param db - Database instance.
+ * @param sourceId - Source node ID.
+ * @param targetId - Target node ID.
+ * @param edgeType - Edge type/relationship type.
+ * @returns True if adding this edge would introduce a circular dependency, false otherwise.
  */
 export function hasCycle(
-  db: any, // Database instance
+  db: Database, // Database instance
   sourceId: string,
   targetId: string,
   edgeType: string
@@ -52,9 +58,21 @@ export function hasCycle(
   return !!result;
 }
 
+/**
+ * Engine for managing graph edges/relationships between nodes, including cycle detection.
+ */
 export class EdgeEngine {
   /**
-   * Add a directed relationship between two nodes
+   * Add a directed relationship between two nodes.
+   *
+   * @param params - Edge creation parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.source_id - Source node ID.
+   * @param params.target_id - Target node ID.
+   * @param params.type - The relationship type.
+   * @param params.properties - Optional edge properties.
+   * @returns The created Edge object.
+   * @throws {Error} If source/target node not found, if duplicate edge exists, or if a cycle is introduced.
    */
   static addEdge(params: {
     project?: string;
@@ -78,12 +96,18 @@ export class EdgeEngine {
     }
 
     // Check for duplicate edge
-    const duplicate = db.prepare(`
+    const duplicate = db
+      .prepare(
+        `
       SELECT 1 FROM edges WHERE source_id = ? AND target_id = ? AND type = ?
-    `).get(params.source_id, params.target_id, params.type);
-    
+    `
+      )
+      .get(params.source_id, params.target_id, params.type);
+
     if (duplicate) {
-      throw new Error(`Relationship already exists: ${params.source_id} --${params.type}--> ${params.target_id}`);
+      throw new Error(
+        `Relationship already exists: ${params.source_id} --${params.type}--> ${params.target_id}`
+      );
     }
 
     // Cycle detection for dependency-like edge types
@@ -112,7 +136,9 @@ export class EdgeEngine {
       now
     );
 
-    logger.debug(`Added edge ${id} (${params.type}) from ${params.source_id} to ${params.target_id}`);
+    logger.debug(
+      `Added edge ${id} (${params.type}) from ${params.source_id} to ${params.target_id}`
+    );
 
     return {
       id,
@@ -127,7 +153,14 @@ export class EdgeEngine {
   }
 
   /**
-   * Remove a relationship
+   * Remove a relationship.
+   *
+   * @param params - Edge deletion parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.source_id - Source node ID.
+   * @param params.target_id - Target node ID.
+   * @param params.type - The relationship type to delete.
+   * @returns True if the edge was found and deleted, false otherwise.
    */
   static removeEdge(params: {
     project?: string;
@@ -144,7 +177,7 @@ export class EdgeEngine {
     `);
 
     const result = stmt.run(params.source_id, params.target_id, params.type);
-    
+
     if (result.changes > 0) {
       logger.debug(`Removed edge (${params.type}) from ${params.source_id} to ${params.target_id}`);
       return true;

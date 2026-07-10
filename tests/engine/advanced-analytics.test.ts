@@ -18,9 +18,24 @@ describe('Advanced Analytics Engine', () => {
   });
 
   it('should compute decision trail and find contradictions', () => {
-    const d1 = GraphEngine.addNode({ project, type: 'decision', title: 'Decision 1', status: 'accepted' });
-    const d2 = GraphEngine.addNode({ project, type: 'decision', title: 'Decision 2', status: 'accepted' });
-    const d3 = GraphEngine.addNode({ project, type: 'decision', title: 'Decision 3', status: 'accepted' });
+    const d1 = GraphEngine.addNode({
+      project,
+      type: 'decision',
+      title: 'Decision 1',
+      status: 'accepted',
+    });
+    const d2 = GraphEngine.addNode({
+      project,
+      type: 'decision',
+      title: 'Decision 2',
+      status: 'accepted',
+    });
+    const d3 = GraphEngine.addNode({
+      project,
+      type: 'decision',
+      title: 'Decision 3',
+      status: 'accepted',
+    });
 
     // d2 updates d1, d3 updates d2
     EdgeEngine.addEdge({ project, source_id: d2.id, target_id: d1.id, type: 'updates' });
@@ -43,20 +58,38 @@ describe('Advanced Analytics Engine', () => {
     db.prepare('DELETE FROM nodes').run();
 
     const m = GraphEngine.addNode({ project, type: 'milestone', title: 'Milestone 1' });
-    
+
     // T1 -> T2 -> T3 -> Milestone
-    const t1 = GraphEngine.addNode({ project, type: 'task', title: 'Task 1', status: 'pending', metadata: { estimate: '3h' } });
-    const t2 = GraphEngine.addNode({ project, type: 'task', title: 'Task 2', status: 'pending', metadata: { estimate: 5 } });
-    const t3 = GraphEngine.addNode({ project, type: 'task', title: 'Task 3', status: 'pending', metadata: { estimate: '2.5h' } });
+    const t1 = GraphEngine.addNode({
+      project,
+      type: 'task',
+      title: 'Task 1',
+      status: 'pending',
+      metadata: { estimate: '3h' },
+    });
+    const t2 = GraphEngine.addNode({
+      project,
+      type: 'task',
+      title: 'Task 2',
+      status: 'pending',
+      metadata: { estimate: 5 },
+    });
+    const t3 = GraphEngine.addNode({
+      project,
+      type: 'task',
+      title: 'Task 3',
+      status: 'pending',
+      metadata: { estimate: '2.5h' },
+    });
 
     EdgeEngine.addEdge({ project, source_id: t3.id, target_id: t2.id, type: 'depends_on' });
     EdgeEngine.addEdge({ project, source_id: t2.id, target_id: t1.id, type: 'depends_on' });
-    
+
     // Milestone is blocked by T3
     EdgeEngine.addEdge({ project, source_id: t3.id, target_id: m.id, type: 'child_of' }); // X child_of Y (Milestone)
 
     const result = AnalyticsEngine.criticalPath({ project, milestone_id: m.id });
-    
+
     // Path should be [T1, T2, T3, Milestone]
     expect(result.path.length).toBe(4);
     expect(result.path[0].id).toBe(t1.id);
@@ -83,7 +116,7 @@ describe('Advanced Analytics Engine', () => {
     const result = AnalyticsEngine.impactAnalysis({ project, node_id: n3.id });
     expect(result.affected_nodes.length).toBe(2);
 
-    const ids = result.affected_nodes.map(n => n.id);
+    const ids = result.affected_nodes.map((n) => n.id);
     expect(ids).toContain(n1.id);
     expect(ids).toContain(n2.id);
   });
@@ -93,19 +126,39 @@ describe('Advanced Analytics Engine', () => {
     db.prepare('DELETE FROM edges').run();
     db.prepare('DELETE FROM nodes').run();
 
-    const t = GraphEngine.addNode({ project, type: 'task', title: 'Completed Task', status: 'done' });
-    const b = GraphEngine.addNode({ project, type: 'blocker', title: 'Active Blocker', status: 'active' });
-    
+    const t = GraphEngine.addNode({
+      project,
+      type: 'task',
+      title: 'Completed Task',
+      status: 'done',
+    });
+    const b = GraphEngine.addNode({
+      project,
+      type: 'blocker',
+      title: 'Active Blocker',
+      status: 'active',
+    });
+
     // Blocker blocks task
     EdgeEngine.addEdge({ project, source_id: b.id, target_id: t.id, type: 'blocks' });
 
     // Accepted contradicting decisions
-    const d1 = GraphEngine.addNode({ project, type: 'decision', title: 'Accepted 1', status: 'accepted' });
-    const d2 = GraphEngine.addNode({ project, type: 'decision', title: 'Accepted 2', status: 'accepted' });
+    const d1 = GraphEngine.addNode({
+      project,
+      type: 'decision',
+      title: 'Accepted 1',
+      status: 'accepted',
+    });
+    const d2 = GraphEngine.addNode({
+      project,
+      type: 'decision',
+      title: 'Accepted 2',
+      status: 'accepted',
+    });
     EdgeEngine.addEdge({ project, source_id: d1.id, target_id: d2.id, type: 'contradicts' });
 
     const result = AnalyticsEngine.detectContradictions({ project });
-    
+
     expect(result.blocked_done_tasks.length).toBe(1);
     expect(result.blocked_done_tasks[0].task.id).toBe(t.id);
     expect(result.blocked_done_tasks[0].blocker.id).toBe(b.id);

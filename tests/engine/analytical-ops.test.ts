@@ -20,9 +20,14 @@ describe('AnalyticsEngine Operations', () => {
     const t3 = GraphEngine.addNode({ project, type: 'task', title: 'Task 3', status: 'pending' });
     const t2 = GraphEngine.addNode({ project, type: 'task', title: 'Task 2', status: 'pending' });
     const t1 = GraphEngine.addNode({ project, type: 'task', title: 'Task 1', status: 'pending' });
-    
+
     // Blocker node
-    const b = GraphEngine.addNode({ project, type: 'blocker', title: 'Blocking Issue', status: 'active' });
+    const b = GraphEngine.addNode({
+      project,
+      type: 'blocker',
+      title: 'Blocking Issue',
+      status: 'active',
+    });
 
     t1Id = t1.id;
     t2Id = t2.id;
@@ -37,7 +42,12 @@ describe('AnalyticsEngine Operations', () => {
     EdgeEngine.addEdge({ project, source_id: b.id, target_id: t3.id, type: 'blocks' });
 
     // Also a decision for summary
-    GraphEngine.addNode({ project, type: 'decision', title: 'Architectural Decision', status: 'accepted' });
+    GraphEngine.addNode({
+      project,
+      type: 'decision',
+      title: 'Architectural Decision',
+      status: 'accepted',
+    });
   });
 
   afterAll(() => {
@@ -55,15 +65,15 @@ describe('AnalyticsEngine Operations', () => {
     expect(result.has_cycle).toBe(false);
     expect(result.chain.length).toBe(3);
 
-    const ids = result.chain.map(item => item.node.id);
+    const ids = result.chain.map((item) => item.node.id);
     expect(ids).toContain(t2Id);
     expect(ids).toContain(t3Id);
     expect(ids).toContain(bId);
 
     // Verify depths
-    const t2Item = result.chain.find(i => i.node.id === t2Id)!;
-    const t3Item = result.chain.find(i => i.node.id === t3Id)!;
-    const bItem = result.chain.find(i => i.node.id === bId)!;
+    const t2Item = result.chain.find((i) => i.node.id === t2Id)!;
+    const t3Item = result.chain.find((i) => i.node.id === t3Id)!;
+    const bItem = result.chain.find((i) => i.node.id === bId)!;
 
     expect(t2Item.depth).toBe(1);
     expect(t3Item.depth).toBe(2);
@@ -81,15 +91,15 @@ describe('AnalyticsEngine Operations', () => {
     expect(result.has_cycle).toBe(false);
     expect(result.chain.length).toBe(3);
 
-    const ids = result.chain.map(item => item.node.id);
+    const ids = result.chain.map((item) => item.node.id);
     expect(ids).toContain(t3Id);
     expect(ids).toContain(t2Id);
     expect(ids).toContain(t1Id);
 
     // Verify depths
-    const t3Item = result.chain.find(i => i.node.id === t3Id)!;
-    const t2Item = result.chain.find(i => i.node.id === t2Id)!;
-    const t1Item = result.chain.find(i => i.node.id === t1Id)!;
+    const t3Item = result.chain.find((i) => i.node.id === t3Id)!;
+    const t2Item = result.chain.find((i) => i.node.id === t2Id)!;
+    const t1Item = result.chain.find((i) => i.node.id === t1Id)!;
 
     expect(t3Item.depth).toBe(1);
     expect(t2Item.depth).toBe(2);
@@ -112,8 +122,8 @@ describe('AnalyticsEngine Operations', () => {
 
     expect(blockers.length).toBe(1);
     expect(blockers[0].blocker_node.id).toBe(bId);
-    
-    const blockedIds = blockers[0].blocked_nodes.map(item => item.node.id);
+
+    const blockedIds = blockers[0].blocked_nodes.map((item) => item.node.id);
     expect(blockedIds).toContain(t3Id);
     expect(blockedIds).toContain(t2Id);
     expect(blockedIds).toContain(t1Id);
@@ -135,7 +145,7 @@ describe('AnalyticsEngine Operations', () => {
 
     // If we mark one task as done, verify progress changes
     GraphEngine.updateNode({ project, id: t3Id, status: 'done' });
-    
+
     const updatedSummary = AnalyticsEngine.getProjectSummary({ project });
     expect(updatedSummary.progress.completed_tasks).toBe(1);
     expect(updatedSummary.progress.pct).toBe(33); // 1 out of 3 is 33%

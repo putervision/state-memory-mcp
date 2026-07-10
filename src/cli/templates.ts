@@ -7,10 +7,11 @@
  * Agent instructions content appended to IDE instruction files.
  * Teaches agents how to use state-graph-mcp effectively.
  */
-export const INSTRUCTIONS_TEMPLATE = `
+export function getInstructionsTemplate(projectSlug: string): string {
+  return `
 ## State Graph (state-graph-mcp)
 
-This project tracks workflow state, tasks, design decisions, and blockers using \`state-graph-mcp\`.
+This project tracks workflow state, tasks, design decisions, and blockers using \`state-graph-mcp\` with project slug \`"${projectSlug}"\`.
 
 ### 1. Priority Order
 Before doing any coding or investigation:
@@ -39,30 +40,41 @@ If the project was just initialized or is missing high-level structure (Plans, M
 2. **Scaffold the Roadmap**: Create a \`plan\` node (e.g., "Project Roadmap") and add \`milestone\` nodes representing key target phases, connecting them using \`part_of\` edges.
 3. **Scaffold Architecture**: Create \`decision\` nodes representing core technical choices (e.g., choice of databases, frameworks) and link them to the milestones/tasks using \`decided_in\` edges.
 `.trimStart();
+}
 
 /**
  * Cursor MCP config template — merged into .cursor/mcp.json
  */
-export const MCP_CONFIG_CURSOR = {
-  mcpServers: {
-    'state-graph-mcp': {
-      command: 'state-graph-mcp',
-      args: ['run'],
+export function getMcpConfigCursor(projectSlug: string) {
+  return {
+    mcpServers: {
+      'state-graph-mcp': {
+        command: 'state-graph-mcp',
+        args: ['run'],
+        env: {
+          STATE_GRAPH_MCP_PROJECT: projectSlug,
+        },
+      },
     },
-  },
-};
+  };
+}
 
 /**
  * VS Code MCP config template — merged into .vscode/mcp.json
  */
-export const MCP_CONFIG_VSCODE = {
-  servers: {
-    'state-graph-mcp': {
-      command: 'state-graph-mcp',
-      args: ['run'],
+export function getMcpConfigVscode(projectSlug: string) {
+  return {
+    servers: {
+      'state-graph-mcp': {
+        command: 'state-graph-mcp',
+        args: ['run'],
+        env: {
+          STATE_GRAPH_MCP_PROJECT: projectSlug,
+        },
+      },
     },
-  },
-};
+  };
+}
 
 /**
  * IDE instruction file definitions.
@@ -86,11 +98,12 @@ export const INSTRUCTION_TARGETS: InstructionTarget[] = [
   { path: '.windsurfrules', label: 'Windsurf', standalone: false },
 ];
 
-export const GLOBAL_RULES_TEMPLATE = `
+export function getGlobalRulesTemplate(projectSlug: string): string {
+  return `
 <!-- state-graph-mcp:start -->
 # Workflow State Graph (state-graph-mcp)
 
-This project uses state-graph-mcp to track tasks, decisions, blockers, and progress.
+This project uses state-graph-mcp with project slug \`"${projectSlug}"\` to track tasks, decisions, blockers, and progress.
 ALWAYS update the state graph when performing work.
 
 ## Mandatory Workflow
@@ -107,4 +120,4 @@ ALWAYS update the state graph when performing work.
 4. \`trace_dependencies\` — understand task relationships
 <!-- state-graph-mcp:end -->
 `.trimStart();
-
+}

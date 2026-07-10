@@ -1,0 +1,27 @@
+# Exclude development files from npm registry
+tests/
+src/
+tsconfig.json
+tsup.config.ts
+eslint.config.js
+.cursor/
+.vscode/
+.gemini/
+.state-graph-mcp/
+.github/
+.prettierrc
+.npmignore
+CLAUDE.md
+PROJECT_INSTRUCTIONS_TEMPLATE.md
+docs/
+temp-scaffolder-test-dir/
+git-scanner-test-project/
+scaffolder-test-project/
+integration-test-project/
+test-db-ops-source/
+test-db-ops-target/
+deep-graph-test-project/
+security-test-project/
+*.db
+*.db-journal
+*.log

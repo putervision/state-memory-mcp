@@ -1,7 +1,9 @@
 import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { GraphEngine } from '../../src/engine/graph.js';
 import { EdgeEngine } from '../../src/engine/edges.js';
-import { exportGraph, importGraph, queryGraph } from '../../src/engine/utils.js';
+import { exportGraph } from '../../src/engine/export.js';
+import { importGraph } from '../../src/engine/import.js';
+import { queryGraph } from '../../src/engine/query-raw.js';
 import { closeAllDbs, getDb } from '../../src/engine/db.js';
 
 describe('Utility Operations', () => {
@@ -16,7 +18,7 @@ describe('Utility Operations', () => {
 
     const t1 = GraphEngine.addNode({ project, type: 'task', title: 'Task 1' });
     const t2 = GraphEngine.addNode({ project, type: 'task', title: 'Task 2' });
-    
+
     t1Id = t1.id;
     t2Id = t2.id;
 
@@ -49,21 +51,45 @@ describe('Utility Operations', () => {
 
     it('should import graph data from JSON bulk data correctly', () => {
       const importProject = 'import-test-project';
-      
+
       const importData = {
         nodes: [
-          { id: 'N1', type: 'task', title: 'Imported Task 1', status: 'pending', git_branch: 'main', metadata: { priority: 'low' }, tags: ['import'] },
-          { id: 'N2', type: 'decision', title: 'Imported Decision', status: 'accepted', git_branch: 'main', metadata: { rationale: 'Import' }, tags: [] }
+          {
+            id: 'N1',
+            type: 'task',
+            title: 'Imported Task 1',
+            status: 'pending',
+            git_branch: 'main',
+            metadata: { priority: 'low' },
+            tags: ['import'],
+          },
+          {
+            id: 'N2',
+            type: 'decision',
+            title: 'Imported Decision',
+            status: 'accepted',
+            git_branch: 'main',
+            metadata: { rationale: 'Import' },
+            tags: [],
+          },
         ],
         edges: [
-          { id: 'E1', source_id: 'N1', target_id: 'N2', type: 'decided_in', git_branch: 'main', properties: {} }
-        ]
+          {
+            id: 'E1',
+            source_id: 'N1',
+            target_id: 'N2',
+            type: 'decided_in',
+            git_branch: 'main',
+            properties: {},
+          },
+        ],
       };
 
       const summary = importGraph({
         project: importProject,
         nodes: importData.nodes,
-        edges: importData.edges
+        edges: importData.edges,
+        force: true,
       });
 
       expect(summary.imported_nodes_count).toBe(2);
@@ -75,6 +101,34 @@ describe('Utility Operations', () => {
       expect(fetchedNode!.node.metadata.priority).toBe('low');
       expect(fetchedNode!.outbound_edges!.length).toBe(1);
     });
+
+    it('should prevent accidental overwrite unless force is true', () => {
+      const importProject = 'import-test-project';
+
+      const importData = {
+        nodes: [{ id: 'N3', type: 'task', title: 'Task 3', status: 'pending' }],
+        edges: [],
+      };
+
+      // Since import-test-project has nodes from the previous test, it should throw
+      expect(() => {
+        importGraph({
+          project: importProject,
+          nodes: importData.nodes,
+          edges: importData.edges,
+          force: false,
+        });
+      }).toThrow(/Database is not empty/);
+
+      // With force: true, it should succeed and replace all nodes
+      const summary = importGraph({
+        project: importProject,
+        nodes: importData.nodes,
+        edges: importData.edges,
+        force: true,
+      });
+      expect(summary.imported_nodes_count).toBe(1);
+    });
   });
 
   describe('queryGraph (safe raw SQL)', () => {
@@ -82,7 +136,7 @@ describe('Utility Operations', () => {
       const rows = queryGraph({
         project,
         sql: 'SELECT id, type, title FROM nodes WHERE project = ? ORDER BY title ASC',
-        params: [project]
+        params: [project],
       });
 
       expect(rows.length).toBe(2);
@@ -95,7 +149,7 @@ describe('Utility Operations', () => {
         queryGraph({
           project,
           sql: "INSERT INTO nodes (id, type, title, status, project, created_at, updated_at) VALUES ('X', 'task', 'Hacker', 'pending', ?, 'now', 'now')",
-          params: [project]
+          params: [project],
         });
       }).toThrow(/strictly prohibited/);
     });

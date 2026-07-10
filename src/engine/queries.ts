@@ -1,12 +1,26 @@
 import { getDb, getProjectSlug } from './db.js';
-import { BaseNode, Edge, NodeType } from '../schema/types.js';
+import { BaseNode, Edge, NodeType, NodeRow, EdgeRow } from '../schema/types.js';
+import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { getCurrentBranch } from '../utils/git.js';
-import { logger } from '../utils/logger.js';
 import { searchTfidf } from './tfidf.js';
 
+/**
+ * Engine for querying nodes and subgraphs from the database.
+ */
 export class QueryEngine {
   /**
    * List nodes with advanced filtering and pagination.
+   *
+   * @param params - The list filtering and pagination parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.type - Optional node type to filter by.
+   * @param params.status - Optional status to filter by.
+   * @param params.tags - Optional array of tags (AND matches).
+   * @param params.limit - Optional maximum number of nodes to return.
+   * @param params.offset - Optional offset for pagination.
+   * @param params.compact - Optional. If true, metadata is excluded.
+   * @param params.git_branch - Optional git branch filter.
+   * @returns An object containing the list of matching nodes and the total count of matched nodes.
    */
   static listNodes(params: {
     project?: string;
@@ -66,26 +80,25 @@ export class QueryEngine {
     const offset = params.offset !== undefined ? params.offset : 0;
     queryParams.push(limit, offset);
 
-    const rows = db.prepare(sql).all(...queryParams) as any[];
+    const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
 
-    const nodes = rows.map((row) => ({
-      id: row.id,
-      type: row.type as NodeType,
-      title: row.title,
-      status: row.status,
-      project: row.project,
-      git_branch: row.git_branch,
-      metadata: row.metadata ? JSON.parse(row.metadata) : {},
-      tags: row.tags ? JSON.parse(row.tags) : [],
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    const nodes = rows.map(parseNodeRow);
 
     return { nodes, total_count };
   }
 
   /**
    * Search nodes using FTS5 virtual table or TF-IDF cosine similarity.
+   *
+   * @param params - The search parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.query - The search query term.
+   * @param params.type - Optional node type to filter results.
+   * @param params.status - Optional status to filter results.
+   * @param params.limit - Optional maximum number of results to return.
+   * @param params.git_branch - Optional git branch filter.
+   * @param params.algorithm - The search algorithm to use ('fts' or 'tfidf').
+   * @returns An object containing matching nodes and the total count.
    */
   static searchNodes(params: {
     project?: string;
@@ -119,19 +132,8 @@ export class QueryEngine {
         queryParams.push(params.status);
       }
 
-      const rows = db.prepare(sql).all(...queryParams) as any[];
-      const candidates: BaseNode[] = rows.map((row) => ({
-        id: row.id,
-        type: row.type as NodeType,
-        title: row.title,
-        status: row.status,
-        project: row.project,
-        git_branch: row.git_branch,
-        metadata: row.metadata ? JSON.parse(row.metadata) : {},
-        tags: row.tags ? JSON.parse(row.tags) : [],
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      }));
+      const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
+      const candidates = rows.map(parseNodeRow);
 
       const limit = params.limit !== undefined ? params.limit : 20;
       const matched = searchTfidf(candidates, params.query, limit);
@@ -173,26 +175,23 @@ export class QueryEngine {
     const limit = params.limit !== undefined ? params.limit : 20;
     queryParams.push(limit);
 
-    const rows = db.prepare(sql).all(...queryParams) as any[];
+    const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
 
-    const nodes = rows.map((row) => ({
-      id: row.id,
-      type: row.type as NodeType,
-      title: row.title,
-      status: row.status,
-      project: row.project,
-      git_branch: row.git_branch,
-      metadata: row.metadata ? JSON.parse(row.metadata) : {},
-      tags: row.tags ? JSON.parse(row.tags) : [],
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    const nodes = rows.map(parseNodeRow);
 
     return { nodes, total_count };
   }
 
   /**
    * Get recursive N-hop neighborhood of a root node.
+   *
+   * @param params - The subgraph query parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.root_id - The root node ID to traverse from.
+   * @param params.depth - The traversal depth limit.
+   * @param params.edge_types - Optional array of edge types to follow.
+   * @param params.node_types - Optional array of node types to include in results.
+   * @returns An object containing nodes and edges within the subgraph.
    */
   static getSubgraph(params: {
     project?: string;
@@ -240,7 +239,7 @@ export class QueryEngine {
     `;
 
     const idRows = db.prepare(idQuery).all(...recursiveParams) as any[];
-    const nodeIds = idRows.map(r => r.node_id);
+    const nodeIds = idRows.map((r) => r.node_id);
 
     if (nodeIds.length === 0) {
       return { nodes: [], edges: [] };
@@ -255,22 +254,11 @@ export class QueryEngine {
       nodeQueryParams.push(...params.node_types);
     }
 
-    const nodeRows = db.prepare(nodeSql).all(...nodeQueryParams) as any[];
-    const nodes = nodeRows.map((row) => ({
-      id: row.id,
-      type: row.type as NodeType,
-      title: row.title,
-      status: row.status,
-      project: row.project,
-      git_branch: row.git_branch,
-      metadata: row.metadata ? JSON.parse(row.metadata) : {},
-      tags: row.tags ? JSON.parse(row.tags) : [],
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    const nodeRows = db.prepare(nodeSql).all(...nodeQueryParams) as NodeRow[];
+    const nodes = nodeRows.map(parseNodeRow);
 
     // Filter nodeIds to those that were actually returned (matching node_types)
-    const returnedNodeIds = nodes.map(n => n.id);
+    const returnedNodeIds = nodes.map((n) => n.id);
 
     if (returnedNodeIds.length === 0) {
       return { nodes: [], edges: [] };
@@ -284,18 +272,11 @@ export class QueryEngine {
         AND source_id IN (${placeholders}) 
         AND target_id IN (${placeholders})
     `;
-    const edgeRows = db.prepare(edgeSql).all(projectSlug, ...returnedNodeIds, ...returnedNodeIds) as any[];
+    const edgeRows = db
+      .prepare(edgeSql)
+      .all(projectSlug, ...returnedNodeIds, ...returnedNodeIds) as EdgeRow[];
 
-    const edges = edgeRows.map((row) => ({
-      id: row.id,
-      source_id: row.source_id,
-      target_id: row.target_id,
-      type: row.type as any,
-      properties: row.properties ? JSON.parse(row.properties) : {},
-      project: row.project,
-      git_branch: row.git_branch,
-      created_at: row.created_at,
-    }));
+    const edges = edgeRows.map(parseEdgeRow);
 
     return { nodes, edges };
   }

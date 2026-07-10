@@ -20,7 +20,10 @@ export function getCurrentBranch(cwd: string = process.cwd()): string {
           return parsed.defaultBranch;
         }
       }
-      if (fs.existsSync(path.join(current, '.git')) || fs.existsSync(path.join(current, '.state-graph-mcp'))) {
+      if (
+        fs.existsSync(path.join(current, '.git')) ||
+        fs.existsSync(path.join(current, '.state-graph-mcp'))
+      ) {
         break; // reached project root
       }
       const parent = path.dirname(current);
@@ -48,20 +51,11 @@ export function getCurrentBranch(cwd: string = process.cwd()): string {
   return 'main';
 }
 
-export function isGitRepo(cwd: string = process.cwd()): boolean {
-  try {
-    const output = execSync('git rev-parse --is-inside-work-tree', {
-      cwd,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf-8',
-    }).trim();
-    return output === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function parseConventionalCommit(subject: string): { type?: string; scope?: string; subject: string } {
+export function parseConventionalCommit(subject: string): {
+  type?: string;
+  scope?: string;
+  subject: string;
+} {
   const match = subject.match(/^(\w+)(?:\(([^)]*)\))?!?:\s*(.+)$/);
   if (match) {
     return {
@@ -76,7 +70,7 @@ export function parseConventionalCommit(subject: string): { type?: string; scope
 }
 
 export function getFilesChanged(hash: string, cwd: string = process.cwd()): string[] {
-  if (hash && !/^[a-zA-Z0-9_./^-]+$/.test(hash)) {
+  if (hash && !/^[a-fA-F0-9]+$/.test(hash)) {
     throw new Error(`Invalid git reference or commit hash: ${hash}`);
   }
   try {
@@ -85,7 +79,10 @@ export function getFilesChanged(hash: string, cwd: string = process.cwd()): stri
       stdio: ['ignore', 'pipe', 'ignore'],
       encoding: 'utf-8',
     });
-    return output.split('\n').map(line => line.trim()).filter(Boolean);
+    return output
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
   } catch (err) {
     logger.debug(`Failed to get files changed for commit ${hash}:`, err);
     return [];
@@ -94,7 +91,7 @@ export function getFilesChanged(hash: string, cwd: string = process.cwd()): stri
 
 export function getCommitLog(cwd: string, count: number, since?: string): GitCommit[] {
   const limit = Math.max(1, Math.floor(count) || 30);
-  if (since && !/^[a-zA-Z0-9_./^-]+$/.test(since)) {
+  if (since && !/^[a-fA-F0-9]+$/.test(since)) {
     throw new Error(`Invalid git reference or commit hash: ${since}`);
   }
 
@@ -133,7 +130,9 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
       execSync(`git cat-file -e ${since}`, { cwd, stdio: 'ignore' });
       sinceExists = true;
     } catch {
-      logger.debug(`Commit hash ${since} does not exist or is unreachable in git history. Falling back to last ${limit} commits.`);
+      logger.debug(
+        `Commit hash ${since} does not exist or is unreachable in git history. Falling back to last ${limit} commits.`
+      );
     }
 
     if (sinceExists) {
@@ -191,4 +190,3 @@ export function findGitRepos(root: string, maxDepth: number = 2): string[] {
   search(root, 0);
   return repos;
 }
-

@@ -3,11 +3,11 @@ import * as path from 'path';
 import * as os from 'os';
 import { logger } from '../utils/logger.js';
 import {
-  INSTRUCTIONS_TEMPLATE,
+  getInstructionsTemplate,
   INSTRUCTION_TARGETS,
-  MCP_CONFIG_CURSOR,
-  MCP_CONFIG_VSCODE,
-  GLOBAL_RULES_TEMPLATE,
+  getMcpConfigCursor,
+  getMcpConfigVscode,
+  getGlobalRulesTemplate,
 } from './templates.js';
 import { registerProject, getDb } from '../engine/db.js';
 import { GraphEngine } from '../engine/graph.js';
@@ -34,19 +34,21 @@ export async function runInit(
 
   // Register project in global registry for global client auto-resolution
   const projectName = path.basename(root);
+  const projectSlug = projectName.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
   registerProject(projectName, root);
 
   initDataDirectory(root);
   updateGitignore(root);
-  scaffoldInstructions(root);
-  scaffoldMcpConfigs(root);
-  scaffoldGlobalRules();
+  scaffoldInstructions(root, projectSlug);
+  scaffoldMcpConfigs(root, projectSlug);
+  scaffoldGlobalRules(projectSlug);
 
   // Step 7 — Seed node (always, on fresh init)
-  const projectSlug = projectName.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
   const db = getDb(projectSlug);
-  
-  const countRow = db.prepare('SELECT COUNT(*) as count FROM nodes WHERE project = ?').get(projectSlug) as { count: number };
+
+  const countRow = db
+    .prepare('SELECT COUNT(*) as count FROM nodes WHERE project = ?')
+    .get(projectSlug) as { count: number };
   if (countRow && countRow.count === 0) {
     GraphEngine.addNode({
       project: projectSlug,
@@ -55,9 +57,9 @@ export async function runInit(
       status: 'active',
       metadata: {
         source: 'scaffold',
-        initialized_at: new Date().toISOString()
+        initialized_at: new Date().toISOString(),
       },
-      tags: ['init', 'source:scaffold']
+      tags: ['init', 'source:scaffold'],
     });
     console.log('   ✅ Created initial seed Observation node');
   }
@@ -74,7 +76,7 @@ export async function runInit(
       const scanResult = await scanGit(projectSlug, root, {
         commits: options.commits ?? 30,
         createTasks: options.createTasks ?? true,
-        createArtifacts: options.createArtifacts ?? true
+        createArtifacts: options.createArtifacts ?? true,
       });
       console.log('   ✅ Git scan complete:');
       console.log(`      - Commits scanned: ${scanResult.commits_scanned}`);
@@ -82,7 +84,9 @@ export async function runInit(
       console.log(`      - Tasks created: ${scanResult.new_tasks}`);
       console.log(`      - Artifacts created: ${scanResult.new_artifacts}`);
     } else {
-      console.log('   ⚠️  Warning: No git repositories found under project root — skipping git scan');
+      console.log(
+        '   ⚠️  Warning: No git repositories found under project root — skipping git scan'
+      );
     }
   }
 
@@ -139,9 +143,11 @@ function updateGitignore(root: string): void {
 /**
  * Create or append IDE instruction files for all supported editors/models.
  */
-function scaffoldInstructions(root: string): void {
+function scaffoldInstructions(root: string, projectSlug: string): void {
   console.log('');
   console.log('   📝 IDE Instruction Files:');
+
+  const instructionsText = getInstructionsTemplate(projectSlug);
 
   for (const target of INSTRUCTION_TARGETS) {
     const filePath = path.join(root, target.path);
@@ -167,11 +173,11 @@ function scaffoldInstructions(root: string): void {
 
       // Append to existing file
       const separator = content.endsWith('\n') ? '\n' : '\n\n';
-      fs.appendFileSync(filePath, `${separator}${INSTRUCTIONS_TEMPLATE}`, 'utf-8');
+      fs.appendFileSync(filePath, `${separator}${instructionsText}`, 'utf-8');
       console.log(`      ✅ ${target.label} (${target.path}) — appended instructions`);
     } else {
       // Create new file
-      fs.writeFileSync(filePath, INSTRUCTIONS_TEMPLATE, 'utf-8');
+      fs.writeFileSync(filePath, instructionsText, 'utf-8');
       console.log(`      ✅ ${target.label} (${target.path}) — created`);
     }
   }
@@ -180,27 +186,15 @@ function scaffoldInstructions(root: string): void {
 /**
  * Create or merge MCP server config files for Cursor and VS Code.
  */
-function scaffoldMcpConfigs(root: string): void {
+function scaffoldMcpConfigs(root: string, projectSlug: string): void {
   console.log('');
   console.log('   🔌 MCP Server Configs:');
 
   // Cursor: .cursor/mcp.json
-  mergeMcpConfig(
-    root,
-    '.cursor/mcp.json',
-    'Cursor',
-    MCP_CONFIG_CURSOR,
-    'mcpServers',
-  );
+  mergeMcpConfig(root, '.cursor/mcp.json', 'Cursor', getMcpConfigCursor(projectSlug), 'mcpServers');
 
   // VS Code: .vscode/mcp.json
-  mergeMcpConfig(
-    root,
-    '.vscode/mcp.json',
-    'VS Code',
-    MCP_CONFIG_VSCODE,
-    'servers',
-  );
+  mergeMcpConfig(root, '.vscode/mcp.json', 'VS Code', getMcpConfigVscode(projectSlug), 'servers');
 }
 
 /**
@@ -212,7 +206,7 @@ function mergeMcpConfig(
   relativePath: string,
   label: string,
   template: Record<string, any>,
-  serversKey: string,
+  serversKey: string
 ): void {
   const filePath = path.join(root, relativePath);
   const dir = path.dirname(filePath);
@@ -254,15 +248,20 @@ function mergeMcpConfig(
 /**
  * Append instructions to global rules files (~/.cursorrules and ~/.gemini/GEMINI.md)
  */
-function scaffoldGlobalRules(): void {
+function scaffoldGlobalRules(projectSlug: string): void {
   console.log('');
   console.log('   🌎 Global User Rules:');
 
   const homedir = os.homedir();
   const globalTargets = [
     { path: path.join(homedir, '.cursorrules'), label: 'Global Cursor Rules (~/.cursorrules)' },
-    { path: path.join(homedir, '.gemini/GEMINI.md'), label: 'Global Gemini Rules (~/.gemini/GEMINI.md)' },
+    {
+      path: path.join(homedir, '.gemini/GEMINI.md'),
+      label: 'Global Gemini Rules (~/.gemini/GEMINI.md)',
+    },
   ];
+
+  const globalRulesText = getGlobalRulesTemplate(projectSlug);
 
   for (const target of globalTargets) {
     // Only configure .gemini rules if the app directory already exists
@@ -277,12 +276,11 @@ function scaffoldGlobalRules(): void {
         continue;
       }
       const separator = content.endsWith('\n') ? '\n' : '\n\n';
-      fs.appendFileSync(target.path, `${separator}${GLOBAL_RULES_TEMPLATE}`, 'utf-8');
+      fs.appendFileSync(target.path, `${separator}${globalRulesText}`, 'utf-8');
       console.log(`      ✅ ${target.label} — appended rules`);
     } else {
-      fs.writeFileSync(target.path, GLOBAL_RULES_TEMPLATE, 'utf-8');
+      fs.writeFileSync(target.path, globalRulesText, 'utf-8');
       console.log(`      ✅ ${target.label} — created`);
     }
   }
 }
-

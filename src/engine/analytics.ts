@@ -1,23 +1,40 @@
 import { getDb, getProjectSlug } from './db.js';
-import { BaseNode, Edge, NodeType } from '../schema/types.js';
+import { BaseNode, Edge, NodeRow, EdgeRow } from '../schema/types.js';
 import { GraphEngine } from './graph.js';
 import { getCurrentBranch } from '../utils/git.js';
-import { logger } from '../utils/logger.js';
+import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 
+/**
+ * Represents an item in a dependency trace path, detailing a node, its depth, and the edge type.
+ */
 export interface DependencyTraceItem {
   node: BaseNode;
   depth: number;
   edge_type: string;
 }
 
+/**
+ * Represents a summary of an active blocker and the nodes it directly or transitively blocks.
+ */
 export interface BlockerSummary {
   blocker_node: BaseNode;
   blocked_nodes: { node: BaseNode; depth: number }[];
 }
 
+/**
+ * Engine for performing graph analytics, path tracing, blocker discovery, and impact analysis.
+ */
 export class AnalyticsEngine {
   /**
    * Trace upstream or downstream dependency chains using recursive CTEs.
+   *
+   * @param params - The trace parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.node_id - The ID of the node to trace from.
+   * @param params.direction - The direction of tracing ('upstream' to trace dependencies, 'downstream' to trace dependents).
+   * @param params.edge_types - Optional array of edge types to traverse.
+   * @param params.max_depth - Optional maximum traversal depth (defaults to 10).
+   * @returns An object containing the dependency chain and a boolean indicating if a cycle was detected.
    */
   static traceDependencies(params: {
     project?: string;
@@ -30,9 +47,10 @@ export class AnalyticsEngine {
     const db = getDb(projectSlug);
 
     const maxDepth = params.max_depth !== undefined ? params.max_depth : 10;
-    const allowedEdgeTypes = params.edge_types && params.edge_types.length > 0
-      ? params.edge_types
-      : ['depends_on', 'blocks', 'child_of'];
+    const allowedEdgeTypes =
+      params.edge_types && params.edge_types.length > 0
+        ? params.edge_types
+        : ['depends_on', 'blocks', 'child_of'];
 
     // Verify target node exists
     const nodeExists = db.prepare('SELECT 1 FROM nodes WHERE id = ?').get(params.node_id);
@@ -41,7 +59,7 @@ export class AnalyticsEngine {
     }
 
     const placeholders = allowedEdgeTypes.map(() => '?').join(',');
-    
+
     // Recursive CTE definition depending on direction
     let cteQuery = '';
     if (params.direction === 'upstream') {
@@ -100,25 +118,18 @@ export class AnalyticsEngine {
     }
 
     // Retrieve details for all visited nodes
-    const nodeIds = Array.from(new Set(rows.map(r => r.node_id)));
-    const nodesRows = db.prepare(`
+    const nodeIds = Array.from(new Set(rows.map((r) => r.node_id)));
+    const nodesRows = db
+      .prepare(
+        `
       SELECT * FROM nodes WHERE id IN (${nodeIds.map(() => '?').join(',')})
-    `).all(...nodeIds) as any[];
+    `
+      )
+      .all(...nodeIds) as any[];
 
     const nodesMap = new Map<string, BaseNode>();
     for (const r of nodesRows) {
-      nodesMap.set(r.id, {
-        id: r.id,
-        type: r.type as NodeType,
-        title: r.title,
-        status: r.status,
-        project: r.project,
-        git_branch: r.git_branch,
-        metadata: r.metadata ? JSON.parse(r.metadata) : {},
-        tags: r.tags ? JSON.parse(r.tags) : [],
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-      });
+      nodesMap.set(r.id, parseNodeRow(r as NodeRow));
     }
 
     const chain: DependencyTraceItem[] = rows
@@ -145,6 +156,12 @@ export class AnalyticsEngine {
 
   /**
    * Find active blockers and the nodes they block.
+   *
+   * @param params - The blocker search parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.node_id - Optional node ID to check blockers specifically for.
+   * @param params.include_transitive - Optional. Whether to search transitively.
+   * @returns An array of blocker summaries.
    */
   static findBlockers(params: {
     project?: string;
@@ -169,7 +186,7 @@ export class AnalyticsEngine {
 
       // Filter trace items to active blocker nodes
       const blockersInChain = traceResult.chain.filter(
-        item => item.node.type === 'blocker' && item.node.status === 'active'
+        (item) => item.node.type === 'blocker' && item.node.status === 'active'
       );
 
       // Group by blocker node
@@ -178,43 +195,31 @@ export class AnalyticsEngine {
           blocker_node: item.node,
           blocked_nodes: [
             {
-              node: db.prepare('SELECT * FROM nodes WHERE id = ?').get(params.node_id) as any, // root target
+              node: parseNodeRow(
+                db.prepare('SELECT * FROM nodes WHERE id = ?').get(params.node_id) as NodeRow
+              ), // root target
               depth: item.depth,
             },
-          ].map(bn => ({
-            node: {
-              ...bn.node,
-              metadata: JSON.parse(bn.node.metadata || '{}'),
-              tags: JSON.parse(bn.node.tags || '[]'),
-            },
-            depth: bn.depth,
-          })),
+          ],
         };
       });
 
       return blockerSummaries;
     } else {
       // Find all blockers in the project and what they block
-      const blockerRows = db.prepare(`
+      const blockerRows = db
+        .prepare(
+          `
         SELECT * FROM nodes 
         WHERE project = ? AND type = 'blocker' AND status = 'active' AND git_branch = ?
-      `).all(projectSlug, branch) as any[];
+      `
+        )
+        .all(projectSlug, branch) as NodeRow[];
 
       const blockerSummaries: BlockerSummary[] = [];
 
       for (const row of blockerRows) {
-        const blockerNode: BaseNode = {
-          id: row.id,
-          type: row.type as NodeType,
-          title: row.title,
-          status: row.status,
-          project: row.project,
-          git_branch: row.git_branch,
-          metadata: JSON.parse(row.metadata || '{}'),
-          tags: JSON.parse(row.tags || '[]'),
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-        };
+        const blockerNode = parseNodeRow(row);
 
         // Trace downstream to find blocked nodes
         const traceResult = AnalyticsEngine.traceDependencies({
@@ -225,7 +230,7 @@ export class AnalyticsEngine {
           max_depth: 10,
         });
 
-        const blocked_nodes = traceResult.chain.map(item => ({
+        const blocked_nodes = traceResult.chain.map((item) => ({
           node: item.node,
           depth: item.depth,
         }));
@@ -242,6 +247,10 @@ export class AnalyticsEngine {
 
   /**
    * Get high-level summary of the project state.
+   *
+   * @param params - The summary parameters.
+   * @param params.project - Optional project identifier.
+   * @returns An object containing node counts, status breakdown, active blockers, recent decisions, and task progress.
    */
   static getProjectSummary(params: { project?: string }): {
     node_counts: Record<string, number>;
@@ -260,11 +269,15 @@ export class AnalyticsEngine {
     const branch = getCurrentBranch();
 
     // 1. Fetch node counts by type
-    const countRows = db.prepare(`
+    const countRows = db
+      .prepare(
+        `
       SELECT type, COUNT(*) as count FROM nodes 
       WHERE project = ? AND git_branch = ?
       GROUP BY type
-    `).all(projectSlug, branch) as any[];
+    `
+      )
+      .all(projectSlug, branch) as any[];
 
     const node_counts: Record<string, number> = {
       task: 0,
@@ -281,11 +294,15 @@ export class AnalyticsEngine {
     }
 
     // 2. Fetch status breakdown
-    const statusRows = db.prepare(`
+    const statusRows = db
+      .prepare(
+        `
       SELECT type, status, COUNT(*) as count FROM nodes 
       WHERE project = ? AND git_branch = ?
       GROUP BY type, status
-    `).all(projectSlug, branch) as any[];
+    `
+      )
+      .all(projectSlug, branch) as any[];
 
     const status_breakdown: Record<string, Record<string, number>> = {};
     for (const r of statusRows) {
@@ -299,36 +316,37 @@ export class AnalyticsEngine {
     const active_blockers = AnalyticsEngine.findBlockers({ project: projectSlug });
 
     // 4. Fetch recent decisions
-    const decisionRows = db.prepare(`
+    const decisionRows = db
+      .prepare(
+        `
       SELECT * FROM nodes 
       WHERE project = ? AND type = 'decision' AND git_branch = ?
       ORDER BY created_at DESC 
       LIMIT 5
-    `).all(projectSlug, branch) as any[];
+    `
+      )
+      .all(projectSlug, branch) as NodeRow[];
 
-    const recent_decisions = decisionRows.map((row) => ({
-      id: row.id,
-      type: row.type as NodeType,
-      title: row.title,
-      status: row.status,
-      project: row.project,
-      git_branch: row.git_branch,
-      metadata: JSON.parse(row.metadata || '{}'),
-      tags: JSON.parse(row.tags || '[]'),
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    const recent_decisions = decisionRows.map(parseNodeRow);
 
     // 5. Compute task progress
-    const total_tasks = db.prepare(`
+    const total_tasks = db
+      .prepare(
+        `
       SELECT COUNT(*) as count FROM nodes 
       WHERE project = ? AND type = 'task' AND status != 'cancelled' AND git_branch = ?
-    `).get(projectSlug, branch) as any;
+    `
+      )
+      .get(projectSlug, branch) as any;
 
-    const completed_tasks = db.prepare(`
+    const completed_tasks = db
+      .prepare(
+        `
       SELECT COUNT(*) as count FROM nodes 
       WHERE project = ? AND type = 'task' AND status = 'done' AND git_branch = ?
-    `).get(projectSlug, branch) as any;
+    `
+      )
+      .get(projectSlug, branch) as any;
 
     const total = total_tasks ? total_tasks.count : 0;
     const completed = completed_tasks ? completed_tasks.count : 0;
@@ -349,22 +367,31 @@ export class AnalyticsEngine {
 
   /**
    * Trace the full chain of decisions that led to a given state.
+   *
+   * @param params - The trail parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.node_id - The target decision node ID.
+   * @returns An object containing the trail of decision nodes and any contradiction edges.
    */
-  static decisionTrail(params: {
-    project?: string;
-    node_id: string;
-  }): { decisions: BaseNode[]; contradictions: Edge[] } {
+  static decisionTrail(params: { project?: string; node_id: string }): {
+    decisions: BaseNode[];
+    contradictions: Edge[];
+  } {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
     // Verify root decision node exists
-    const rootNode = db.prepare("SELECT * FROM nodes WHERE id = ? AND type = 'decision'").get(params.node_id) as any;
+    const rootNode = db
+      .prepare("SELECT * FROM nodes WHERE id = ? AND type = 'decision'")
+      .get(params.node_id) as any;
     if (!rootNode) {
       throw new Error(`Decision node not found: ${params.node_id}`);
     }
 
     // CTE to trace upstream updates (what this decision updated)
-    const upstreamTrail = db.prepare(`
+    const upstreamTrail = db
+      .prepare(
+        `
       WITH RECURSIVE trail(node_id) AS (
         SELECT ?
         UNION
@@ -374,10 +401,14 @@ export class AnalyticsEngine {
         WHERE e.type = 'updates'
       )
       SELECT node_id FROM trail
-    `).all(params.node_id) as any[];
+    `
+      )
+      .all(params.node_id) as any[];
 
     // CTE to trace downstream updates (what updated this decision)
-    const downstreamTrail = db.prepare(`
+    const downstreamTrail = db
+      .prepare(
+        `
       WITH RECURSIVE trail(node_id) AS (
         SELECT ?
         UNION
@@ -387,13 +418,12 @@ export class AnalyticsEngine {
         WHERE e.type = 'updates'
       )
       SELECT node_id FROM trail
-    `).all(params.node_id) as any[];
+    `
+      )
+      .all(params.node_id) as any[];
 
     const uniqueIds = Array.from(
-      new Set([
-        ...upstreamTrail.map((r) => r.node_id),
-        ...downstreamTrail.map((r) => r.node_id),
-      ])
+      new Set([...upstreamTrail.map((r) => r.node_id), ...downstreamTrail.map((r) => r.node_id)])
     );
 
     if (uniqueIds.length === 0) {
@@ -402,58 +432,53 @@ export class AnalyticsEngine {
 
     // Fetch decisions
     const placeholders = uniqueIds.map(() => '?').join(',');
-    const decisionRows = db.prepare(`
+    const decisionRows = db
+      .prepare(
+        `
       SELECT * FROM nodes WHERE id IN (${placeholders}) AND type = 'decision'
-    `).all(...uniqueIds) as any[];
+    `
+      )
+      .all(...uniqueIds) as NodeRow[];
 
-    const decisions = decisionRows.map((row) => ({
-      id: row.id,
-      type: row.type as NodeType,
-      title: row.title,
-      status: row.status,
-      project: row.project,
-      git_branch: row.git_branch,
-      metadata: JSON.parse(row.metadata || '{}'),
-      tags: JSON.parse(row.tags || '[]'),
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    const decisions = decisionRows.map(parseNodeRow);
 
     // Find any contradictions among these decisions
-    const edgeRows = db.prepare(`
+    const edgeRows = db
+      .prepare(
+        `
       SELECT * FROM edges 
       WHERE project = ? 
         AND type = 'contradicts' 
         AND source_id IN (${placeholders}) 
         AND target_id IN (${placeholders})
-    `).all(projectSlug, ...uniqueIds, ...uniqueIds) as any[];
+    `
+      )
+      .all(projectSlug, ...uniqueIds, ...uniqueIds) as EdgeRow[];
 
-    const contradictions = edgeRows.map((row) => ({
-      id: row.id,
-      source_id: row.source_id,
-      target_id: row.target_id,
-      type: row.type as any,
-      properties: JSON.parse(row.properties || '{}'),
-      project: row.project,
-      git_branch: row.git_branch,
-      created_at: row.created_at,
-    }));
+    const contradictions = edgeRows.map(parseEdgeRow);
 
     return { decisions, contradictions };
   }
 
   /**
    * Compute the longest dependency path of tasks leading to a milestone.
+   *
+   * @param params - The path parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.milestone_id - The milestone node ID.
+   * @returns An object containing the path nodes and the total estimated duration in hours.
    */
-  static criticalPath(params: {
-    project?: string;
-    milestone_id: string;
-  }): { path: BaseNode[]; total_estimate_hours: number } {
+  static criticalPath(params: { project?: string; milestone_id: string }): {
+    path: BaseNode[];
+    total_estimate_hours: number;
+  } {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
     // Verify milestone exists
-    const milestone = db.prepare("SELECT * FROM nodes WHERE id = ? AND type = 'milestone'").get(params.milestone_id) as any;
+    const milestone = db
+      .prepare("SELECT * FROM nodes WHERE id = ? AND type = 'milestone'")
+      .get(params.milestone_id) as NodeRow | undefined;
     if (!milestone) {
       throw new Error(`Milestone node not found: ${params.milestone_id}`);
     }
@@ -469,37 +494,35 @@ export class AnalyticsEngine {
 
     // Exclude completed or cancelled tasks
     const activeNodes = trace.chain
-      .map(item => item.node)
-      .filter(node => node.status !== 'done' && node.status !== 'cancelled' && (node.type === 'task' || node.type === 'milestone'));
+      .map((item) => item.node)
+      .filter(
+        (node) =>
+          node.status !== 'done' &&
+          node.status !== 'cancelled' &&
+          (node.type === 'task' || node.type === 'milestone')
+      );
 
     // Include the root milestone itself
-    const rootMilestoneNode: BaseNode = {
-      id: milestone.id,
-      type: milestone.type as NodeType,
-      title: milestone.title,
-      status: milestone.status,
-      project: milestone.project,
-      git_branch: milestone.git_branch,
-      metadata: JSON.parse(milestone.metadata || '{}'),
-      tags: JSON.parse(milestone.tags || '[]'),
-      created_at: milestone.created_at,
-      updated_at: milestone.updated_at,
-    };
+    const rootMilestoneNode = parseNodeRow(milestone);
     activeNodes.push(rootMilestoneNode);
 
-    const activeNodeIds = activeNodes.map(n => n.id);
+    const activeNodeIds = activeNodes.map((n) => n.id);
     if (activeNodeIds.length <= 1) {
       return { path: activeNodes, total_estimate_hours: 0 };
     }
 
     // Fetch edges among these active nodes
     const placeholders = activeNodeIds.map(() => '?').join(',');
-    const edgeRows = db.prepare(`
+    const edgeRows = db
+      .prepare(
+        `
       SELECT * FROM edges 
       WHERE project = ? 
         AND source_id IN (${placeholders}) 
         AND target_id IN (${placeholders})
-    `).all(projectSlug, ...activeNodeIds, ...activeNodeIds) as any[];
+    `
+      )
+      .all(projectSlug, ...activeNodeIds, ...activeNodeIds) as EdgeRow[];
 
     // Parse estimates as weights. Helper to parse estimates (e.g. "3h" or 3 => 3)
     const getWeight = (node: BaseNode): number => {
@@ -569,7 +592,7 @@ export class AnalyticsEngine {
     const dist = new Map<string, number>();
     const parent = new Map<string, string>();
 
-    const nodesMap = new Map<string, BaseNode>(activeNodes.map(n => [n.id, n]));
+    const nodesMap = new Map<string, BaseNode>(activeNodes.map((n) => [n.id, n]));
 
     for (const id of topoOrder) {
       const node = nodesMap.get(id)!;
@@ -594,7 +617,7 @@ export class AnalyticsEngine {
     // Reconstruct path to milestone
     const path: BaseNode[] = [];
     let currentId: string | undefined = params.milestone_id;
-    let total_estimate_hours = dist.get(params.milestone_id) || 0;
+    const total_estimate_hours = dist.get(params.milestone_id) || 0;
 
     // Check if milestone was reached in topo order
     if (dist.has(params.milestone_id)) {
@@ -610,11 +633,15 @@ export class AnalyticsEngine {
 
   /**
    * Determine downstream affected nodes if a target node is updated/deleted.
+   *
+   * @param params - The analysis parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.node_id - The target node ID.
+   * @returns An object containing the list of affected downstream nodes.
    */
-  static impactAnalysis(params: {
-    project?: string;
-    node_id: string;
-  }): { affected_nodes: BaseNode[] } {
+  static impactAnalysis(params: { project?: string; node_id: string }): {
+    affected_nodes: BaseNode[];
+  } {
     const trace = AnalyticsEngine.traceDependencies({
       project: params.project,
       node_id: params.node_id,
@@ -623,12 +650,16 @@ export class AnalyticsEngine {
       max_depth: 20,
     });
 
-    const affected_nodes = trace.chain.map(item => item.node);
+    const affected_nodes = trace.chain.map((item) => item.node);
     return { affected_nodes };
   }
 
   /**
    * Detect inconsistencies: tasks marked done but blocked, or accepted contradicting decisions.
+   *
+   * @param params - The detection parameters.
+   * @param params.project - Optional project identifier.
+   * @returns An object containing lists of blocked-but-done tasks and contradicting decision nodes.
    */
   static detectContradictions(params: { project?: string }): {
     blocked_done_tasks: { task: BaseNode; blocker: BaseNode }[];
@@ -638,31 +669,47 @@ export class AnalyticsEngine {
     const db = getDb(projectSlug);
 
     // 1. Find tasks marked done but with active blockers
-    const taskContradictions = db.prepare(`
+    const taskContradictions = db
+      .prepare(
+        `
       SELECT DISTINCT t.id as t_id, b.id as b_id
       FROM nodes t
       JOIN edges e ON e.target_id = t.id
       JOIN nodes b ON e.source_id = b.id
       WHERE t.project = ? AND t.type = 'task' AND t.status = 'done' 
         AND e.type = 'blocks' AND b.type = 'blocker' AND b.status = 'active'
-    `).all(projectSlug) as any[];
+    `
+      )
+      .all(projectSlug) as any[];
 
     // Find tasks marked done but with uncompleted dependencies
-    const depContradictions = db.prepare(`
+    const depContradictions = db
+      .prepare(
+        `
       SELECT DISTINCT t.id as t_id, dep.id as b_id
       FROM nodes t
       JOIN edges e ON e.source_id = t.id
       JOIN nodes dep ON e.target_id = dep.id
       WHERE t.project = ? AND t.type = 'task' AND t.status = 'done'
         AND e.type = 'depends_on' AND dep.type = 'task' AND dep.status != 'done' AND dep.status != 'cancelled'
-    `).all(projectSlug) as any[];
+    `
+      )
+      .all(projectSlug) as any[];
 
     const allBlockedDone = [...taskContradictions, ...depContradictions];
 
     const blocked_done_tasks: { task: BaseNode; blocker: BaseNode }[] = [];
     for (const r of allBlockedDone) {
-      const taskRes = GraphEngine.getNode({ project: projectSlug, id: r.t_id, include_edges: false });
-      const blockerRes = GraphEngine.getNode({ project: projectSlug, id: r.b_id, include_edges: false });
+      const taskRes = GraphEngine.getNode({
+        project: projectSlug,
+        id: r.t_id,
+        include_edges: false,
+      });
+      const blockerRes = GraphEngine.getNode({
+        project: projectSlug,
+        id: r.b_id,
+        include_edges: false,
+      });
       if (taskRes && blockerRes) {
         blocked_done_tasks.push({
           task: taskRes.node,
@@ -672,7 +719,9 @@ export class AnalyticsEngine {
     }
 
     // 2. Find contradicting accepted decisions
-    const decisionContradictions = db.prepare(`
+    const decisionContradictions = db
+      .prepare(
+        `
       SELECT DISTINCT d1.id as id1, d2.id as id2
       FROM edges e
       JOIN nodes d1 ON e.source_id = d1.id
@@ -680,7 +729,9 @@ export class AnalyticsEngine {
       WHERE e.project = ? AND e.type = 'contradicts'
         AND d1.type = 'decision' AND d1.status = 'accepted'
         AND d2.type = 'decision' AND d2.status = 'accepted'
-    `).all(projectSlug) as any[];
+    `
+      )
+      .all(projectSlug) as any[];
 
     const contradicting_decisions: { decision1: BaseNode; decision2: BaseNode }[] = [];
     for (const r of decisionContradictions) {
@@ -699,6 +750,10 @@ export class AnalyticsEngine {
 
   /**
    * Get a comprehensive high-level context snapshot combining summary, active blockers, and immediate pending tasks.
+   *
+   * @param params - The snapshot parameters.
+   * @param params.project - Optional project identifier.
+   * @returns A snapshot object containing progress, active blockers, pending tasks, and a formatted Markdown summary string.
    */
   static getContextSnapshot(params: { project?: string }): {
     summary: {
@@ -715,24 +770,17 @@ export class AnalyticsEngine {
 
     // Fetch immediate pending tasks
     const branch = getCurrentBranch();
-    const taskRows = db.prepare(`
+    const taskRows = db
+      .prepare(
+        `
       SELECT * FROM nodes 
       WHERE project = ? AND type = 'task' AND status = 'pending' AND git_branch = ?
       LIMIT 10
-    `).all(projectSlug, branch) as any[];
+    `
+      )
+      .all(projectSlug, branch) as NodeRow[];
 
-    const pending_tasks = taskRows.map((row) => ({
-      id: row.id,
-      type: row.type as NodeType,
-      title: row.title,
-      status: row.status,
-      project: row.project,
-      git_branch: row.git_branch,
-      metadata: row.metadata ? JSON.parse(row.metadata) : {},
-      tags: row.tags ? JSON.parse(row.tags) : [],
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    const pending_tasks = taskRows.map(parseNodeRow);
 
     // Pre-render a beautiful Markdown summary
     let md = `## 📊 State Graph Context Snapshot [Project: ${projectSlug}]\n\n`;
@@ -740,13 +788,13 @@ export class AnalyticsEngine {
     const total = summary.progress.total_tasks;
     const completed = summary.progress.completed_tasks;
     const pct = summary.progress.pct;
-    
+
     // Simple ASCII progress bar
     const barWidth = 20;
     const filledWidth = Math.round((pct / 100) * barWidth);
     const emptyWidth = barWidth - filledWidth;
     const bar = '[' + '='.repeat(filledWidth) + ' '.repeat(emptyWidth) + ']';
-    
+
     md += `\`${bar} ${pct}%\` (${completed}/${total} tasks completed)\n\n`;
 
     md += `### 🔴 Active Blockers (${summary.active_blockers.length})\n`;
@@ -756,7 +804,7 @@ export class AnalyticsEngine {
       for (const b of summary.active_blockers) {
         md += `- **Blocker**: ${b.blocker_node.title} (ID: \`${b.blocker_node.id}\`)\n`;
         if (b.blocked_nodes.length > 0) {
-          md += `  - Blocks: ${b.blocked_nodes.map(n => `\`${n.node.title}\` (ID: \`${n.node.id}\`)`).join(', ')}\n`;
+          md += `  - Blocks: ${b.blocked_nodes.map((n) => `\`${n.node.title}\` (ID: \`${n.node.id}\`)`).join(', ')}\n`;
         }
       }
       md += `\n`;
@@ -792,22 +840,28 @@ export class AnalyticsEngine {
   }
 
   /**
-   * Find all decisions that affected a given artifact (either directly produces it or decided_in a milestone that produces it)
+   * Find all decisions that affected a given artifact (either directly produces it or decided_in a milestone that produces it).
+   *
+   * @param params - The search parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.artifact_id - The unique ID of the artifact node.
+   * @returns An array of related decision nodes.
    */
-  static findRelatedDecisions(params: {
-    project?: string;
-    artifact_id: string;
-  }): BaseNode[] {
+  static findRelatedDecisions(params: { project?: string; artifact_id: string }): BaseNode[] {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
     // Verify artifact exists
-    const artExists = db.prepare("SELECT 1 FROM nodes WHERE id = ? AND type = 'artifact'").get(params.artifact_id);
+    const artExists = db
+      .prepare("SELECT 1 FROM nodes WHERE id = ? AND type = 'artifact'")
+      .get(params.artifact_id);
     if (!artExists) {
       throw new Error(`Artifact node not found: ${params.artifact_id}`);
     }
 
-    const rows = db.prepare(`
+    const rows = db
+      .prepare(
+        `
       SELECT DISTINCT d.* 
       FROM nodes d
       LEFT JOIN edges e1 ON e1.source_id = d.id AND e1.type = 'produces'
@@ -815,34 +869,29 @@ export class AnalyticsEngine {
       LEFT JOIN edges e3 ON e3.source_id = e2.target_id AND e3.type = 'produces'
       WHERE d.project = ? AND d.type = 'decision'
         AND (e1.target_id = ? OR e3.target_id = ?)
-    `).all(projectSlug, params.artifact_id, params.artifact_id) as any[];
+    `
+      )
+      .all(projectSlug, params.artifact_id, params.artifact_id) as NodeRow[];
 
-    return rows.map((row) => ({
-      id: row.id,
-      type: row.type as NodeType,
-      title: row.title,
-      status: row.status,
-      project: row.project,
-      git_branch: row.git_branch,
-      metadata: row.metadata ? JSON.parse(row.metadata) : {},
-      tags: row.tags ? JSON.parse(row.tags) : [],
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    }));
+    return rows.map(parseNodeRow);
   }
 
   /**
-   * List all tasks blocked by a given decision node (either directly or transitively)
+   * List all tasks blocked by a given decision node (either directly or transitively).
+   *
+   * @param params - The query parameters.
+   * @param params.project - Optional project identifier.
+   * @param params.decision_id - The unique ID of the decision node.
+   * @returns An array of blocked task nodes.
    */
-  static findBlockedTasks(params: {
-    project?: string;
-    decision_id: string;
-  }): BaseNode[] {
+  static findBlockedTasks(params: { project?: string; decision_id: string }): BaseNode[] {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
     // Verify decision exists
-    const decExists = db.prepare("SELECT 1 FROM nodes WHERE id = ? AND type = 'decision'").get(params.decision_id);
+    const decExists = db
+      .prepare("SELECT 1 FROM nodes WHERE id = ? AND type = 'decision'")
+      .get(params.decision_id);
     if (!decExists) {
       throw new Error(`Decision node not found: ${params.decision_id}`);
     }
@@ -855,9 +904,283 @@ export class AnalyticsEngine {
       max_depth: 20,
     });
 
-    return trace.chain
-      .map(item => item.node)
-      .filter(node => node.type === 'task');
+    return trace.chain.map((item) => item.node).filter((node) => node.type === 'task');
+  }
+
+  /**
+   * Computes metric estimations showing the productivity ROI and health of the project graph.
+   *
+   * @param params - Parameters for metrics generation.
+   * @param params.project - Optional project identifier.
+   * @returns Detailed object containing counts, token estimates, time estimates, graph health, and a pre-rendered Markdown report.
+   */
+  static valueMetrics(params: { project?: string }): {
+    total_nodes: number;
+    total_edges: number;
+    graph_age_days: number;
+    estimated_sessions: number;
+    context_switches_saved: number;
+    dependency_lookups_saved: number;
+    estimated_tokens_stored: number;
+    estimated_tokens_saved: number;
+    estimated_time_saved_minutes: number;
+    graph_density: number;
+    average_degree: number;
+    orphan_node_count: number;
+    decision_reuse_rate: number;
+    contradiction_count: number;
+    task_completion_rate: number;
+    task_velocity_per_day: number;
+    blocker_avg_resolution_hours: number;
+    blocker_active_count: number;
+    artifact_freshness_rate: number;
+    plan_completion_rate: number;
+    markdown_summary: string;
+  } {
+    const projectSlug = getProjectSlug(params.project);
+    const db = getDb(projectSlug);
+
+    // 1. Core Counts
+    const nodeCount = (
+      db.prepare('SELECT COUNT(*) as count FROM nodes WHERE project = ?').get(projectSlug) as {
+        count: number;
+      }
+    ).count;
+    const edgeCount = (
+      db.prepare('SELECT COUNT(*) as count FROM edges WHERE project = ?').get(projectSlug) as {
+        count: number;
+      }
+    ).count;
+
+    // 2. Graph Age & Session Estimates
+    const ageRow = db
+      .prepare(
+        'SELECT MIN(created_at) as first, MAX(created_at) as last FROM nodes WHERE project = ?'
+      )
+      .get(projectSlug) as { first: string | null; last: string | null };
+    let graphAgeDays = 1;
+    if (ageRow?.first && ageRow?.last) {
+      const first = new Date(ageRow.first).getTime();
+      const last = new Date(ageRow.last).getTime();
+      graphAgeDays = Math.max(1, Math.ceil((last - first) / (1000 * 60 * 60 * 24)));
+    }
+
+    const sessionRow = db
+      .prepare('SELECT COUNT(DISTINCT date(created_at)) as count FROM nodes WHERE project = ?')
+      .get(projectSlug) as { count: number };
+    const estimatedSessions = Math.max(1, sessionRow?.count || 1);
+
+    // 3. Savings: Context Switches & Dependency Lookups
+    const acceptedDecisions = (
+      db
+        .prepare(
+          "SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'decision' AND status = 'accepted'"
+        )
+        .get(projectSlug) as { count: number }
+    ).count;
+    const structuralEdges = (
+      db
+        .prepare(
+          "SELECT COUNT(*) as count FROM edges WHERE project = ? AND type IN ('depends_on', 'blocks', 'child_of', 'implements', 'part_of')"
+        )
+        .get(projectSlug) as { count: number }
+    ).count;
+
+    // Resolved blockers count and resolution times
+    const resolvedBlockers = db
+      .prepare(
+        "SELECT created_at, updated_at FROM nodes WHERE project = ? AND type = 'blocker' AND status IN ('resolved', 'mitigated')"
+      )
+      .all(projectSlug) as { created_at: string; updated_at: string }[];
+    let totalBlockerResHours = 0;
+    for (const b of resolvedBlockers) {
+      const start = new Date(b.created_at).getTime();
+      const end = new Date(b.updated_at).getTime();
+      totalBlockerResHours += Math.max(0, (end - start) / (1000 * 60 * 60));
+    }
+    const blockerAvgResHours =
+      resolvedBlockers.length > 0
+        ? Number((totalBlockerResHours / resolvedBlockers.length).toFixed(1))
+        : 0;
+    const blockerActiveCount = (
+      db
+        .prepare(
+          "SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'blocker' AND status = 'active'"
+        )
+        .get(projectSlug) as { count: number }
+    ).count;
+
+    // Time saved calculation (heuristics)
+    const timeSavedFromDecisions = acceptedDecisions * 10; // 10 minutes per recorded decision
+    const timeSavedFromDependencies = structuralEdges * 3; // 3 minutes per mapped dependency edge
+    const timeSavedFromBlockers = resolvedBlockers.length * 15; // 15 minutes per resolved blocker
+    const estimatedTimeSaved =
+      timeSavedFromDecisions + timeSavedFromDependencies + timeSavedFromBlockers;
+
+    // 4. Token Estimates
+    const nodeTextLength =
+      (
+        db
+          .prepare(
+            'SELECT SUM(LENGTH(title) + LENGTH(metadata)) as len FROM nodes WHERE project = ?'
+          )
+          .get(projectSlug) as { len: number | null }
+      ).len || 0;
+    const edgeTextLength =
+      (
+        db
+          .prepare('SELECT SUM(LENGTH(properties)) as len FROM edges WHERE project = ?')
+          .get(projectSlug) as { len: number | null }
+      ).len || 0;
+    const totalChars = nodeTextLength + edgeTextLength;
+    const estimatedTokensStored = Math.ceil(totalChars / 4);
+    // Across estimated sessions, we reuse this captured context
+    const estimatedTokensSaved = estimatedTokensStored * estimatedSessions;
+
+    // 5. Graph Health & Connectivity Metrics
+    const graphDensity =
+      nodeCount > 1 ? Number((edgeCount / (nodeCount * (nodeCount - 1))).toFixed(4)) : 0;
+    const averageDegree = nodeCount > 0 ? Number(((2 * edgeCount) / nodeCount).toFixed(2)) : 0;
+    const orphanCount = (
+      db
+        .prepare(
+          `
+      SELECT COUNT(*) as count FROM nodes n
+      WHERE n.project = ?
+        AND NOT EXISTS (
+          SELECT 1 FROM edges e
+          WHERE e.project = ? AND (e.source_id = n.id OR e.target_id = n.id)
+        )
+    `
+        )
+        .get(projectSlug, projectSlug) as { count: number }
+    ).count;
+
+    const usedDecisions = (
+      db
+        .prepare(
+          `
+      SELECT COUNT(DISTINCT n.id) as count FROM nodes n 
+      JOIN edges e ON e.source_id = n.id AND e.type IN ('updates', 'decided_in', 'implements', 'produces')
+      WHERE n.project = ? AND n.type = 'decision' AND n.status = 'accepted'
+    `
+        )
+        .get(projectSlug) as { count: number }
+    ).count;
+    const decisionReuseRate =
+      acceptedDecisions > 0 ? Number((usedDecisions / acceptedDecisions).toFixed(2)) : 0;
+
+    const contradictions = AnalyticsEngine.detectContradictions({ project: projectSlug });
+    const contradictionCount =
+      contradictions.blocked_done_tasks.length + contradictions.contradicting_decisions.length;
+
+    // 6. Velocity & Lifecycles
+    const totalTasks = (
+      db
+        .prepare("SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'task'")
+        .get(projectSlug) as { count: number }
+    ).count;
+    const doneTasks = (
+      db
+        .prepare(
+          "SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'task' AND status = 'done'"
+        )
+        .get(projectSlug) as { count: number }
+    ).count;
+    const taskCompletionRate = totalTasks > 0 ? Number((doneTasks / totalTasks).toFixed(2)) : 0;
+    const taskVelocity = Number((doneTasks / graphAgeDays).toFixed(2));
+
+    const totalArtifacts = (
+      db
+        .prepare("SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'artifact'")
+        .get(projectSlug) as { count: number }
+    ).count;
+    const currentArtifacts = (
+      db
+        .prepare(
+          "SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'artifact' AND status = 'current'"
+        )
+        .get(projectSlug) as { count: number }
+    ).count;
+    const artifactFreshnessRate =
+      totalArtifacts > 0 ? Number((currentArtifacts / totalArtifacts).toFixed(2)) : 0;
+
+    const totalPlansNonDraft = (
+      db
+        .prepare(
+          "SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'plan' AND status != 'draft'"
+        )
+        .get(projectSlug) as { count: number }
+    ).count;
+    const completedPlans = (
+      db
+        .prepare(
+          "SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'plan' AND status = 'completed'"
+        )
+        .get(projectSlug) as { count: number }
+    ).count;
+    const planCompletionRate =
+      totalPlansNonDraft > 0 ? Number((completedPlans / totalPlansNonDraft).toFixed(2)) : 0;
+
+    // 7. Pre-render Markdown Report
+    const hoursSaved = (estimatedTimeSaved / 60).toFixed(1);
+    const densityPercent = (graphDensity * 100).toFixed(2);
+    const reusePercent = (decisionReuseRate * 100).toFixed(0);
+    const taskPercent = (taskCompletionRate * 100).toFixed(0);
+    const freshnessPercent = (artifactFreshnessRate * 100).toFixed(0);
+
+    const markdownSummary = `
+# 📊 State Graph Value & ROI Metrics — "${projectSlug}"
+
+Estimated value added by using the workflow state graph:
+
+### 🚀 Productivity ROI Estimates
+* **Estimated Time Saved**: **${hoursSaved} hours** (~${estimatedTimeSaved} minutes)
+  * Avoided context-switching: **${acceptedDecisions} accepted decisions** documented (~${timeSavedFromDecisions} min saved).
+  * Avoided dependency lookups: **${structuralEdges} structural edges** mapped (~${timeSavedFromDependencies} min saved).
+  * Avoided blocker stalls: **${resolvedBlockers.length} blockers** resolved (~${timeSavedFromBlockers} min saved).
+* **Estimated Token Savings**: **${estimatedTokensSaved.toLocaleString()} tokens**
+  * Stored context: **${estimatedTokensStored.toLocaleString()} tokens** captured across nodes and relationships.
+  * Reused context: Saved over **${estimatedSessions} development sessions** by preventing manual context reconstruction.
+
+### 📈 Graph Health & Structure
+* **Total Nodes / Edges**: **${nodeCount}** nodes / **${edgeCount}** edges
+* **Graph Density**: **${densityPercent}%** (avg degree **${averageDegree}**)
+* **Orphan Nodes**: **${orphanCount}** (unlinked)
+* **Decision Reuse Rate**: **${reusePercent}%** of accepted decisions are connected to downstream tasks or milestones.
+* **Contradictions**: **${contradictionCount}** active anomalies detected.
+
+### ⏱️ Velocity & Lifecycle Health
+* **Task Completion Rate**: **${taskPercent}%** (${doneTasks} of ${totalTasks} tasks completed).
+* **Task Velocity**: **${taskVelocity} tasks/day** completed.
+* **Average Blocker Resolution**: **${blockerAvgResHours} hours**.
+* **Active Blockers / Blocker Age**: **${blockerActiveCount}** active blockers.
+* **Artifact Freshness**: **${freshnessPercent}%** current artifacts.
+* **Roadmap Plan Progress**: **${(planCompletionRate * 100).toFixed(0)}%** plans completed.
+`.trim();
+
+    return {
+      total_nodes: nodeCount,
+      total_edges: edgeCount,
+      graph_age_days: graphAgeDays,
+      estimated_sessions: estimatedSessions,
+      context_switches_saved: acceptedDecisions,
+      dependency_lookups_saved: structuralEdges,
+      estimated_tokens_stored: estimatedTokensStored,
+      estimated_tokens_saved: estimatedTokensSaved,
+      estimated_time_saved_minutes: estimatedTimeSaved,
+      graph_density: graphDensity,
+      average_degree: averageDegree,
+      orphan_node_count: orphanCount,
+      decision_reuse_rate: decisionReuseRate,
+      contradiction_count: contradictionCount,
+      task_completion_rate: taskCompletionRate,
+      task_velocity_per_day: taskVelocity,
+      blocker_avg_resolution_hours: blockerAvgResHours,
+      blocker_active_count: blockerActiveCount,
+      artifact_freshness_rate: artifactFreshnessRate,
+      plan_completion_rate: planCompletionRate,
+      markdown_summary: markdownSummary,
+    };
   }
 }
-

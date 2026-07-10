@@ -7,13 +7,15 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   error: 3,
 };
 
-const getLogLevel = (): number => {
+const cachedLogLevel = (() => {
   const envLevel = process.env.STATE_GRAPH_MCP_LOG_LEVEL?.toLowerCase() as LogLevel | undefined;
   if (envLevel && envLevel in LOG_LEVELS) {
     return LOG_LEVELS[envLevel];
   }
   return LOG_LEVELS.info; // Default level
-};
+})();
+
+const getLogLevel = (): number => cachedLogLevel;
 
 export const logger = {
   debug: (message: string, ...args: unknown[]) => {

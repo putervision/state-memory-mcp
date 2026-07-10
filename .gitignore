@@ -4,4 +4,12 @@ dist
 coverage
 *.log
 .DS_Store
-docs
+planDocs
+*.tsbuildinfo
+.env
+.env.*
+*.db
+*.sqlite
+*.tgz
+tmp/
+temp/

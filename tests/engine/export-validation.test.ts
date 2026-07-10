@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { GraphEngine } from '../../src/engine/graph.js';
 import { EdgeEngine } from '../../src/engine/edges.js';
 import { closeAllDbs, getDb } from '../../src/engine/db.js';
-import { exportGraph } from '../../src/engine/utils.js';
+import { exportGraph } from '../../src/engine/export.js';
 
 describe('Graph Export Validity Tests', () => {
   const project = 'export-test-project';
@@ -66,5 +66,25 @@ describe('Graph Export Validity Tests', () => {
     expect(output).toContain('ForceGraph3D');
     expect(output).toContain('allGraphNodes');
     expect(output).toContain('allGraphLinks');
+  });
+
+  it('should escape special characters in DOT and Mermaid formats', () => {
+    // Add a node with special characters
+    const specialNode = GraphEngine.addNode({
+      project,
+      type: 'task',
+      title: 'Task with "quotes" and [brackets] and (parentheses)',
+      status: 'pending',
+    });
+
+    const dotOutput = exportGraph({ project, format: 'dot' });
+    // Expect quotes to be escaped with backslash
+    expect(dotOutput).toContain('Task with \\"quotes\\" and [brackets] and (parentheses)');
+
+    const mermaidOutput = exportGraph({ project, format: 'mermaid' });
+    // Expect quotes to be &quot; and brackets/parentheses to be HTML entities
+    expect(mermaidOutput).toContain(
+      'Task with &quot;quotes&quot; and &#91;brackets&#93; and &#40;parentheses&#41;'
+    );
   });
 });

@@ -1,27 +1,33 @@
-import { Database } from 'better-sqlite3';
+import type { Database } from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
-import { BaseNode, GitCommit, GitScanOptions, GitScanResult } from '../schema/types.js';
+import { GitCommit, GitScanOptions, GitScanResult } from '../schema/types.js';
 import { getDb, getProjectSlug, getMetaValue, setMetaValue } from './db.js';
-import { getCurrentBranch, getCommitLog, getFilesChanged, findGitRepos } from '../utils/git.js';
+import { getCommitLog, getFilesChanged, findGitRepos } from '../utils/git.js';
 import { GraphEngine } from './graph.js';
 import { EdgeEngine } from './edges.js';
 import { logger } from '../utils/logger.js';
 
-export function commitAlreadyProcessed(db: any, project: string, hash: string): boolean {
-  const row = db.prepare(`
-    SELECT 1 FROM nodes 
-    WHERE project = ? AND json_extract(metadata, '$.commit_hash') = ?
-  `).get(project, hash);
-  return !!row;
-}
-
+/**
+ * Determines whether a new task should be created for a given commit based on commit content and chronological position.
+ *
+ * @param commit - The GitCommit object to analyze.
+ * @param index - The chronological index of the commit (0 being the newest).
+ * @returns True if a task should be created, false otherwise.
+ */
 export function shouldCreateTask(commit: GitCommit, index: number): boolean {
   if (index >= 5) return false;
   const avoidWords = /\b(fix|complete|finish|done|close)\b/i;
   return !avoidWords.test(commit.message);
 }
 
+/**
+ * Detects files frequently modified across a list of commits ("hot files").
+ *
+ * @param commits - List of GitCommits.
+ * @param threshold - The minimum number of modifications to consider a file "hot" (defaults to 3).
+ * @returns Array of hot file paths.
+ */
 export function detectHotFiles(commits: GitCommit[], threshold = 3): string[] {
   const counts = new Map<string, number>();
   for (const commit of commits) {
@@ -40,12 +46,23 @@ export function detectHotFiles(commits: GitCommit[], threshold = 3): string[] {
   return hotFiles;
 }
 
-export function linkExistingNodes(db: any, projectSlug: string): void {
+/**
+ * Retroactively and proactively links existing observations, tasks, and artifacts in the graph.
+ *
+ * @param db - The better-sqlite3 Database instance.
+ * @param projectSlug - The sanitized project slug identifier.
+ * @returns void
+ */
+export function linkExistingNodes(db: Database, projectSlug: string): void {
   // 1. Get all observations, tasks, and artifacts
-  const nodes = db.prepare(`
+  const nodes = db
+    .prepare(
+      `
     SELECT id, type, title, metadata FROM nodes 
     WHERE project = ? AND type IN ('observation', 'task', 'artifact')
-  `).all(projectSlug) as any[];
+  `
+    )
+    .all(projectSlug) as any[];
 
   // Map nodes for fast lookup
   const observationsByHash = new Map<string, any>();
@@ -77,24 +94,34 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
     const obsNode = observationsByHash.get(hash);
     if (obsNode) {
       // Check if edge already exists
-      const edgeExists = db.prepare(`
+      const edgeExists = db
+        .prepare(
+          `
         SELECT 1 FROM edges 
         WHERE project = ? AND source_id = ? AND target_id = ? AND type = 'extends'
-      `).get(projectSlug, taskNode.id, obsNode.id);
+      `
+        )
+        .get(projectSlug, taskNode.id, obsNode.id);
 
       if (!edgeExists) {
-        EdgeEngine.addEdge({
-          project: projectSlug,
-          source_id: taskNode.id,
-          target_id: obsNode.id,
-          type: 'extends'
-        });
+        try {
+          EdgeEngine.addEdge({
+            project: projectSlug,
+            source_id: taskNode.id,
+            target_id: obsNode.id,
+            type: 'extends',
+          });
+        } catch (err: any) {
+          logger.error(
+            `Failed to link Task ${taskNode.id} to Observation ${obsNode.id}: ${err.message}`
+          );
+        }
       }
     }
   }
 
   // 3. Link Observations to Artifacts (modifies)
-  for (const [hash, obsNode] of observationsByHash.entries()) {
+  for (const obsNode of observationsByHash.values()) {
     let meta: any = {};
     try {
       meta = JSON.parse(obsNode.metadata);
@@ -107,18 +134,28 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
         const artNode = artifactsByPath.get(file);
         if (artNode) {
           // Check if edge already exists
-          const edgeExists = db.prepare(`
+          const edgeExists = db
+            .prepare(
+              `
             SELECT 1 FROM edges 
             WHERE project = ? AND source_id = ? AND target_id = ? AND type = 'modifies'
-          `).get(projectSlug, obsNode.id, artNode.id);
+          `
+            )
+            .get(projectSlug, obsNode.id, artNode.id);
 
           if (!edgeExists) {
-            EdgeEngine.addEdge({
-              project: projectSlug,
-              source_id: obsNode.id,
-              target_id: artNode.id,
-              type: 'modifies'
-            });
+            try {
+              EdgeEngine.addEdge({
+                project: projectSlug,
+                source_id: obsNode.id,
+                target_id: artNode.id,
+                type: 'modifies',
+              });
+            } catch (err: any) {
+              logger.error(
+                `Failed to link Observation ${obsNode.id} to Artifact ${artNode.id}: ${err.message}`
+              );
+            }
           }
         }
       }
@@ -126,10 +163,14 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
   }
 
   // 4. Link Git-derived Tasks to milestone:core:v1 (part_of)
-  const coreMilestone = db.prepare(`
+  const coreMilestone = db
+    .prepare(
+      `
     SELECT id FROM nodes
     WHERE project = ? AND type = 'milestone' AND json_extract(metadata, '$.scaffold_key') = 'milestone:core:v1'
-  `).get(projectSlug) as { id: string } | undefined;
+  `
+    )
+    .get(projectSlug) as { id: string } | undefined;
 
   if (coreMilestone) {
     for (const taskNode of tasksByHash.values()) {
@@ -141,10 +182,14 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
       }
 
       if (meta.source === 'git') {
-        const edgeExists = db.prepare(`
+        const edgeExists = db
+          .prepare(
+            `
           SELECT 1 FROM edges
           WHERE project = ? AND source_id = ? AND target_id = ? AND type = 'part_of'
-        `).get(projectSlug, taskNode.id, coreMilestone.id);
+        `
+          )
+          .get(projectSlug, taskNode.id, coreMilestone.id);
 
         if (!edgeExists) {
           try {
@@ -152,10 +197,12 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
               project: projectSlug,
               source_id: taskNode.id,
               target_id: coreMilestone.id,
-              type: 'part_of'
+              type: 'part_of',
             });
           } catch (err: any) {
-            logger.error(`Failed to link Git task ${taskNode.id} to core milestone: ${err.message}`);
+            logger.error(
+              `Failed to link Git task ${taskNode.id} to core milestone: ${err.message}`
+            );
           }
         }
       }
@@ -163,6 +210,14 @@ export function linkExistingNodes(db: any, projectSlug: string): void {
   }
 }
 
+/**
+ * Scans git history to find commits and automatically registers new observations, tasks, and artifacts.
+ *
+ * @param project - The project name or identifier.
+ * @param cwd - The working directory of the git workspace.
+ * @param options - Scanning options specifying limit of commits and flags for auto-creating tasks or artifacts.
+ * @returns A promise resolving to the scan results summary.
+ */
 export async function scanGit(
   project: string,
   cwd: string,
@@ -210,7 +265,7 @@ export async function scanGit(
 
       // Merge commits: ensure the 5 newest commits are at the beginning
       const mergedCommits = [...last5Commits];
-      const seenHashes = new Set(last5Commits.map(c => c.hash));
+      const seenHashes = new Set(last5Commits.map((c) => c.hash));
       for (const commit of commits) {
         if (!seenHashes.has(commit.hash)) {
           mergedCommits.push(commit);
@@ -221,22 +276,25 @@ export async function scanGit(
       for (const commit of mergedCommits) {
         const repoFiles = getFilesChanged(commit.hash, repoPath);
         // Prepend relPath to changed files to get workspace-relative path
-        const mappedFiles = relPath === '.'
-          ? repoFiles
-          : repoFiles.map(f => path.join(relPath, f));
-        
+        const mappedFiles =
+          relPath === '.' ? repoFiles : repoFiles.map((f) => path.join(relPath, f));
+
         // Filter out ignored files
-        commit.filesChanged = mappedFiles.filter(f => !isIgnored(f, ignorePatterns));
+        commit.filesChanged = mappedFiles.filter((f) => !isIgnored(f, ignorePatterns));
       }
 
       for (let index = 0; index < mergedCommits.length; index++) {
         const commit = mergedCommits[index];
 
         // 1. Process/Ensure Observation Node
-        const obsExists = db.prepare(`
+        const obsExists = db
+          .prepare(
+            `
           SELECT 1 FROM nodes
           WHERE project = ? AND type = 'observation' AND json_extract(metadata, '$.commit_hash') = ?
-        `).get(projectSlug, commit.hash);
+        `
+          )
+          .get(projectSlug, commit.hash);
 
         if (!obsExists) {
           const typeTag = commit.conventionalType || 'other';
@@ -272,15 +330,20 @@ export async function scanGit(
 
         // 2. Process/Ensure Task Node (even if commit Observation already existed)
         if (options.createTasks && shouldCreateTask(commit, index)) {
-          const taskExists = db.prepare(`
+          const taskExists = db
+            .prepare(
+              `
             SELECT 1 FROM nodes
             WHERE project = ? AND type = 'task' AND json_extract(metadata, '$.commit_hash') = ?
-          `).get(projectSlug, commit.hash);
+          `
+            )
+            .get(projectSlug, commit.hash);
 
           if (!taskExists) {
-            const taskTitle = relPath === '.'
-              ? `Continue work on ${commit.subject}`
-              : `Continue work on ${commit.subject} (${relPath})`;
+            const taskTitle =
+              relPath === '.'
+                ? `Continue work on ${commit.subject}`
+                : `Continue work on ${commit.subject} (${relPath})`;
 
             GraphEngine.addNode({
               project: projectSlug,
@@ -303,10 +366,14 @@ export async function scanGit(
       if (options.createArtifacts) {
         const hotFiles = detectHotFiles(mergedCommits, 3);
         for (const file of hotFiles) {
-          const exists = db.prepare(`
+          const exists = db
+            .prepare(
+              `
             SELECT 1 FROM nodes
             WHERE project = ? AND type = 'artifact' AND title = ?
-          `).get(projectSlug, file);
+          `
+            )
+            .get(projectSlug, file);
 
           if (!exists) {
             GraphEngine.addNode({
@@ -360,6 +427,12 @@ export async function scanGit(
   }
 }
 
+/**
+ * Loads ignore patterns from gitignore and state-graph-ignore configuration files.
+ *
+ * @param projectRoot - The absolute path to the project root directory.
+ * @returns An array of ignore glob patterns.
+ */
 export function loadIgnorePatterns(projectRoot: string): string[] {
   const patterns: string[] = ['node_modules', '.git', '.state-graph-mcp'];
   const filesToRead = ['.gitignore', '.state-graph-ignore'];
@@ -383,6 +456,13 @@ export function loadIgnorePatterns(projectRoot: string): string[] {
   return Array.from(new Set(patterns));
 }
 
+/**
+ * Checks if a given file path matches any of the specified ignore patterns.
+ *
+ * @param filePath - The file path to test.
+ * @param patterns - The ignore patterns to test against.
+ * @returns True if the path matches an ignore pattern, false otherwise.
+ */
 export function isIgnored(filePath: string, patterns: string[]): boolean {
   const normalizedPath = filePath.replace(/\\/g, '/');
 

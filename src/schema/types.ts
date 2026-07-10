@@ -1,4 +1,5 @@
-export type NodeType = 'task' | 'decision' | 'artifact' | 'plan' | 'observation' | 'blocker' | 'milestone';
+export type NodeType =
+  'task' | 'decision' | 'artifact' | 'plan' | 'observation' | 'blocker' | 'milestone';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'blocked' | 'cancelled';
 export type DecisionStatus = 'proposed' | 'accepted' | 'rejected' | 'superseded';
@@ -18,16 +19,16 @@ export type NodeStatus =
   | MilestoneStatus;
 
 export interface BaseNode {
-  id: string;                           // ULID (sortable, unique)
-  type: NodeType;                       // Discriminator
-  title: string;                        // Human-readable label
-  status: string;                       // Type-specific status
-  created_at: string;                   // ISO 8601
-  updated_at: string;                   // ISO 8601
-  metadata: Record<string, unknown>;    // Extensible JSON blob
-  tags: string[];                       // Freeform tags for filtering
-  project: string;                      // Project scope
-  git_branch?: string;                  // Optional branch name for context isolation
+  id: string; // ULID (sortable, unique)
+  type: NodeType; // Discriminator
+  title: string; // Human-readable label
+  status: string; // Type-specific status
+  created_at: string; // ISO 8601
+  updated_at: string; // ISO 8601
+  metadata: Record<string, unknown>; // Extensible JSON blob
+  tags: string[]; // Freeform tags for filtering
+  project: string; // Project scope
+  git_branch?: string; // Optional branch name for context isolation
 }
 
 export type EdgeType =
@@ -40,17 +41,19 @@ export type EdgeType =
   | 'contradicts'
   | 'part_of'
   | 'implements'
-  | 'child_of';
+  | 'child_of'
+  | 'extends'
+  | 'modifies';
 
 export interface Edge {
-  id: string;                           // ULID
-  source_id: string;                    // Source node ID
-  target_id: string;                    // Target node ID
-  type: EdgeType;                       // Relationship type
-  properties: Record<string, unknown>;  // JSON metadata properties
-  project: string;                      // Project scope
-  git_branch?: string;                  // Optional branch name
-  created_at: string;                   // ISO 8601
+  id: string; // ULID
+  source_id: string; // Source node ID
+  target_id: string; // Target node ID
+  type: EdgeType; // Relationship type
+  properties: Record<string, unknown>; // JSON metadata properties
+  project: string; // Project scope
+  git_branch?: string; // Optional branch name
+  created_at: string; // ISO 8601
 }
 
 /** A parsed git commit for scanner consumption */
@@ -59,9 +62,9 @@ export interface GitCommit {
   shortHash: string;
   author: string;
   authorEmail: string;
-  committedAt: string;       // ISO 8601
-  subject: string;           // First line of commit message
-  message: string;           // Full commit message body
+  committedAt: string; // ISO 8601
+  subject: string; // First line of commit message
+  message: string; // Full commit message body
   conventionalType?: string; // feat, fix, chore, etc.
   conventionalScope?: string;
   filesChanged?: string[];
@@ -69,9 +72,9 @@ export interface GitCommit {
 
 /** Options for the git scanner */
 export interface GitScanOptions {
-  commits: number;           // default 30
-  createTasks: boolean;      // default false
-  createArtifacts: boolean;  // default false
+  commits: number; // default 30
+  createTasks: boolean; // default false
+  createArtifacts: boolean; // default false
 }
 
 /** Result summary from a git scan run */
@@ -106,4 +109,3 @@ export interface EdgeRow {
   git_branch?: string;
   created_at: string;
 }
-

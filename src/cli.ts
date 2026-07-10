@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { logger } from './utils/logger.js';
-import { resolveProjectRoot, getBaseDir, getProjectSlug, getProjectDbDir } from './engine/db.js';
+import { resolveProjectRoot, getProjectSlug, getProjectDbDir } from './engine/db.js';
 import { QueryEngine } from './engine/queries.js';
-import { exportGraph, importGraph, backupProjectDb, restoreProjectDb, auditProjectDb, mergeProjectDb } from './engine/utils.js';
+import { exportGraph } from './engine/export.js';
+import { importGraph } from './engine/import.js';
+import { backupProjectDb, restoreProjectDb } from './engine/backup.js';
+import { auditProjectDb } from './engine/audit.js';
+import { mergeProjectDb } from './engine/merge.js';
 import { runInit } from './cli/init.js';
 import { VERSION } from './utils/version.js';
 import { scanGit } from './engine/git-scanner.js';
+import { AnalyticsEngine } from './engine/analytics.js';
 
 class Option {
   flags: string;
@@ -406,6 +411,23 @@ program
     }
   });
 
+// Metrics command to display ROI and token savings metrics
+program
+  .command('metrics')
+  .description('Display project graph ROI, productivity, and token savings metrics')
+  .option('-p, --project <name>', 'Project slug name')
+  .action((options) => {
+    const projectSlug = getProjectSlug(options.project);
+    logger.info(`Calculating metrics for project: ${projectSlug}`);
+
+    try {
+      const metrics = AnalyticsEngine.valueMetrics({ project: projectSlug });
+      console.log('\n' + metrics.markdown_summary + '\n');
+    } catch (error: any) {
+      logger.error('Failed to calculate metrics:', error.message);
+    }
+  });
+
 // View command to launch browser visualization
 program
   .command('view')
@@ -427,23 +449,26 @@ program
 
       // Open in default browser
       const fileUrl = `file://${path.resolve(htmlPath)}`;
-      const startCmd =
-        process.platform === 'darwin'
-          ? 'open'
-          : process.platform === 'win32'
-          ? 'start'
-          : 'xdg-open';
-
-      const command = process.platform === 'win32' ? `start "" "${fileUrl}"` : `${startCmd} "${fileUrl}"`;
-      
-      exec(command, (err) => {
-        if (err) {
-          logger.error(`Could not launch browser automatically: ${err.message}`);
-          logger.info(`Please open the file manually: ${fileUrl}`);
-        } else {
-          logger.info(`Opened graph visualizer in your browser: ${fileUrl}`);
-        }
-      });
+      if (process.platform === 'win32') {
+        execFile('cmd.exe', ['/c', 'start', '', fileUrl], (err) => {
+          if (err) {
+            logger.error(`Could not launch browser automatically: ${err.message}`);
+            logger.info(`Please open the file manually: ${fileUrl}`);
+          } else {
+            logger.info(`Opened graph visualizer in your browser: ${fileUrl}`);
+          }
+        });
+      } else {
+        const startCmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
+        execFile(startCmd, [fileUrl], (err) => {
+          if (err) {
+            logger.error(`Could not launch browser automatically: ${err.message}`);
+            logger.info(`Please open the file manually: ${fileUrl}`);
+          } else {
+            logger.info(`Opened graph visualizer in your browser: ${fileUrl}`);
+          }
+        });
+      }
     } catch (error: any) {
       logger.error('Failed to generate visualizer:', error.message);
     }

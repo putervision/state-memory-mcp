@@ -6,6 +6,7 @@ import { generateId } from '../utils/id.js';
 import { getCurrentIsoString } from '../utils/time.js';
 import { getCurrentBranch } from '../utils/git.js';
 import { logger } from '../utils/logger.js';
+import { EventEngine } from './events.js';
 
 export interface GetNodeResult {
   node: BaseNode;
@@ -24,6 +25,7 @@ export class GraphEngine {
     status?: string;
     metadata?: Record<string, unknown>;
     tags?: string[];
+    session_id?: string | null;
   }): BaseNode {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
@@ -56,7 +58,7 @@ export class GraphEngine {
 
     logger.debug(`Added node ${id} (${params.type}) to project ${projectSlug}`);
 
-    return {
+    const node: BaseNode = {
       id,
       type: params.type,
       title: params.title,
@@ -68,6 +70,17 @@ export class GraphEngine {
       created_at: now,
       updated_at: now,
     };
+
+    EventEngine.logEvent(db, {
+      session_id: params.session_id,
+      event_type: 'node_created',
+      entity_type: 'node',
+      entity_id: id,
+      after_state: node,
+      project: projectSlug,
+    });
+
+    return node;
   }
 
   /**
@@ -133,6 +146,7 @@ export class GraphEngine {
     status?: string;
     metadata?: Record<string, unknown>;
     tags?: string[];
+    session_id?: string | null;
   }): BaseNode | null {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
@@ -168,7 +182,7 @@ export class GraphEngine {
 
     stmt.run(title, status, metadataStr, tagsStr, now, params.id);
 
-    return {
+    const updatedNode: BaseNode = {
       ...node,
       title,
       status,
@@ -176,6 +190,18 @@ export class GraphEngine {
       tags,
       updated_at: now,
     };
+
+    EventEngine.logEvent(db, {
+      session_id: params.session_id,
+      event_type: 'node_updated',
+      entity_type: 'node',
+      entity_id: params.id,
+      before_state: node,
+      after_state: updatedNode,
+      project: projectSlug,
+    });
+
+    return updatedNode;
   }
 
   /**
@@ -184,9 +210,20 @@ export class GraphEngine {
   static removeNode(params: {
     project?: string;
     id: string;
+    session_id?: string | null;
   }): { deleted_node_id: string; deleted_edge_count: number } | null {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
+
+    const existingResult = GraphEngine.getNode({
+      project: projectSlug,
+      id: params.id,
+      include_edges: false,
+    });
+    if (!existingResult) {
+      return null;
+    }
+    const { node } = existingResult;
 
     const edgeCountRow = db
       .prepare(
@@ -211,6 +248,15 @@ export class GraphEngine {
     logger.debug(
       `Deleted node ${params.id} and ${deletedEdgeCount} edges in project ${projectSlug}`
     );
+
+    EventEngine.logEvent(db, {
+      session_id: params.session_id,
+      event_type: 'node_deleted',
+      entity_type: 'node',
+      entity_id: params.id,
+      before_state: node,
+      project: projectSlug,
+    });
 
     return {
       deleted_node_id: params.id,

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { logger } from './utils/logger.js';
-import { resolveProjectRoot, getProjectSlug, getProjectDbDir } from './engine/db.js';
+import { resolveProjectRoot, getProjectSlug, getProjectDbDir, getDb } from './engine/db.js';
 import { QueryEngine } from './engine/queries.js';
 import { exportGraph } from './engine/export.js';
 import { importGraph } from './engine/import.js';
@@ -14,6 +14,9 @@ import { runInit } from './cli/init.js';
 import { VERSION } from './utils/version.js';
 import { scanGit } from './engine/git-scanner.js';
 import { AnalyticsEngine } from './engine/analytics.js';
+import { SessionEngine } from './engine/sessions.js';
+import { EventEngine } from './engine/events.js';
+import { TrajectoryEngine } from './engine/trajectories.js';
 
 class Option {
   flags: string;
@@ -675,6 +678,121 @@ program
       console.log('======================================\n');
     } catch (error: any) {
       logger.error('Merge failed:', error.message);
+    }
+  });
+
+// Sessions command to list sessions
+program
+  .command('sessions')
+  .description('List active/recent sessions in the project database')
+  .option('-p, --project <name>', 'Project slug name')
+  .option('--active', 'Filter by active sessions only')
+  .option('--limit <n>', 'Limit the number of results returned', '20')
+  .action((options) => {
+    try {
+      const projectSlug = getProjectSlug(options.project);
+      const db = getDb(projectSlug);
+      const list = SessionEngine.listSessions(db, {
+        project: projectSlug,
+        active_only: !!options.active,
+        limit: parseInt(options.limit, 10),
+      });
+      console.log('\n======================================');
+      console.log(` SESSIONS LOG: ${projectSlug.toUpperCase()}`);
+      console.log('======================================');
+      if (list.length === 0) {
+        console.log('No sessions found.');
+      } else {
+        const table = new Table({
+          head: ['Session ID', 'Agent ID', 'Started At', 'Ended At'],
+          colWidths: [26, 20, 25, 25],
+        });
+        for (const s of list) {
+          table.push([
+            s.id,
+            s.agent_id,
+            s.started_at,
+            s.ended_at || 'ACTIVE',
+          ]);
+        }
+        console.log(table.toString());
+      }
+      console.log('======================================\n');
+    } catch (error: any) {
+      logger.error('Failed to list sessions:', error.message);
+    }
+  });
+
+// Events command to query event log
+program
+  .command('events')
+  .description('Query the project state transition event log')
+  .option('-p, --project <name>', 'Project slug name')
+  .option('--node <id>', 'Filter events by node ID')
+  .option('--type <type>', 'Filter events by event type (e.g. node_created)')
+  .option('--session <id>', 'Filter events by session ID')
+  .option('--limit <n>', 'Limit the number of results returned', '50')
+  .action((options) => {
+    try {
+      const projectSlug = getProjectSlug(options.project);
+      const db = getDb(projectSlug);
+      const list = EventEngine.getEventLog(db, {
+        project: projectSlug,
+        entity_id: options.node,
+        event_type: options.type,
+        session_id: options.session,
+        limit: parseInt(options.limit, 10),
+      });
+      console.log('\n======================================');
+      console.log(` EVENT LOG: ${projectSlug.toUpperCase()}`);
+      console.log('======================================');
+      if (list.length === 0) {
+        console.log('No events found.');
+      } else {
+        const table = new Table({
+          head: ['Event ID', 'Type', 'Entity', 'Entity ID', 'Timestamp'],
+          colWidths: [26, 15, 8, 26, 25],
+        });
+        for (const e of list) {
+          table.push([
+            e.id,
+            e.event_type,
+            e.entity_type,
+            e.entity_id,
+            e.timestamp,
+          ]);
+        }
+        console.log(table.toString());
+      }
+      console.log('======================================\n');
+    } catch (error: any) {
+      logger.error('Failed to list events:', error.message);
+    }
+  });
+
+// Export-trajectories command to export events in JSONL format
+program
+  .command('export-trajectories')
+  .description('Export project transition event logs in JSONL format')
+  .option('-p, --project <name>', 'Project slug name')
+  .option('--session <id>', 'Filter events by session ID')
+  .option('-o, --out <file>', 'Output file path (prints to stdout if omitted)')
+  .action((options) => {
+    try {
+      const projectSlug = getProjectSlug(options.project);
+      const db = getDb(projectSlug);
+      const trajectories = TrajectoryEngine.exportTrajectories(db, {
+        project: projectSlug,
+        session_id: options.session,
+      });
+      if (options.out) {
+        fs.writeFileSync(options.out, trajectories, 'utf-8');
+        logger.info(`Trajectories successfully exported to: ${options.out}`);
+      } else {
+        console.log(trajectories);
+      }
+    } catch (error: any) {
+      logger.error('Failed to export trajectories:', error.message);
     }
   });
 

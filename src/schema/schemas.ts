@@ -500,3 +500,58 @@ export const ScaffoldTemplateSchema = z.object({
 export const ValueMetricsSchema = z.object({
   project: z.string().optional(),
 });
+
+export const StartSessionSchema = z.object({
+  project: z.string().optional(),
+  agent_id: z.string().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export const EndSessionSchema = z.object({
+  project: z.string().optional(),
+  session_id: z.string().min(1, 'Session ID is required'),
+});
+
+export const GetEventLogSchema = z.object({
+  project: z.string().optional(),
+  entity_id: z.string().optional(),
+  event_type: z.string().optional(),
+  session_id: z.string().optional(),
+  since: z.string().optional(),
+  until: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+});
+
+export const GetNodeHistorySchema = z.object({
+  project: z.string().optional(),
+  node_id: z.string().min(1, 'Node ID is required'),
+});
+
+export const UndoLastSchema = z.object({
+  project: z.string().optional(),
+  node_id: z.string().min(1, 'Node ID is required'),
+});
+
+export const SaveSnapshotSchema = z.object({
+  project: z.string().optional(),
+  session_id: z.string().optional(),
+});
+
+export const ListSnapshotsSchema = z.object({
+  project: z.string().optional(),
+  limit: z.number().optional(),
+});
+
+export const DiffSnapshotsSchema = z.object({
+  project: z.string().optional(),
+  snapshot_id_a: z.string().min(1, 'Snapshot ID A is required'),
+  snapshot_id_b: z.string().min(1, 'Snapshot ID B is required'),
+});
+
+export const ExportTrajectoriesSchema = z.object({
+  project: z.string().optional(),
+  session_id: z.string().optional(),
+  since: z.string().optional(),
+  until: z.string().optional(),
+});

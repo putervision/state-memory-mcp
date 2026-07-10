@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-07-10
+
+### Added
+- Event-Sourced Audit Trail: Append-only `events` table logging all node/edge mutations with before/after state snapshots.
+- Session Management: First-class `sessions` table tracking agent identities (`agent_id`) and session-scoped metadata.
+- Persistent Context Snapshots: Save, list, and diff snapshots of the entire graph state over time to track project drift.
+- State Rollback (`undo_last`): Revert the most recent mutation on a node by restoring `before_state` from the events ledger.
+- Trajectory Export (`export_trajectories`): Export transition sequences in JSONL format for fine-tuning compiled local models.
+- Added 9 new MCP tools (increasing total tool count from 28 to 37) and 2 new resource endpoints (`events`, `sessions`).
+- Registered CLI subcommands for `sessions`, `events`, and `export-trajectories`.
+
+### Changed
+- Database Schema migration version 4 runs automatically on connection to configure new tables.
+- Updated agent instruction templates with session tracking guidelines.
+- Documentation and website enriched with academic-grade theoretical foundations (cognitive load theory, first-hop determinism, empirical latency stats).
+
 ## [0.2.1] - 2026-07-10
 
 ### Added

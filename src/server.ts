@@ -39,6 +39,15 @@ import {
   FindBlockedTasksSchema,
   ScaffoldTemplateSchema,
   ValueMetricsSchema,
+  StartSessionSchema,
+  EndSessionSchema,
+  GetEventLogSchema,
+  GetNodeHistorySchema,
+  UndoLastSchema,
+  SaveSnapshotSchema,
+  ListSnapshotsSchema,
+  DiffSnapshotsSchema,
+  ExportTrajectoriesSchema,
   ParseResult,
 } from './schema/schemas.js';
 import { GraphEngine } from './engine/graph.js';
@@ -53,6 +62,10 @@ import { backupProjectDb, restoreProjectDb } from './engine/backup.js';
 import { auditProjectDb } from './engine/audit.js';
 import { mergeProjectDb } from './engine/merge.js';
 import { queryGraph } from './engine/query-raw.js';
+import { SessionEngine } from './engine/sessions.js';
+import { EventEngine } from './engine/events.js';
+import { SnapshotEngine } from './engine/snapshots.js';
+import { TrajectoryEngine } from './engine/trajectories.js';
 import { logger } from './utils/logger.js';
 import { VERSION } from './utils/version.js';
 
@@ -731,18 +744,217 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+      {
+        name: 'start_session',
+        description: 'Start a new tracked session with agent identity and metadata.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            agent_id: {
+              type: 'string',
+              description: 'Optional identifier for the executing agent or user.',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Optional session metadata.',
+            },
+          },
+        },
+      },
+      {
+        name: 'end_session',
+        description: 'End an active tracked session.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            session_id: {
+              type: 'string',
+              description: 'The ID of the session to end.',
+            },
+          },
+          required: ['session_id'],
+        },
+      },
+      {
+        name: 'get_event_log',
+        description: 'Query the project event log with filters.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            entity_id: {
+              type: 'string',
+              description: 'Optional filter by node or edge ID.',
+            },
+            event_type: {
+              type: 'string',
+              description: 'Optional filter by event type (e.g. node_created).',
+            },
+            session_id: {
+              type: 'string',
+              description: 'Optional filter by session ID.',
+            },
+            since: {
+              type: 'string',
+              description: 'Optional ISO 8601 start timestamp filter.',
+            },
+            until: {
+              type: 'string',
+              description: 'Optional ISO 8601 end timestamp filter.',
+            },
+            limit: {
+              type: 'number',
+              description: 'Optional limit (default 50).',
+            },
+            offset: {
+              type: 'number',
+              description: 'Optional offset.',
+            },
+          },
+        },
+      },
+      {
+        name: 'get_node_history',
+        description: 'Get the full chronological mutation history of a specific node.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            node_id: {
+              type: 'string',
+              description: 'The unique ID of the node.',
+            },
+          },
+          required: ['node_id'],
+        },
+      },
+      {
+        name: 'undo_last',
+        description: 'Revert the last recorded mutation for a specific node.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            node_id: {
+              type: 'string',
+              description: 'The unique ID of the node.',
+            },
+          },
+          required: ['node_id'],
+        },
+      },
+      {
+        name: 'save_snapshot',
+        description: 'Save a persistent context snapshot of the current graph state.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            session_id: {
+              type: 'string',
+              description: 'Optional session ID to associate with the snapshot.',
+            },
+          },
+        },
+      },
+      {
+        name: 'list_snapshots',
+        description: 'List saved snapshots for the project.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            limit: {
+              type: 'number',
+              description: 'Optional limit (default 20).',
+            },
+          },
+        },
+      },
+      {
+        name: 'diff_snapshots',
+        description: 'Compare two snapshots and return semantic node/edge changes.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            snapshot_id_a: {
+              type: 'string',
+              description: 'The first snapshot ID.',
+            },
+            snapshot_id_b: {
+              type: 'string',
+              description: 'The second snapshot ID.',
+            },
+          },
+          required: ['snapshot_id_a', 'snapshot_id_b'],
+        },
+      },
+      {
+        name: 'export_trajectories',
+        description: 'Export event transition logs in JSONL format for fine-tuning models.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            session_id: {
+              type: 'string',
+              description: 'Optional filter by session ID.',
+            },
+            since: {
+              type: 'string',
+              description: 'Optional start ISO 8601 timestamp.',
+            },
+            until: {
+              type: 'string',
+              description: 'Optional end ISO 8601 timestamp.',
+            },
+          },
+        },
+      },
     ];
 
     return {
       tools: tools.map(t => {
         const title = t.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        const isDestructive = ['remove_node', 'remove_edge', 'restore_project_db', 'import_graph'].includes(t.name);
+        const isDestructive = ['remove_node', 'remove_edge', 'restore_project_db', 'import_graph', 'undo_last'].includes(t.name);
         const isReadOnly = [
           'get_node', 'list_nodes', 'search_nodes', 'get_subgraph', 'trace_dependencies',
           'find_blockers', 'get_project_summary', 'decision_trail', 'critical_path',
           'impact_analysis', 'detect_contradictions', 'export_graph', 'query_graph',
           'backup_project_db', 'audit_project_db', 'get_context_snapshot',
-          'find_related_decisions', 'find_blocked_tasks', 'value_metrics'
+          'find_related_decisions', 'find_blocked_tasks', 'value_metrics',
+          'get_event_log', 'get_node_history', 'list_snapshots', 'diff_snapshots',
+          'export_trajectories'
         ].includes(t.name);
 
         return {
@@ -950,6 +1162,106 @@ const toolHandlers: Record<string, (args: any) => Promise<any> | any> = {
       ]
     };
   },
+  start_session: (args) => {
+    const data = parseArgs(StartSessionSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return SessionEngine.startSession(db, {
+      project: projectSlug,
+      agent_id: data.agent_id,
+      metadata: data.metadata,
+    });
+  },
+  end_session: (args) => {
+    const data = parseArgs(EndSessionSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    const result = SessionEngine.endSession(db, {
+      project: projectSlug,
+      session_id: data.session_id,
+    });
+    if (!result.success) {
+      throw new McpError(ErrorCode.InvalidRequest, `Session not found: ${data.session_id}`);
+    }
+    return result;
+  },
+  get_event_log: (args) => {
+    const data = parseArgs(GetEventLogSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return EventEngine.getEventLog(db, {
+      project: projectSlug,
+      entity_id: data.entity_id,
+      event_type: data.event_type,
+      session_id: data.session_id,
+      since: data.since,
+      until: data.until,
+      limit: data.limit,
+      offset: data.offset,
+    });
+  },
+  get_node_history: (args) => {
+    const data = parseArgs(GetNodeHistorySchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return EventEngine.getNodeHistory(db, {
+      project: projectSlug,
+      node_id: data.node_id,
+    });
+  },
+  undo_last: (args) => {
+    const data = parseArgs(UndoLastSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return EventEngine.undoLast(db, {
+      project: projectSlug,
+      node_id: data.node_id,
+    });
+  },
+  save_snapshot: (args) => {
+    const data = parseArgs(SaveSnapshotSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return SnapshotEngine.saveSnapshot(db, {
+      project: projectSlug,
+      session_id: data.session_id,
+    });
+  },
+  list_snapshots: (args) => {
+    const data = parseArgs(ListSnapshotsSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return SnapshotEngine.listSnapshots(db, {
+      project: projectSlug,
+      limit: data.limit,
+    });
+  },
+  diff_snapshots: (args) => {
+    const data = parseArgs(DiffSnapshotsSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return SnapshotEngine.diffSnapshots(db, {
+      project: projectSlug,
+      snapshot_id_a: data.snapshot_id_a,
+      snapshot_id_b: data.snapshot_id_b,
+    });
+  },
+  export_trajectories: (args) => {
+    const data = parseArgs(ExportTrajectoriesSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    const trajectories = TrajectoryEngine.exportTrajectories(db, {
+      project: projectSlug,
+      session_id: data.session_id,
+      since: data.since,
+      until: data.until,
+    });
+    return {
+      content: [
+        { type: 'text', text: trajectories }
+      ]
+    };
+  },
 };
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -1010,6 +1322,18 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         name: `${projectSlug} Graph Export (JSON)`,
         mimeType: 'application/json',
         description: 'Full node/edge graph export'
+      },
+      {
+        uri: `state-graph:///${projectSlug}/events`,
+        name: `${projectSlug} Event Log`,
+        mimeType: 'application/json',
+        description: 'Recent project state events'
+      },
+      {
+        uri: `state-graph:///${projectSlug}/sessions`,
+        name: `${projectSlug} Active Sessions`,
+        mimeType: 'application/json',
+        description: 'Recent agent/user sessions'
       }
     ]
   };
@@ -1037,6 +1361,16 @@ server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
         uriTemplate: 'state-graph:///{project}/graph.json',
         name: 'Project Graph Export Template',
         description: 'URI template for full node/edge graph export'
+      },
+      {
+        uriTemplate: 'state-graph:///{project}/events',
+        name: 'Project Events Template',
+        description: 'URI template for recent state-transition events'
+      },
+      {
+        uriTemplate: 'state-graph:///{project}/sessions',
+        name: 'Project Sessions Template',
+        description: 'URI template for recent session history'
       }
     ]
   };
@@ -1044,7 +1378,7 @@ server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
-  const match = uri.match(/^state-graph:\/\/\/([a-zA-Z0-9-_]+)\/(summary|blockers|decisions|graph\.json)$/);
+  const match = uri.match(/^state-graph:\/\/\/([a-zA-Z0-9-_]+)\/(summary|blockers|decisions|graph\.json|events|sessions)$/);
   if (!match) {
     throw new McpError(ErrorCode.InvalidRequest, `Invalid resource URI: ${uri}`);
   }
@@ -1065,6 +1399,14 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   } else if (resourceType === 'graph.json') {
     const data = exportGraph({ project: projectSlug, format: 'json' });
     text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  } else if (resourceType === 'events') {
+    const db = getDb(projectSlug);
+    const data = EventEngine.getEventLog(db, { project: projectSlug, limit: 50 });
+    text = JSON.stringify(data, null, 2);
+  } else if (resourceType === 'sessions') {
+    const db = getDb(projectSlug);
+    const data = SessionEngine.listSessions(db, { project: projectSlug, limit: 20 });
+    text = JSON.stringify(data, null, 2);
   }
 
   return {

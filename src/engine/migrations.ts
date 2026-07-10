@@ -121,4 +121,61 @@ export const migrations: Migration[] = [
       ).run();
     },
   },
+  // Version 4: Event-sourced audit trail, session tracking, and persistent snapshots
+  {
+    version: 4,
+    up: (db) => {
+      logger.info('Running migration v4: setting up sessions, events, and snapshots...');
+
+      db.prepare(
+        `
+        CREATE TABLE IF NOT EXISTS sessions (
+          id          TEXT PRIMARY KEY,
+          agent_id    TEXT NOT NULL DEFAULT 'unknown',
+          project     TEXT NOT NULL,
+          started_at  TEXT NOT NULL,
+          ended_at    TEXT,
+          metadata    TEXT DEFAULT '{}'
+        )
+      `
+      ).run();
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project)`).run();
+
+      db.prepare(
+        `
+        CREATE TABLE IF NOT EXISTS events (
+          id          TEXT PRIMARY KEY,
+          session_id  TEXT,
+          event_type  TEXT NOT NULL,
+          entity_type TEXT NOT NULL,
+          entity_id   TEXT NOT NULL,
+          before_state TEXT,
+          after_state  TEXT,
+          project     TEXT NOT NULL,
+          timestamp   TEXT NOT NULL,
+          metadata    TEXT DEFAULT '{}'
+        )
+      `
+      ).run();
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_events_project ON events(project)`).run();
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_events_entity ON events(entity_id)`).run();
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id)`).run();
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)`).run();
+
+      db.prepare(
+        `
+        CREATE TABLE IF NOT EXISTS snapshots (
+          id          TEXT PRIMARY KEY,
+          project     TEXT NOT NULL,
+          session_id  TEXT,
+          snapshot    TEXT NOT NULL,
+          node_count  INTEGER NOT NULL,
+          edge_count  INTEGER NOT NULL,
+          created_at  TEXT NOT NULL
+        )
+      `
+      ).run();
+      db.prepare(`CREATE INDEX IF NOT EXISTS idx_snapshots_project ON snapshots(project)`).run();
+    },
+  },
 ];

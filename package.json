@@ -1,6 +1,6 @@
 {
   "name": "state-graph-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "type": "module",
   "main": "./dist/index.js",
@@ -41,7 +41,14 @@
     "windsurf",
     "sqlite",
     "project-management",
-    "developer-tools"
+    "developer-tools",
+    "event-sourcing",
+    "audit-trail",
+    "context-snapshots",
+    "trajectory-export",
+    "fine-tuning-data",
+    "state-rollback",
+    "undo-last"
   ],
   "license": "MIT",
   "repository": {

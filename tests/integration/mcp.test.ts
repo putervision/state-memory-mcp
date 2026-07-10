@@ -39,7 +39,7 @@ describe('MCP Server Integration Tests', () => {
   it('should list available tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(28);
+    expect(tools.tools.length).toBe(37);
 
     const toolNames = tools.tools.map((t) => t.name);
     expect(toolNames).toContain('value_metrics');
@@ -67,6 +67,15 @@ describe('MCP Server Integration Tests', () => {
     expect(toolNames).toContain('restore_project_db');
     expect(toolNames).toContain('audit_project_db');
     expect(toolNames).toContain('merge_project_db');
+    expect(toolNames).toContain('start_session');
+    expect(toolNames).toContain('end_session');
+    expect(toolNames).toContain('get_event_log');
+    expect(toolNames).toContain('get_node_history');
+    expect(toolNames).toContain('undo_last');
+    expect(toolNames).toContain('save_snapshot');
+    expect(toolNames).toContain('list_snapshots');
+    expect(toolNames).toContain('diff_snapshots');
+    expect(toolNames).toContain('export_trajectories');
   });
 
   it('should support nodes and edges operations via tools', async () => {

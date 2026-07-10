@@ -1,10 +1,12 @@
 import type { Database } from 'better-sqlite3';
 import { getDb, getProjectSlug } from './db.js';
-import { Edge, EdgeType } from '../schema/types.js';
+import { Edge, EdgeType, EdgeRow } from '../schema/types.js';
 import { generateId } from '../utils/id.js';
 import { getCurrentIsoString } from '../utils/time.js';
 import { getCurrentBranch } from '../utils/git.js';
 import { logger } from '../utils/logger.js';
+import { EventEngine } from './events.js';
+import { parseEdgeRow } from './row-mappers.js';
 
 /**
  * Cycle detection for dependency-like edges (depends_on, blocks, child_of).
@@ -80,6 +82,7 @@ export class EdgeEngine {
     target_id: string;
     type: EdgeType;
     properties?: Record<string, unknown>;
+    session_id?: string | null;
   }): Edge {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
@@ -140,7 +143,7 @@ export class EdgeEngine {
       `Added edge ${id} (${params.type}) from ${params.source_id} to ${params.target_id}`
     );
 
-    return {
+    const edge: Edge = {
       id,
       source_id: params.source_id,
       target_id: params.target_id,
@@ -150,6 +153,17 @@ export class EdgeEngine {
       git_branch: branch,
       created_at: now,
     };
+
+    EventEngine.logEvent(db, {
+      session_id: params.session_id,
+      event_type: 'edge_created',
+      entity_type: 'edge',
+      entity_id: id,
+      after_state: edge,
+      project: projectSlug,
+    });
+
+    return edge;
   }
 
   /**
@@ -167,9 +181,24 @@ export class EdgeEngine {
     source_id: string;
     target_id: string;
     type: string;
+    session_id?: string | null;
   }): boolean {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
+
+    // Fetch edge before deleting to capture its state
+    const existingRow = db
+      .prepare(
+        `
+      SELECT * FROM edges WHERE source_id = ? AND target_id = ? AND type = ?
+    `
+      )
+      .get(params.source_id, params.target_id, params.type) as EdgeRow | undefined;
+
+    if (!existingRow) {
+      return false;
+    }
+    const edge = parseEdgeRow(existingRow);
 
     const stmt = db.prepare(`
       DELETE FROM edges
@@ -180,6 +209,14 @@ export class EdgeEngine {
 
     if (result.changes > 0) {
       logger.debug(`Removed edge (${params.type}) from ${params.source_id} to ${params.target_id}`);
+      EventEngine.logEvent(db, {
+        session_id: params.session_id,
+        event_type: 'edge_deleted',
+        entity_type: 'edge',
+        entity_id: edge.id,
+        before_state: edge,
+        project: projectSlug,
+      });
       return true;
     }
     return false;

@@ -3,6 +3,9 @@ import { generateId } from '../utils/id.js';
 import { getCurrentIsoString } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
 import { DatabaseError } from '../utils/errors.js';
+import { parseDuration } from './staleness.js';
+import { resolveProjectRoot } from './db.js';
+import { loadProjectConfig } from './config.js';
 
 export interface EventRecord {
   id: string;
@@ -18,6 +21,8 @@ export interface EventRecord {
 }
 
 export class EventEngine {
+  static droppedEventCount = 0;
+
   /**
    * Log a state transition event to the database
    */
@@ -42,12 +47,12 @@ export class EventEngine {
       const beforeStr =
         typeof params.before_state === 'object' && params.before_state !== null
           ? JSON.stringify(params.before_state)
-          : params.before_state || null;
+          : (params.before_state ?? null);
 
       const afterStr =
         typeof params.after_state === 'object' && params.after_state !== null
           ? JSON.stringify(params.after_state)
-          : params.after_state || null;
+          : (params.after_state ?? null);
 
       const metaStr = JSON.stringify(params.metadata || {});
 
@@ -69,7 +74,20 @@ export class EventEngine {
         metaStr
       );
     } catch (err: any) {
-      logger.error(`Failed to log event: ${err.message}`);
+      EventEngine.droppedEventCount++;
+      logger.warn(
+        `Failed to log event (${EventEngine.droppedEventCount} total dropped): ${err.message}`
+      );
+      const isStrictEnv = process.env.STATE_MEMORY_STRICT_AUDIT === 'true';
+      let isStrictConfig = false;
+      try {
+        const root = resolveProjectRoot(params.project);
+        const config = loadProjectConfig(root);
+        isStrictConfig = !!config.strictAudit;
+      } catch {}
+      if (isStrictEnv || isStrictConfig) {
+        throw err;
+      }
     }
   }
 
@@ -145,7 +163,9 @@ export class EventEngine {
   }
 
   /**
-   * Reverts the last recorded mutation for a node
+   * Reverts the last recorded mutation for a node.
+   * Note: This method only handles node operations (create, update, delete),
+   * not edge operations.
    */
   static undoLast(
     db: Database.Database,
@@ -154,12 +174,13 @@ export class EventEngine {
       node_id: string;
     }
   ): { success: boolean; undone_event_type: string } {
-    // Find the latest event for this node
+    // Find the latest active (not undone) event for this node
     const lastEvent = db
       .prepare(
         `
         SELECT * FROM events 
         WHERE project = ? AND entity_id = ? AND entity_type = 'node' 
+          AND json_extract(metadata, '$.undone') IS NULL
         ORDER BY rowid DESC LIMIT 1
       `
       )
@@ -222,13 +243,88 @@ export class EventEngine {
         );
       }
 
-      // Delete the undone event from the events table to clean up
-      db.prepare('DELETE FROM events WHERE id = ?').run(lastEvent.id);
+      // Instead of deleting, mark the event as undone in its metadata to prevent audit gaps
+      let metaObj: Record<string, any> = {};
+      if (lastEvent.metadata) {
+        try {
+          metaObj = JSON.parse(lastEvent.metadata);
+        } catch {}
+      }
+      metaObj.undone = true;
+      metaObj.undone_at = getCurrentIsoString();
+
+      db.prepare('UPDATE events SET metadata = ? WHERE id = ?').run(
+        JSON.stringify(metaObj),
+        lastEvent.id
+      );
     })();
 
     return {
       success: true,
       undone_event_type: lastEvent.event_type,
+    };
+  }
+
+  /**
+   * Prune event logs older than a given duration threshold
+   */
+  static pruneEvents(
+    db: Database.Database,
+    params: {
+      project: string;
+      older_than: string;
+      dry_run?: boolean;
+      preserve_types?: string[];
+    }
+  ): { would_delete: number; deleted: number; preserved: number } {
+    const dryRun = params.dry_run !== false;
+    const thresholdMs = parseDuration(params.older_than);
+    const thresholdTime = new Date(Date.now() - thresholdMs).toISOString();
+
+    // Find candidate event IDs for pruning
+    let sql = `
+      SELECT id FROM events
+      WHERE project = ? AND timestamp < ?
+        AND rowid NOT IN (SELECT MAX(rowid) FROM events GROUP BY entity_type, entity_id)
+    `;
+    const queryParams: any[] = [params.project, thresholdTime];
+
+    if (params.preserve_types && params.preserve_types.length > 0) {
+      const placeholders = params.preserve_types.map(() => '?').join(',');
+      sql += ` AND event_type NOT IN (${placeholders})`;
+      queryParams.push(...params.preserve_types);
+    }
+
+    const candidateRows = db.prepare(sql).all(...queryParams) as { id: string }[];
+    const candidateIds = candidateRows.map((r) => r.id);
+
+    // Get total events before pruning
+    const totalRow = db
+      .prepare('SELECT COUNT(*) as count FROM events WHERE project = ?')
+      .get(params.project) as { count: number };
+    const totalBefore = totalRow ? totalRow.count : 0;
+
+    let deleted = 0;
+    if (candidateIds.length > 0 && !dryRun) {
+      db.transaction(() => {
+        // SQLite has 999 parameter limit, chunk deletion if needed
+        const chunkSize = 900;
+        for (let i = 0; i < candidateIds.length; i += chunkSize) {
+          const chunk = candidateIds.slice(i, i + chunkSize);
+          const placeholders = chunk.map(() => '?').join(',');
+          db.prepare(`DELETE FROM events WHERE id IN (${placeholders})`).run(...chunk);
+        }
+      })();
+      deleted = candidateIds.length;
+    }
+
+    const wouldDelete = candidateIds.length;
+    const totalAfter = totalBefore - deleted;
+
+    return {
+      would_delete: dryRun ? wouldDelete : 0,
+      deleted,
+      preserved: totalAfter,
     };
   }
 }

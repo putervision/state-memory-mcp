@@ -24,7 +24,11 @@ async function shutdown(signal: string) {
     logger.error('Error closing databases:', err.message);
   }
   
-  process.exit(signal === 'uncaughtException' || signal === 'unhandledRejection' ? 1 : 0);
+  if (signal === 'uncaughtException' || signal === 'unhandledRejection') {
+    process.exit(1);
+  } else {
+    process.exitCode = 0;
+  }
 }
 
 async function main() {

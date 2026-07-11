@@ -178,4 +178,54 @@ export const migrations: Migration[] = [
       db.prepare(`CREATE INDEX IF NOT EXISTS idx_snapshots_project ON snapshots(project)`).run();
     },
   },
+  // Version 5: generated column commit_hash and optimized composite indexes
+  {
+    version: 5,
+    up: (db) => {
+      logger.info(
+        'Running migration v5: adding commit_hash generated column and composite indexes...'
+      );
+      try {
+        db.prepare(
+          `ALTER TABLE nodes ADD COLUMN commit_hash TEXT GENERATED ALWAYS AS (json_extract(metadata, '$.commit_hash')) VIRTUAL`
+        ).run();
+      } catch (err: any) {
+        logger.debug(`Could not add commit_hash column (it may already exist): ${err.message}`);
+      }
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_nodes_project_commit_hash ON nodes(project, commit_hash)`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_edges_type_source ON edges(type, source_id)`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_edges_type_target ON edges(type, target_id)`
+      ).run();
+    },
+  },
+  // Version 6: Add updated_at to edges table
+  {
+    version: 6,
+    up: (db) => {
+      logger.info('Running migration v6: adding updated_at column to edges table...');
+      try {
+        db.prepare('ALTER TABLE edges ADD COLUMN updated_at TEXT').run();
+      } catch (err: any) {
+        logger.debug(
+          `Could not add updated_at column to edges (it may already exist): ${err.message}`
+        );
+      }
+      db.prepare('CREATE INDEX IF NOT EXISTS idx_edges_updated_at ON edges(updated_at)').run();
+    },
+  },
+  // Version 7: Drop FTS5 triggers to handle sync failures gracefully in JS
+  {
+    version: 7,
+    up: (db) => {
+      logger.info('Running migration v7: dropping FTS5 triggers...');
+      db.prepare('DROP TRIGGER IF EXISTS nodes_ai').run();
+      db.prepare('DROP TRIGGER IF EXISTS nodes_ad').run();
+      db.prepare('DROP TRIGGER IF EXISTS nodes_au').run();
+    },
+  },
 ];

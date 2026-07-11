@@ -29,6 +29,7 @@ export interface BaseNode {
   tags: string[]; // Freeform tags for filtering
   project: string; // Project scope
   git_branch?: string; // Optional branch name for context isolation
+  commit_hash?: string; // Optional commit hash for Git observations/tasks
 }
 
 export type EdgeType =
@@ -75,6 +76,8 @@ export interface GitScanOptions {
   commits: number; // default 30
   createTasks: boolean; // default false
   createArtifacts: boolean; // default false
+  taskCommitLimit?: number;
+  taskAvoidWords?: string[];
 }
 
 /** Result summary from a git scan run */
@@ -93,6 +96,7 @@ export interface NodeRow {
   status: string;
   project: string;
   git_branch?: string;
+  commit_hash?: string;
   metadata: string;
   tags: string;
   created_at: string;

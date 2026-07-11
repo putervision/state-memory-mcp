@@ -89,6 +89,32 @@ describe('Git Scanner Engine', () => {
     expect(shouldCreateTask(mockCommit('feat: add scanner'), 5)).toBe(false);
   });
 
+  it('should support configurable thresholds in shouldCreateTask', () => {
+    const mockCommit = (msg: string): GitCommit => ({
+      hash: 'abc',
+      shortHash: 'abc',
+      author: 'A',
+      authorEmail: 'a@a.com',
+      committedAt: '2026-07-08',
+      subject: msg,
+      message: msg,
+    });
+
+    // Test taskCommitLimit (default is 5)
+    expect(shouldCreateTask(mockCommit('feat: add scanner'), 4, { taskCommitLimit: 3 })).toBe(
+      false
+    );
+    expect(shouldCreateTask(mockCommit('feat: add scanner'), 2, { taskCommitLimit: 3 })).toBe(true);
+
+    // Test taskAvoidWords (default avoids 'fix', etc.)
+    expect(
+      shouldCreateTask(mockCommit('refactor: update parser'), 0, { taskAvoidWords: ['refactor'] })
+    ).toBe(false);
+    expect(
+      shouldCreateTask(mockCommit('fix: resolve issue'), 0, { taskAvoidWords: ['refactor'] })
+    ).toBe(true);
+  });
+
   it('should detect hot files correctly', () => {
     const mockCommits: GitCommit[] = [
       {

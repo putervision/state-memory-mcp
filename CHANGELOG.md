@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-10
+
+### Added
+- Phase 4: 7 New Agent-Facing Tools (bringing total tools to 44):
+  - `batch_update`: Atomic batch updates of status, metadata, or tags.
+  - `next_tasks`: Runnable task queue query, prioritized by downstream impact and age.
+  - `what_changed`: Graph changeset diffing since a session start or timestamp.
+  - `get_stale_nodes`: Staleness detector to find idle/untouched nodes.
+  - `validate_graph`: Topological and logic validation (cycles, orphans, empty milestones).
+  - `prune_events`: Event log pruning while preserving entity state.
+  - `add_note`: Atomic observation notes with context links.
+- Configurable backup directories default path setting via `allowedExportDirs`.
+
+### Changed
+- Phase 5: Code Decomposition & Architecture Modularization:
+  - Decomposed massive `src/server.ts` handlers into clean, domain-specific handler files under `src/handlers/`.
+  - Decomposed monolithic `src/engine/analytics.ts` into a structured module folder `src/engine/analytics/`.
+  - Decomposed CLI commands from `src/cli.ts` into a clean subcommands architecture in `src/cli/commands/`.
+- Phase 3 Performance Hardening:
+  - Cached parsed TF-IDF tokens to optimize full-text search.
+  - Paginated SQL execution and buffered event logging chunks.
+- Phase 2 Bug Fixes & Stability:
+  - Resolved circular dependency edge cases, session snapshot integrity, and CLI edge cases.
+- Phase 1 Security Hardening:
+  - Strict raw SQL query sanitization blocklist.
+  - Strict path traversal validation on backup, restore, merge, and export inputs.
+
 ## [0.3.3] - 2026-07-10
 
 ### Added

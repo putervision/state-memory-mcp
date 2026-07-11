@@ -287,14 +287,14 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
     closeDb(sourceProject);
     const sourceDbPath = getDbPath(sourceProject);
 
-    // 3. Perform Merge (should throw and rollback)
-    expect(() => {
-      mergeProjectDb({
-        project: targetProject,
-        sourcePath: sourceDbPath,
-        force: false,
-      });
-    }).toThrow('Merge introduces circular dependencies.');
+    // 3. Perform Merge (should return report with transaction_rolled_back)
+    const mergeReport = mergeProjectDb({
+      project: targetProject,
+      sourcePath: sourceDbPath,
+      force: false,
+    });
+    expect(mergeReport.transaction_rolled_back).toBe(true);
+    expect(mergeReport.cycles_detected.length).toBeGreaterThan(0);
 
     // 4. Verify target DB remained untouched (no edge B -> A)
     const targetDb = getDb(targetProject);
@@ -316,5 +316,12 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
       .prepare('SELECT 1 FROM edges WHERE id = ?')
       .get('edge-cycle-source');
     expect(cycleEdgeForce).toBeDefined();
+  });
+
+  it('should verify that edges table has updated_at column from migration v6', () => {
+    const db = getDb(targetProject);
+    const info = db.pragma('table_info(edges)') as { name: string }[];
+    const hasUpdatedAt = info.some((col) => col.name === 'updated_at');
+    expect(hasUpdatedAt).toBe(true);
   });
 });

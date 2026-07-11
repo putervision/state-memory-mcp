@@ -37,21 +37,23 @@ export function hasCycle(
   const endId = edgeType === 'blocks' ? targetId : sourceId;
 
   const stmt = db.prepare(`
-    WITH RECURSIVE path(node_id) AS (
-      SELECT ?
+    WITH RECURSIVE path(node_id, depth) AS (
+      SELECT ?, 0
       UNION
       SELECT 
         CASE 
           WHEN e.type = 'depends_on' AND e.source_id = p.node_id THEN e.target_id
           WHEN e.type = 'child_of' AND e.source_id = p.node_id THEN e.target_id
           WHEN e.type = 'blocks' AND e.target_id = p.node_id THEN e.source_id
-        END as next_node_id
+        END as next_node_id,
+        p.depth + 1
       FROM path p
       JOIN edges e ON (
         (e.type = 'depends_on' AND e.source_id = p.node_id) OR
         (e.type = 'child_of' AND e.source_id = p.node_id) OR
         (e.type = 'blocks' AND e.target_id = p.node_id)
       )
+      WHERE p.depth < 1000
     )
     SELECT 1 FROM path WHERE node_id = ? LIMIT 1
   `);
@@ -87,83 +89,76 @@ export class EdgeEngine {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
-    // Verify source and target exist
-    const sourceExists = db.prepare('SELECT 1 FROM nodes WHERE id = ?').get(params.source_id);
-    if (!sourceExists) {
-      throw new Error(`Source node not found: ${params.source_id}`);
-    }
+    return db.transaction(() => {
+      // Verify source and target exist
+      const sourceExists = db.prepare('SELECT 1 FROM nodes WHERE id = ?').get(params.source_id);
+      if (!sourceExists) {
+        throw new Error(`Source node not found: ${params.source_id}`);
+      }
 
-    const targetExists = db.prepare('SELECT 1 FROM nodes WHERE id = ?').get(params.target_id);
-    if (!targetExists) {
-      throw new Error(`Target node not found: ${params.target_id}`);
-    }
+      const targetExists = db.prepare('SELECT 1 FROM nodes WHERE id = ?').get(params.target_id);
+      if (!targetExists) {
+        throw new Error(`Target node not found: ${params.target_id}`);
+      }
 
-    // Check for duplicate edge
-    const duplicate = db
-      .prepare(
-        `
-      SELECT 1 FROM edges WHERE source_id = ? AND target_id = ? AND type = ?
-    `
-      )
-      .get(params.source_id, params.target_id, params.type);
+      // Cycle detection for dependency-like edge types
+      if (hasCycle(db, params.source_id, params.target_id, params.type)) {
+        throw new Error(`Cannot add edge: relationship introduces a circular dependency`);
+      }
 
-    if (duplicate) {
-      throw new Error(
-        `Relationship already exists: ${params.source_id} --${params.type}--> ${params.target_id}`
+      const id = generateId();
+      const now = getCurrentIsoString();
+      const branch = getCurrentBranch() || undefined;
+      const propertiesStr = JSON.stringify(params.properties || {});
+
+      const stmt = db.prepare(`
+        INSERT OR IGNORE INTO edges (id, source_id, target_id, type, properties, project, git_branch, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const result = stmt.run(
+        id,
+        params.source_id,
+        params.target_id,
+        params.type,
+        propertiesStr,
+        projectSlug,
+        branch,
+        now
       );
-    }
 
-    // Cycle detection for dependency-like edge types
-    if (hasCycle(db, params.source_id, params.target_id, params.type)) {
-      throw new Error(`Cannot add edge: relationship introduces a circular dependency`);
-    }
+      if (result.changes === 0) {
+        throw new Error(
+          `Relationship already exists: ${params.source_id} --${params.type}--> ${params.target_id}`
+        );
+      }
 
-    const id = generateId();
-    const now = getCurrentIsoString();
-    const branch = getCurrentBranch();
-    const propertiesStr = JSON.stringify(params.properties || {});
+      logger.debug(
+        `Added edge ${id} (${params.type}) from ${params.source_id} to ${params.target_id}`
+      );
 
-    const stmt = db.prepare(`
-      INSERT INTO edges (id, source_id, target_id, type, properties, project, git_branch, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+      const edge: Edge = {
+        id,
+        source_id: params.source_id,
+        target_id: params.target_id,
+        type: params.type,
+        properties: params.properties || {},
+        project: projectSlug,
+        git_branch: branch,
+        created_at: now,
+      };
 
-    stmt.run(
-      id,
-      params.source_id,
-      params.target_id,
-      params.type,
-      propertiesStr,
-      projectSlug,
-      branch,
-      now
-    );
+      EventEngine.logEvent(db, {
+        session_id: params.session_id,
+        event_type: 'edge_created',
+        entity_type: 'edge',
+        entity_id: id,
+        after_state: edge,
+        project: projectSlug,
+      });
 
-    logger.debug(
-      `Added edge ${id} (${params.type}) from ${params.source_id} to ${params.target_id}`
-    );
-
-    const edge: Edge = {
-      id,
-      source_id: params.source_id,
-      target_id: params.target_id,
-      type: params.type,
-      properties: params.properties || {},
-      project: projectSlug,
-      git_branch: branch,
-      created_at: now,
-    };
-
-    EventEngine.logEvent(db, {
-      session_id: params.session_id,
-      event_type: 'edge_created',
-      entity_type: 'edge',
-      entity_id: id,
-      after_state: edge,
-      project: projectSlug,
-    });
-
-    return edge;
+      return edge;
+    })();
   }
 
   /**
@@ -180,45 +175,49 @@ export class EdgeEngine {
     project?: string;
     source_id: string;
     target_id: string;
-    type: string;
+    type: EdgeType;
     session_id?: string | null;
   }): boolean {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
-    // Fetch edge before deleting to capture its state
-    const existingRow = db
-      .prepare(
-        `
-      SELECT * FROM edges WHERE source_id = ? AND target_id = ? AND type = ?
-    `
-      )
-      .get(params.source_id, params.target_id, params.type) as EdgeRow | undefined;
+    return db.transaction(() => {
+      // Fetch edge before deleting to capture its state
+      const existingRow = db
+        .prepare(
+          `
+        SELECT * FROM edges WHERE source_id = ? AND target_id = ? AND type = ?
+      `
+        )
+        .get(params.source_id, params.target_id, params.type) as EdgeRow | undefined;
 
-    if (!existingRow) {
+      if (!existingRow) {
+        return false;
+      }
+      const edge = parseEdgeRow(existingRow);
+
+      const stmt = db.prepare(`
+        DELETE FROM edges
+        WHERE source_id = ? AND target_id = ? AND type = ?
+      `);
+
+      const result = stmt.run(params.source_id, params.target_id, params.type);
+
+      if (result.changes > 0) {
+        logger.debug(
+          `Removed edge (${params.type}) from ${params.source_id} to ${params.target_id}`
+        );
+        EventEngine.logEvent(db, {
+          session_id: params.session_id,
+          event_type: 'edge_deleted',
+          entity_type: 'edge',
+          entity_id: edge.id,
+          before_state: edge,
+          project: projectSlug,
+        });
+        return true;
+      }
       return false;
-    }
-    const edge = parseEdgeRow(existingRow);
-
-    const stmt = db.prepare(`
-      DELETE FROM edges
-      WHERE source_id = ? AND target_id = ? AND type = ?
-    `);
-
-    const result = stmt.run(params.source_id, params.target_id, params.type);
-
-    if (result.changes > 0) {
-      logger.debug(`Removed edge (${params.type}) from ${params.source_id} to ${params.target_id}`);
-      EventEngine.logEvent(db, {
-        session_id: params.session_id,
-        event_type: 'edge_deleted',
-        entity_type: 'edge',
-        entity_id: edge.id,
-        before_state: edge,
-        project: projectSlug,
-      });
-      return true;
-    }
-    return false;
+    })();
   }
 }

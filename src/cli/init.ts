@@ -9,15 +9,16 @@ import {
   getMcpConfigVscode,
   getGlobalRulesTemplate,
 } from './templates.js';
-import { registerProject, getDb } from '../engine/db.js';
+import { registerProject, getDb, getProjectSlug, getProjectDbDir } from '../engine/db.js';
 import { GraphEngine } from '../engine/graph.js';
 import { findGitRepos } from '../utils/git.js';
 import { scanGit } from '../engine/git-scanner.js';
 import { runStaticScaffolder, runTechStackScaffolder } from '../engine/scaffolder.js';
+import { validateGraph } from '../engine/validate.js';
+import { exportGraph } from '../engine/export.js';
+import { EventEngine } from '../engine/events.js';
 
 const MARKER = 'state-memory-mcp';
-
-
 
 /**
  * Full init workflow — creates data dir, updates gitignore,
@@ -30,15 +31,14 @@ export async function runInit(
     commits?: number;
     createTasks?: boolean;
     createArtifacts?: boolean;
+    pruneEvents?: string;
   }
 ): Promise<void> {
   console.log('\n🔧 Initializing state-memory-mcp...\n');
 
-
-
   // Register project in global registry for global client auto-resolution
   const projectName = path.basename(root);
-  const projectSlug = projectName.toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+  const projectSlug = getProjectSlug(projectName);
   registerProject(projectName, root);
 
   initDataDirectory(root);
@@ -94,10 +94,56 @@ export async function runInit(
     }
   }
 
+  // Step 9 — Optional Event Log Pruning
+  if (options?.pruneEvents) {
+    console.log(`   🧹 Pruning event log history older than ${options.pruneEvents}...`);
+    try {
+      const pruneResult = EventEngine.pruneEvents(db, {
+        project: projectSlug,
+        older_than: options.pruneEvents,
+        dry_run: false,
+      });
+      console.log(`   ✅ Pruned ${pruneResult.deleted} old events from the ledger`);
+    } catch (error: any) {
+      logger.warn(`Event log pruning failed: ${error.message}`);
+    }
+  }
+
+  // Step 10 — Graph Validation & Health Audit
+  try {
+    console.log('   🔍 Auditing project graph health...');
+    const validation = validateGraph(db, { project: projectSlug });
+    if (validation.passed) {
+      console.log('   ✅ Graph structure validation passed (no issues found)');
+    } else {
+      console.log(`   ⚠️  Graph validation found ${validation.issues.length} issue(s):`);
+      for (const issue of validation.issues) {
+        console.log(`      - [${issue.severity.toUpperCase()}] ${issue.message} (${issue.check})`);
+      }
+    }
+  } catch (error: any) {
+    logger.warn(`Graph validation failed: ${error.message}`);
+  }
+
+  // Step 11 — Auto-generate HTML Force Visualizer
+  try {
+    const projectDbDir = getProjectDbDir(projectSlug);
+    if (!fs.existsSync(projectDbDir)) {
+      fs.mkdirSync(projectDbDir, { recursive: true });
+    }
+    const htmlContent = exportGraph({ project: projectSlug, format: 'html' });
+    const htmlPath = path.join(projectDbDir, 'viewer.html');
+    fs.writeFileSync(htmlPath, htmlContent, 'utf-8');
+    console.log(`   ✅ Generated HTML visualization at: ${htmlPath}`);
+  } catch (error: any) {
+    logger.warn(`Could not generate graph visualizer: ${error.message}`);
+  }
+
   console.log('\n✅ state-memory-mcp initialized successfully!\n');
 
   console.log('   For Claude Desktop, add the following to your config manually:');
   console.log('   (macOS: ~/Library/Application Support/Claude/claude_desktop_config.json)');
+  console.log('   (Linux: ~/.config/Claude/claude_desktop_config.json)');
   console.log('   (Windows: %APPDATA%\\Claude\\claude_desktop_config.json)\n');
   console.log('   {');
   console.log('     "mcpServers": {');

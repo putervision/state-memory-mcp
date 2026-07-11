@@ -29,11 +29,21 @@ export function validatePath(filePath: string, project?: string): string {
 
 const REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp-registry.json');
 
+let registryCache: { registry: Record<string, string>; timestamp: number } | null = null;
+const REGISTRY_TTL_MS = 2000; // 2 seconds TTL
+
 function getRegistry(): Record<string, string> {
+  const now = Date.now();
+  if (registryCache && now - registryCache.timestamp < REGISTRY_TTL_MS) {
+    return registryCache.registry;
+  }
+
   try {
     if (fs.existsSync(REGISTRY_PATH)) {
       const raw = fs.readFileSync(REGISTRY_PATH, 'utf-8');
-      return JSON.parse(raw) || {};
+      const registry = JSON.parse(raw) || {};
+      registryCache = { registry, timestamp: now };
+      return registry;
     }
   } catch (e) {
     logger.warn('Failed to read or parse global registry:', e);
@@ -50,13 +60,19 @@ function getRegistry(): Record<string, string> {
  */
 export function registerProject(name: string, projectPath: string): void {
   try {
+    registryCache = null; // Invalidate cache
     const registry = getRegistry();
     registry[name.toLowerCase()] = path.resolve(projectPath);
     const dir = path.dirname(REGISTRY_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2), 'utf-8');
+    fs.mkdirSync(dir, { recursive: true });
+
+    // Atomic write with Owner-only read/write permissions (0o600)
+    const tempPath = `${REGISTRY_PATH}.tmp.${Math.random().toString(36).substring(2)}`;
+    fs.writeFileSync(tempPath, JSON.stringify(registry, null, 2), {
+      encoding: 'utf-8',
+      mode: 0o600,
+    });
+    fs.renameSync(tempPath, REGISTRY_PATH);
   } catch (e) {
     logger.error('Failed to register project in global registry:', e);
   }
@@ -155,7 +171,9 @@ export function getProjectSlug(project?: string): string {
     return project
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9-_]/g, '-');
+      .replace(/[^a-z0-9-_]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
   const root = resolveProjectRoot(project);
 
@@ -172,16 +190,19 @@ export function getProjectSlug(project?: string): string {
   }
 
   const config = loadProjectConfig(root);
+  let name = '';
   if (config.projectName) {
-    return config.projectName
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-_]/g, '-');
+    name = config.projectName;
+  } else {
+    name = path.basename(root);
   }
-  return path
-    .basename(root)
+
+  return name
+    .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9-_]/g, '-');
+    .replace(/[^a-z0-9-_]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 // Get the directory where a project's database is stored
@@ -249,6 +270,7 @@ import { migrations } from './migrations.js';
 
 const MAX_CACHED_DBS = 5;
 const dbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
+const readOnlyDbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 
 /**
  * Opens or retrieves a cached better-sqlite3 database connection for the given project, performing migrations if needed.
@@ -285,9 +307,7 @@ export function getDb(project?: string): Database.Database {
   const projectDbDir = getProjectDbDir(project);
 
   // Ensure directories exist
-  if (!fs.existsSync(projectDbDir)) {
-    fs.mkdirSync(projectDbDir, { recursive: true });
-  }
+  fs.mkdirSync(projectDbDir, { recursive: true });
 
   const dbPath = getDbPath(project);
   logger.info(`Connecting to database for project "${projectSlug}" at: ${dbPath}`);
@@ -303,6 +323,57 @@ export function getDb(project?: string): Database.Database {
   initializeSchema(db);
 
   dbCache.set(projectSlug, { db, lastUsed: Date.now() });
+  return db;
+}
+
+/**
+ * Opens or retrieves a cached read-only better-sqlite3 database connection for the given project.
+ * Enforces busy_timeout and load_extension security policies.
+ *
+ * @param project - Optional project identifier.
+ * @returns The active read-only better-sqlite3 Database instance.
+ */
+export function getReadOnlyDb(project?: string): Database.Database {
+  const projectSlug = getProjectSlug(project);
+  const cached = readOnlyDbCache.get(projectSlug);
+  if (cached) {
+    cached.lastUsed = Date.now();
+    return cached.db;
+  }
+
+  // Enforce read-only connection cache limit
+  if (readOnlyDbCache.size >= MAX_CACHED_DBS) {
+    let oldestSlug: string | null = null;
+    let oldestTime = Infinity;
+    for (const [slug, item] of readOnlyDbCache.entries()) {
+      if (item.lastUsed < oldestTime) {
+        oldestTime = item.lastUsed;
+        oldestSlug = slug;
+      }
+    }
+    if (oldestSlug) {
+      const roCached = readOnlyDbCache.get(oldestSlug);
+      if (roCached) {
+        try {
+          roCached.db.close();
+        } catch {
+          // Ignore close errors during cache eviction
+        }
+        readOnlyDbCache.delete(oldestSlug);
+      }
+    }
+  }
+
+  const dbPath = getDbPath(project);
+  if (!fs.existsSync(dbPath)) {
+    throw new ValidationError(`Database file not found at: ${dbPath}`);
+  }
+
+  const db = new Database(dbPath, { readonly: true });
+  db.pragma('busy_timeout = 5000');
+  db.pragma('enable_load_extension = 0');
+
+  readOnlyDbCache.set(projectSlug, { db, lastUsed: Date.now() });
   return db;
 }
 
@@ -324,6 +395,17 @@ export function closeDb(project?: string): void {
     }
     dbCache.delete(projectSlug);
   }
+
+  const roCached = readOnlyDbCache.get(projectSlug);
+  if (roCached) {
+    try {
+      roCached.db.close();
+      logger.info(`Closed read-only database for project "${projectSlug}"`);
+    } catch (err) {
+      logger.error(`Error closing read-only database for project "${projectSlug}":`, err);
+    }
+    readOnlyDbCache.delete(projectSlug);
+  }
 }
 
 /**
@@ -341,6 +423,16 @@ export function closeAllDbs(): void {
     }
   }
   dbCache.clear();
+
+  for (const [slug, cached] of readOnlyDbCache.entries()) {
+    try {
+      cached.db.close();
+      logger.info(`Closed read-only database for project "${slug}"`);
+    } catch (err) {
+      logger.error(`Error closing read-only database for project "${slug}":`, err);
+    }
+  }
+  readOnlyDbCache.clear();
 }
 
 /**
@@ -413,8 +505,8 @@ function initializeSchema(db: Database.Database): void {
     .sort((a, b) => a.version - b.version);
 
   if (pendingMigrations.length > 0) {
-    db.transaction(() => {
-      for (const migration of pendingMigrations) {
+    for (const migration of pendingMigrations) {
+      db.transaction(() => {
         logger.info(`Running database migration version ${migration.version}...`);
         migration.up(db);
         db.prepare(
@@ -422,9 +514,9 @@ function initializeSchema(db: Database.Database): void {
           UPDATE schema_meta SET value = ? WHERE key = 'version'
         `
         ).run(migration.version.toString());
-        currentVersion = migration.version;
-      }
-      logger.info(`Database schema is up to date at version ${currentVersion}`);
-    })();
+      })();
+      currentVersion = migration.version;
+    }
+    logger.info(`Database schema is up to date at version ${currentVersion}`);
   }
 }

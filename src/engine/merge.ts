@@ -1,9 +1,10 @@
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import { NodeRow, EdgeRow } from '../schema/types.js';
-import { getDb, getProjectSlug, validatePath } from './db.js';
+import { getDb, getProjectSlug, resolveProjectRoot } from './db.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { findCycles } from './audit.js';
+import { validatePath, loadPathConfig } from '../utils/path-validator.js';
 
 export interface MergeReport {
   project: string;
@@ -26,7 +27,9 @@ export function mergeProjectDb(params: {
   force?: boolean;
 }): MergeReport {
   const projectSlug = getProjectSlug(params.project);
-  const resolvedSourcePath = validatePath(params.sourcePath, params.project);
+  const projectRoot = resolveProjectRoot(params.project);
+  const pathConfig = loadPathConfig(projectRoot);
+  const resolvedSourcePath = validatePath(params.sourcePath, { ...pathConfig, mustExist: true });
 
   if (!fs.existsSync(resolvedSourcePath)) {
     throw new Error(`Source database file not found: ${resolvedSourcePath}`);
@@ -106,7 +109,13 @@ export function mergeProjectDb(params: {
             );
           report.nodes_added++;
         } else {
-          if (node.updated_at > existing.updated_at) {
+          // Parse guard to verify valid ISO 8601 format and compare timestamps
+          const nodeTime = Date.parse(node.updated_at);
+          const existingTime = Date.parse(existing.updated_at);
+          const isNodeTimeValid = !isNaN(nodeTime);
+          const isExistingTimeValid = !isNaN(existingTime);
+
+          if (isNodeTimeValid && isExistingTimeValid && nodeTime > existingTime) {
             targetDb
               .prepare(
                 `
@@ -163,10 +172,11 @@ export function mergeProjectDb(params: {
           .get(edge.source_id, edge.target_id, edge.type);
 
         if (!existingEdge) {
+          // Use INSERT OR IGNORE to handle ID collisions gracefully if the ID already exists in the database
           targetDb
             .prepare(
               `
-            INSERT INTO edges (id, source_id, target_id, type, properties, project, git_branch, created_at)
+            INSERT OR IGNORE INTO edges (id, source_id, target_id, type, properties, project, git_branch, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `
             )
@@ -210,10 +220,8 @@ export function mergeProjectDb(params: {
       }
     })();
   } catch (error: any) {
-    if (error.message === 'Merge introduces circular dependencies.') {
-      report.transaction_rolled_back = true;
-    }
-    throw error;
+    report.transaction_rolled_back = true;
+    report.warnings.push(`Merge failed and was rolled back: ${error.message}`);
   }
 
   return report;

@@ -13,16 +13,20 @@ export abstract class Schema<T> {
   isOptional: boolean = false;
   defaultValue?: T;
 
+  protected clone(): this {
+    return Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+  }
+
   abstract parse(val: unknown, path?: string): T;
 
   optional(): this {
-    const copy = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    const copy = this.clone();
     copy.isOptional = true;
     return copy;
   }
 
   default(val: T): this {
-    const copy = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    const copy = this.clone();
     copy.defaultValue = val;
     return copy;
   }
@@ -46,11 +50,20 @@ export abstract class Schema<T> {
 export class StringSchema extends Schema<string> {
   private minLength?: number;
   private minMessage?: string;
+  private maxLength?: number;
+  private maxMessage?: string;
 
   min(length: number, message?: string): this {
-    const copy = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    const copy = this.clone();
     copy.minLength = length;
     copy.minMessage = message;
+    return copy;
+  }
+
+  max(length: number, message?: string): this {
+    const copy = this.clone();
+    copy.maxLength = length;
+    copy.maxMessage = message;
     return copy;
   }
 
@@ -66,6 +79,9 @@ export class StringSchema extends Schema<string> {
     if (this.minLength !== undefined && val.length < this.minLength) {
       throw new Error(this.minMessage || `${path} must be at least ${this.minLength} characters`);
     }
+    if (this.maxLength !== undefined && val.length > this.maxLength) {
+      throw new Error(this.maxMessage || `${path} must be at most ${this.maxLength} characters`);
+    }
     return val;
   }
 }
@@ -75,13 +91,13 @@ export class NumberSchema extends Schema<number> {
   private maxVal?: number;
 
   min(val: number): this {
-    const copy = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    const copy = this.clone();
     copy.minVal = val;
     return copy;
   }
 
   max(val: number): this {
-    const copy = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    const copy = this.clone();
     copy.maxVal = val;
     return copy;
   }
@@ -238,11 +254,7 @@ export class ObjectSchema<T extends Record<string, Schema<any>>> extends Schema<
         // Skip optional fields that aren't set
         continue;
       }
-      try {
-        result[key] = fieldSchema.parse(fieldValue, key);
-      } catch (err: any) {
-        throw new Error(err.message);
-      }
+      result[key] = fieldSchema.parse(fieldValue, `${path}.${key}`);
     }
     return result;
   }
@@ -294,34 +306,34 @@ export const DEFAULT_STATUS_BY_TYPE: Record<NodeType, NodeStatus> = {
 export const MetadataSchema = z.record(z.unknown()).refine(
   (val) => {
     try {
-      JSON.stringify(val);
-      return true;
+      const str = JSON.stringify(val);
+      return str.length <= 50000;
     } catch {
       return false;
     }
   },
-  { message: 'Metadata must be a JSON-serializable object' }
+  { message: 'Metadata must be a JSON-serializable object of max 50,000 characters stringified' }
 );
 
 export const PropertiesSchema = z.record(z.unknown()).refine(
   (val) => {
     try {
-      JSON.stringify(val);
-      return true;
+      const str = JSON.stringify(val);
+      return str.length <= 50000;
     } catch {
       return false;
     }
   },
-  { message: 'Properties must be a JSON-serializable object' }
+  { message: 'Properties must be a JSON-serializable object of max 50,000 characters stringified' }
 );
 
 export const AddNodeSchema = z.object({
   project: z.string().optional(),
   type: NodeTypeSchema,
-  title: z.string().min(1, 'Title cannot be empty'),
+  title: z.string().min(1, 'Title cannot be empty').max(500, 'Title cannot exceed 500 characters'),
   status: z.string().optional(),
   metadata: MetadataSchema.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
 });
 
 export const GetNodeSchema = z.object({
@@ -333,10 +345,10 @@ export const GetNodeSchema = z.object({
 export const UpdateNodeSchema = z.object({
   project: z.string().optional(),
   id: z.string().min(1, 'ID is required'),
-  title: z.string().optional(),
+  title: z.string().max(500, 'Title cannot exceed 500 characters').optional(),
   status: z.string().optional(),
   metadata: MetadataSchema.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
 });
 
 export const RemoveNodeSchema = z.object({
@@ -371,7 +383,7 @@ export const RemoveEdgeSchema = z.object({
   project: z.string().optional(),
   source_id: z.string().min(1, 'Source ID is required'),
   target_id: z.string().min(1, 'Target ID is required'),
-  type: z.string().min(1, 'Edge type is required'),
+  type: EdgeTypeSchema,
 });
 
 export const ListNodesSchema = z.object({
@@ -391,6 +403,7 @@ export const SearchNodesSchema = z.object({
   type: NodeTypeSchema.optional(),
   status: z.string().optional(),
   limit: z.number().optional().default(20),
+  offset: z.number().optional().default(0),
   algorithm: z.enum(['fts', 'tfidf']).optional().default('fts'),
 });
 
@@ -398,8 +411,8 @@ export const GetSubgraphSchema = z.object({
   project: z.string().optional(),
   root_id: z.string().min(1, 'Root ID is required'),
   depth: z.number().min(1).max(5).optional().default(2),
-  edge_types: z.array(z.string()).optional(),
-  node_types: z.array(z.string()).optional(),
+  edge_types: z.array(EdgeTypeSchema).optional(),
+  node_types: z.array(NodeTypeSchema).optional(),
 });
 
 export const TraceDependenciesSchema = z.object({
@@ -446,8 +459,11 @@ export const ExportGraphSchema = z.object({
 
 export const ImportGraphSchema = z.object({
   project: z.string().optional(),
-  nodes: z.array(z.record(z.unknown())),
-  edges: z.array(z.record(z.unknown())),
+  nodes: z.array(z.record(z.unknown())).optional(),
+  edges: z.array(z.record(z.unknown())).optional(),
+  filePath: z.string().optional(),
+  fileSizeLimitBytes: z.number().optional(),
+  conflictStrategy: z.enum(['skip', 'overwrite', 'generate_new']).optional().default('skip'),
   force: z.boolean().optional().default(false),
 });
 
@@ -536,6 +552,7 @@ export const UndoLastSchema = z.object({
 export const SaveSnapshotSchema = z.object({
   project: z.string().optional(),
   session_id: z.string().optional(),
+  force: z.boolean().optional(),
 });
 
 export const ListSnapshotsSchema = z.object({
@@ -554,4 +571,59 @@ export const ExportTrajectoriesSchema = z.object({
   session_id: z.string().optional(),
   since: z.string().optional(),
   until: z.string().optional(),
+  limit: z.number().optional().default(10000),
+  offset: z.number().optional().default(0),
+});
+
+export const BatchUpdateSchema = z.object({
+  project: z.string().optional(),
+  ids: z.array(z.string().min(1, 'ID cannot be empty')),
+  status: z.string().optional(),
+  metadata: MetadataSchema.optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+export const NextTasksSchema = z.object({
+  project: z.string().optional(),
+  git_branch: z.string().optional(),
+  limit: z.number().optional().default(5),
+  include_context: z.boolean().optional().default(false),
+});
+
+export const WhatChangedSchema = z.object({
+  project: z.string().optional(),
+  since: z.string().optional(),
+  since_session: z.string().optional(),
+  git_branch: z.string().optional(),
+});
+
+export const GetStaleNodesSchema = z.object({
+  project: z.string().optional(),
+  older_than: z.string().optional().default('7d'),
+  status: z.string().optional().default('in_progress'),
+  type: z.string().optional(),
+  git_branch: z.string().optional(),
+  limit: z.number().optional().default(20),
+});
+
+export const ValidateGraphSchema = z.object({
+  project: z.string().optional(),
+  checks: z.array(z.string()).optional(),
+});
+
+export const PruneEventsSchema = z.object({
+  project: z.string().optional(),
+  older_than: z.string().min(1, 'older_than is required'),
+  dry_run: z.boolean().optional().default(true),
+  preserve_types: z.array(z.string()).optional(),
+});
+
+export const AddNoteSchema = z.object({
+  project: z.string().optional(),
+  text: z
+    .string()
+    .min(1, 'Note text cannot be empty')
+    .max(10000, 'Note text cannot exceed 10000 characters'),
+  attach_to: z.string().optional(),
+  tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
 });

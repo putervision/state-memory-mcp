@@ -15,9 +15,20 @@ import { logger } from '../utils/logger.js';
  * @param index - The chronological index of the commit (0 being the newest).
  * @returns True if a task should be created, false otherwise.
  */
-export function shouldCreateTask(commit: GitCommit, index: number): boolean {
-  if (index >= 5) return false;
-  const avoidWords = /\b(fix|complete|finish|done|close)\b/i;
+export function shouldCreateTask(
+  commit: GitCommit,
+  index: number,
+  options?: { taskCommitLimit?: number; taskAvoidWords?: string[] }
+): boolean {
+  const limit = options?.taskCommitLimit !== undefined ? options.taskCommitLimit : 5;
+  if (index >= limit) return false;
+
+  const words = options?.taskAvoidWords || ['fix', 'complete', 'finish', 'done', 'close'];
+  if (words.length === 0) {
+    return true;
+  }
+  const escapedWords = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const avoidWords = new RegExp(`\\b(${escapedWords})\\b`, 'i');
   return !avoidWords.test(commit.message);
 }
 
@@ -46,6 +57,8 @@ export function detectHotFiles(commits: GitCommit[], threshold = 3): string[] {
   return hotFiles;
 }
 
+export const DEFAULT_CORE_MILESTONE = 'milestone:core:v1';
+
 /**
  * Retroactively and proactively links existing observations, tasks, and artifacts in the graph.
  *
@@ -53,7 +66,11 @@ export function detectHotFiles(commits: GitCommit[], threshold = 3): string[] {
  * @param projectSlug - The sanitized project slug identifier.
  * @returns void
  */
-export function linkExistingNodes(db: Database, projectSlug: string): void {
+export function linkExistingNodes(
+  db: Database,
+  projectSlug: string,
+  coreMilestoneKey = DEFAULT_CORE_MILESTONE
+): void {
   // 1. Get all observations, tasks, and artifacts
   const nodes = db
     .prepare(
@@ -167,10 +184,10 @@ export function linkExistingNodes(db: Database, projectSlug: string): void {
     .prepare(
       `
     SELECT id FROM nodes
-    WHERE project = ? AND type = 'milestone' AND json_extract(metadata, '$.scaffold_key') = 'milestone:core:v1'
+    WHERE project = ? AND type = 'milestone' AND json_extract(metadata, '$.scaffold_key') = ?
   `
     )
-    .get(projectSlug) as { id: string } | undefined;
+    .get(projectSlug, coreMilestoneKey) as { id: string } | undefined;
 
   if (coreMilestone) {
     for (const taskNode of tasksByHash.values()) {
@@ -226,197 +243,10 @@ export async function scanGit(
   const projectSlug = getProjectSlug(project);
   const db = getDb(projectSlug);
 
-  try {
-    const ignorePatterns = loadIgnorePatterns(cwd);
-    const repoPaths = findGitRepos(cwd, 2);
-    if (repoPaths.length === 0) {
-      logger.info(`No git repositories found under path: ${cwd}`);
-      return {
-        commits_scanned: 0,
-        new_observations: 0,
-        new_tasks: 0,
-        new_artifacts: 0,
-        last_processed_commit: null,
-      };
-    }
-
-    let totalCommitsScanned = 0;
-    let newObsCount = 0;
-    let newTasksCount = 0;
-    let newArtifactsCount = 0;
-    let lastProcessedHash: string | null = null;
-
-    for (const repoPath of repoPaths) {
-      const relPath = path.relative(cwd, repoPath) || '.';
-      const metaKey = `last_git_commit:${relPath}`;
-      let lastHash = getMetaValue(db, metaKey);
-
-      // Backward compatibility for root repo
-      if (!lastHash && relPath === '.') {
-        lastHash = getMetaValue(db, 'last_git_commit');
-      }
-
-      const commits = getCommitLog(repoPath, options.commits, lastHash || undefined);
-      const last5Commits = getCommitLog(repoPath, 5);
-
-      if (commits.length === 0 && !options.createTasks) {
-        continue;
-      }
-
-      // Merge commits: ensure the 5 newest commits are at the beginning
-      const mergedCommits = [...last5Commits];
-      const seenHashes = new Set(last5Commits.map((c) => c.hash));
-      for (const commit of commits) {
-        if (!seenHashes.has(commit.hash)) {
-          mergedCommits.push(commit);
-        }
-      }
-
-      // Fetch files changed for each commit to build file stats
-      for (const commit of mergedCommits) {
-        const repoFiles = getFilesChanged(commit.hash, repoPath);
-        // Prepend relPath to changed files to get workspace-relative path
-        const mappedFiles =
-          relPath === '.' ? repoFiles : repoFiles.map((f) => path.join(relPath, f));
-
-        // Filter out ignored files
-        commit.filesChanged = mappedFiles.filter((f) => !isIgnored(f, ignorePatterns));
-      }
-
-      for (let index = 0; index < mergedCommits.length; index++) {
-        const commit = mergedCommits[index];
-
-        // 1. Process/Ensure Observation Node
-        const obsExists = db
-          .prepare(
-            `
-          SELECT 1 FROM nodes
-          WHERE project = ? AND type = 'observation' AND json_extract(metadata, '$.commit_hash') = ?
-        `
-          )
-          .get(projectSlug, commit.hash);
-
-        if (!obsExists) {
-          const typeTag = commit.conventionalType || 'other';
-          const repoContext = relPath === '.' ? '' : ` [${relPath}]`;
-          const obsTitle = `${typeTag}:${repoContext} ${commit.subject} (${commit.shortHash})`;
-          const obsTags = ['git', 'source:git'];
-          if (commit.conventionalType) {
-            obsTags.push(commit.conventionalType);
-          }
-          if (relPath !== '.') {
-            obsTags.push(`repo:${relPath}`);
-          }
-
-          GraphEngine.addNode({
-            project: projectSlug,
-            type: 'observation',
-            title: obsTitle,
-            status: 'active',
-            metadata: {
-              commit_hash: commit.hash,
-              commit_short: commit.shortHash,
-              author: commit.author,
-              author_email: commit.authorEmail,
-              committed_at: commit.committedAt,
-              message: commit.message,
-              files_changed: commit.filesChanged,
-              repo_path: relPath,
-            },
-            tags: obsTags,
-          });
-          newObsCount++;
-        }
-
-        // 2. Process/Ensure Task Node (even if commit Observation already existed)
-        if (options.createTasks && shouldCreateTask(commit, index)) {
-          const taskExists = db
-            .prepare(
-              `
-            SELECT 1 FROM nodes
-            WHERE project = ? AND type = 'task' AND json_extract(metadata, '$.commit_hash') = ?
-          `
-            )
-            .get(projectSlug, commit.hash);
-
-          if (!taskExists) {
-            const taskTitle =
-              relPath === '.'
-                ? `Continue work on ${commit.subject}`
-                : `Continue work on ${commit.subject} (${relPath})`;
-
-            GraphEngine.addNode({
-              project: projectSlug,
-              type: 'task',
-              title: taskTitle,
-              status: 'pending',
-              metadata: {
-                commit_hash: commit.hash,
-                source: 'git',
-                repo_path: relPath,
-              },
-              tags: ['git', 'source:git'],
-            });
-            newTasksCount++;
-          }
-        }
-      }
-
-      // Create Artifacts for hot files if requested
-      if (options.createArtifacts) {
-        const hotFiles = detectHotFiles(mergedCommits, 3);
-        for (const file of hotFiles) {
-          const exists = db
-            .prepare(
-              `
-            SELECT 1 FROM nodes
-            WHERE project = ? AND type = 'artifact' AND title = ?
-          `
-            )
-            .get(projectSlug, file);
-
-          if (!exists) {
-            GraphEngine.addNode({
-              project: projectSlug,
-              type: 'artifact',
-              title: file,
-              status: 'current',
-              metadata: {
-                file_path: file,
-                source: 'git',
-                repo_path: relPath,
-              },
-              tags: ['git', 'source:git', 'hot-file'],
-            });
-            newArtifactsCount++;
-          }
-        }
-      }
-
-      // Save the latest commit hash for this repo if new commits were actually found
-      if (commits.length > 0) {
-        const newestHash = commits[0].hash;
-        setMetaValue(db, metaKey, newestHash);
-        if (relPath === '.') {
-          setMetaValue(db, 'last_git_commit', newestHash);
-        }
-        totalCommitsScanned += commits.length;
-        lastProcessedHash = newestHash;
-      }
-    }
-
-    // Retroactively and proactively link all nodes (backward compatible)
-    linkExistingNodes(db, projectSlug);
-
-    return {
-      commits_scanned: totalCommitsScanned,
-      new_observations: newObsCount,
-      new_tasks: newTasksCount,
-      new_artifacts: newArtifactsCount,
-      last_processed_commit: lastProcessedHash,
-    };
-  } catch (err: any) {
-    logger.warn(`Git scan failed, continuing without git data: ${err.message}`, err);
+  const ignorePatterns = loadIgnorePatterns(cwd);
+  const repoPaths = findGitRepos(cwd, 2);
+  if (repoPaths.length === 0) {
+    logger.info(`No git repositories found under path: ${cwd}`);
     return {
       commits_scanned: 0,
       new_observations: 0,
@@ -425,6 +255,220 @@ export async function scanGit(
       last_processed_commit: null,
     };
   }
+
+  let totalCommitsScanned = 0;
+  let newObsCount = 0;
+  let newTasksCount = 0;
+  let newArtifactsCount = 0;
+  let lastProcessedHash: string | null = null;
+
+  for (const repoPath of repoPaths) {
+    const relPath = path.relative(cwd, repoPath) || '.';
+    const metaKey = `last_git_commit:${relPath}`;
+    let lastHash = getMetaValue(db, metaKey);
+
+    // Backward compatibility for root repo
+    if (!lastHash && relPath === '.') {
+      lastHash = getMetaValue(db, 'last_git_commit');
+    }
+
+    let commits: GitCommit[] = [];
+    let last5Commits: GitCommit[] = [];
+
+    // Narrow error catch scope for git operations
+    try {
+      // Consolidate getCommitLog calls to avoid spawning extra git processes
+      const fetchCount = Math.max(5, options.commits);
+      const commitsFromHead = getCommitLog(repoPath, fetchCount);
+      last5Commits = commitsFromHead.slice(0, 5);
+
+      if (lastHash) {
+        const index = commitsFromHead.findIndex((c) => c.hash === lastHash);
+        if (index !== -1) {
+          commits = commitsFromHead.slice(0, index);
+        } else {
+          // Fallback if lastHash is not in the recent history
+          commits = getCommitLog(repoPath, options.commits, lastHash);
+        }
+      } else {
+        commits = commitsFromHead;
+      }
+    } catch (err: any) {
+      logger.warn(`Failed to read git log for repo ${repoPath}, skipping: ${err.message}`);
+      continue;
+    }
+
+    if (commits.length === 0 && !options.createTasks) {
+      continue;
+    }
+
+    // Merge commits: ensure the 5 newest commits are at the beginning
+    const mergedCommits = [...last5Commits];
+    const seenHashes = new Set(last5Commits.map((c) => c.hash));
+    for (const commit of commits) {
+      if (!seenHashes.has(commit.hash)) {
+        mergedCommits.push(commit);
+      }
+    }
+
+    // Fetch files changed for each commit to build file stats
+    for (const commit of mergedCommits) {
+      let repoFiles: string[] = [];
+      try {
+        repoFiles = getFilesChanged(commit.hash, repoPath);
+      } catch (err: any) {
+        logger.warn(`Failed to get files changed for commit ${commit.hash}: ${err.message}`);
+      }
+
+      // Prepend relPath to changed files and validate that paths stay within workspace directory
+      const mappedFiles = repoFiles
+        .map((f) => (relPath === '.' ? f : path.join(relPath, f)))
+        .filter((f) => {
+          const absoluteFile = path.resolve(cwd, f);
+          const relative = path.relative(cwd, absoluteFile);
+          // Must stay inside cwd (no path traversal)
+          return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+        });
+
+      // Filter out ignored files
+      commit.filesChanged = mappedFiles.filter((f) => !isIgnored(f, ignorePatterns));
+    }
+
+    // Sort merged commits by committedAt descending to ensure deterministic chronological order
+    mergedCommits.sort((a, b) => Date.parse(b.committedAt) - Date.parse(a.committedAt));
+
+    for (let index = 0; index < mergedCommits.length; index++) {
+      const commit = mergedCommits[index];
+
+      // 1. Process/Ensure Observation Node (uses fast commit_hash index lookups instead of full table scan)
+      const obsExists = db
+        .prepare(
+          `
+        SELECT 1 FROM nodes
+        WHERE project = ? AND type = 'observation' AND commit_hash = ?
+      `
+        )
+        .get(projectSlug, commit.hash);
+
+      if (!obsExists) {
+        const typeTag = commit.conventionalType || 'other';
+        const repoContext = relPath === '.' ? '' : ` [${relPath}]`;
+        const obsTitle = `${typeTag}:${repoContext} ${commit.subject} (${commit.shortHash})`;
+        const obsTags = ['git', 'source:git'];
+        if (commit.conventionalType) {
+          obsTags.push(commit.conventionalType);
+        }
+        if (relPath !== '.') {
+          obsTags.push(`repo:${relPath}`);
+        }
+
+        GraphEngine.addNode({
+          project: projectSlug,
+          type: 'observation',
+          title: obsTitle,
+          status: 'active',
+          metadata: {
+            commit_hash: commit.hash,
+            commit_short: commit.shortHash,
+            author: commit.author,
+            author_email: commit.authorEmail,
+            committed_at: commit.committedAt,
+            message: commit.message,
+            files_changed: commit.filesChanged,
+            repo_path: relPath,
+          },
+          tags: obsTags,
+        });
+        newObsCount++;
+      }
+
+      // 2. Process/Ensure Task Node
+      if (options.createTasks && shouldCreateTask(commit, index, options)) {
+        const taskExists = db
+          .prepare(
+            `
+          SELECT 1 FROM nodes
+          WHERE project = ? AND type = 'task' AND commit_hash = ?
+        `
+          )
+          .get(projectSlug, commit.hash);
+
+        if (!taskExists) {
+          const taskTitle =
+            relPath === '.'
+              ? `Continue work on ${commit.subject}`
+              : `Continue work on ${commit.subject} (${relPath})`;
+
+          GraphEngine.addNode({
+            project: projectSlug,
+            type: 'task',
+            title: taskTitle,
+            status: 'pending',
+            metadata: {
+              commit_hash: commit.hash,
+              source: 'git',
+              repo_path: relPath,
+            },
+            tags: ['git', 'source:git'],
+          });
+          newTasksCount++;
+        }
+      }
+    }
+
+    // Create Artifacts for hot files if requested
+    if (options.createArtifacts) {
+      const hotFiles = detectHotFiles(mergedCommits, 3);
+      for (const file of hotFiles) {
+        const exists = db
+          .prepare(
+            `
+          SELECT 1 FROM nodes
+          WHERE project = ? AND type = 'artifact' AND title = ?
+        `
+          )
+          .get(projectSlug, file);
+
+        if (!exists) {
+          GraphEngine.addNode({
+            project: projectSlug,
+            type: 'artifact',
+            title: file,
+            status: 'current',
+            metadata: {
+              file_path: file,
+              source: 'git',
+              repo_path: relPath,
+            },
+            tags: ['git', 'source:git', 'hot-file'],
+          });
+          newArtifactsCount++;
+        }
+      }
+    }
+
+    // Save the latest commit hash for this repo if new commits were actually found
+    if (commits.length > 0) {
+      const newestHash = commits[0].hash;
+      setMetaValue(db, metaKey, newestHash);
+      if (relPath === '.') {
+        setMetaValue(db, 'last_git_commit', newestHash);
+      }
+      totalCommitsScanned += commits.length;
+      lastProcessedHash = newestHash;
+    }
+  }
+
+  // Retroactively and proactively link all nodes (backward compatible)
+  linkExistingNodes(db, projectSlug);
+
+  return {
+    commits_scanned: totalCommitsScanned,
+    new_observations: newObsCount,
+    new_tasks: newTasksCount,
+    new_artifacts: newArtifactsCount,
+    last_processed_commit: lastProcessedHash,
+  };
 }
 
 /**

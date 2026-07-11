@@ -12,6 +12,8 @@ export class TrajectoryEngine {
       session_id?: string;
       since?: string;
       until?: string;
+      limit?: number;
+      offset?: number;
     }
   ): string {
     const events = EventEngine.getEventLog(db, {
@@ -19,8 +21,8 @@ export class TrajectoryEngine {
       session_id: params.session_id,
       since: params.since,
       until: params.until,
-      limit: 10000, // Export up to 10k events
-      offset: 0,
+      limit: params.limit !== undefined ? params.limit : 10000,
+      offset: params.offset !== undefined ? params.offset : 0,
     });
 
     // Reverse chronological events list returned by getEventLog needs to be in chronological order for training!

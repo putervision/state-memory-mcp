@@ -1,0 +1,397 @@
+
+> state-memory-mcp@0.3.3 test
+> vitest run --reporter=verbose
+
+
+ RUN  v4.1.10 /home/beast/Downloads/working/state-memory-mcp
+
+ ✓ tests/utils/git.test.ts > Git Utilities > should parse conventional commit messages correctly 3ms
+ ✓ tests/utils/git.test.ts > Git Utilities > should retrieve commit log 5ms
+ ✓ tests/utils/git.test.ts > Git Utilities > should get files changed in a commit 10ms
+ ✓ tests/utils/git.test.ts > Git Utilities > should throw validation errors for shell command injection attempts 1ms
+stderr | tests/engine/deep-graph.test.ts > Deep Graph CTE and Concurrency Tests > should support deep graph CTE traversal (100+ hops) without stack overflow or performance degradation
+[INFO] Connecting to database for project "deep-graph-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/deep-graph-test-project/graph.db
+
+stderr | tests/engine/edge-ops.test.ts > EdgeEngine Operations & Cycle Detection > should successfully add and remove an edge
+[INFO] Connecting to database for project "edge-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/edge-test-project/graph.db
+
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine > should seed static nodes and edges on a fresh run
+[INFO] Connecting to database for project "scaffolder-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/scaffolder-test-project/graph.db
+
+stderr | tests/engine/advanced-analytics.test.ts > Advanced Analytics Engine
+[INFO] Connecting to database for project "adv-analytics-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/adv-analytics-test-project/graph.db
+
+stderr | tests/integration/agent-features.test.ts > Agent-Centric Features Integration Tests > should generate get_context_snapshot correctly
+[INFO] Connecting to database for project "agent-features-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/agent-features-test-project/graph.db
+
+stderr | tests/engine/value-metrics.test.ts > Value Metrics Engine > should return default zero metrics for empty project
+[INFO] Connecting to database for project "metrics-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/metrics-test-project/graph.db
+
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine > should seed static nodes and edges on a fresh run
+[INFO] Running static scaffolding for project: scaffolder-test-project
+[INFO] Scaffolded node: Main Development Plan (01KX6Y3DFSXSF1DC936NVKMZKM)
+[INFO] Scaffolded node: Project Setup & Scaffolding (01KX6Y3DFZ4C5YXQ73TJ072BDA)
+[INFO] Scaffolded node: Core Feature Development (01KX6Y3DG3D4S39YXNAM509TQ5)
+[INFO] Scaffolded node: Quality Assurance & Testing (01KX6Y3DG647C89JEYTGKCJCRY)
+[INFO] Scaffolded node: Set up CI/CD pipeline (01KX6Y3DGA2FD23Z2PEK45JMBW)
+[INFO] Scaffolded node: Add automated testing framework (01KX6Y3DGE2GJGSP1GX1KK346E)
+[INFO] Scaffolded node: Configure linting and formatting rules (01KX6Y3DGJKPGVEVT3J90133Z5)
+[INFO] Scaffolded node: Improve project documentation (01KX6Y3DGPFAEGPQ9FYFJX625E)
+[INFO] Scaffolded node: Architecture & Tech Stack Choice (01KX6Y3DGSRPZRQMFXDCT2A4PS)
+[INFO] Scaffolded edge: milestone:setup:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: milestone:core:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: milestone:quality:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: task:linting:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: task:testing:v1 --part_of--> milestone:quality:v1
+[INFO] Scaffolded edge: task:ci-cd:v1 --part_of--> milestone:quality:v1
+[INFO] Scaffolded edge: task:documentation:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: decision:architecture:v1 --decided_in--> milestone:setup:v1
+
+stderr | tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine
+[INFO] Connecting to database for project "tfidf-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/tfidf-test-project/graph.db
+
+stderr | tests/engine/git-scanner.test.ts > Git Scanner Engine > should evaluate shouldCreateTask correctly
+[INFO] Connecting to database for project "git-scanner-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/git-scanner-test-project/graph.db
+[INFO] Running database migration version 1...
+[INFO] Running database migration version 2...
+[INFO] Running migration v2: adding composite indexes...
+[INFO] Running database migration version 3...
+[INFO] Running migration v3: optimizing FTS5 update trigger...
+[INFO] Running database migration version 4...
+[INFO] Running migration v4: setting up sessions, events, and snapshots...
+[INFO] Database schema is up to date at version 4
+
+stderr | tests/engine/export-validation.test.ts > Graph Export Validity Tests > should generate valid JSON export
+[INFO] Connecting to database for project "export-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/export-test-project/graph.db
+
+stderr | tests/engine/query-ops.test.ts > QueryEngine Operations
+[INFO] Connecting to database for project "query-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/query-test-project/graph.db
+
+ ✓ tests/engine/edge-ops.test.ts > EdgeEngine Operations & Cycle Detection > should successfully add and remove an edge 26ms
+ ✓ tests/engine/edge-ops.test.ts > EdgeEngine Operations & Cycle Detection > should prevent circular dependencies (direct cycle) 13ms
+ ✓ tests/engine/edge-ops.test.ts > EdgeEngine Operations & Cycle Detection > should prevent circular dependencies (transitive cycle) 21ms
+ ✓ tests/engine/edge-ops.test.ts > EdgeEngine Operations & Cycle Detection > should prevent circular dependencies with blocks edges 14ms
+ ✓ tests/engine/edge-ops.test.ts > EdgeEngine Operations & Cycle Detection > should allow cycles for non-dependency edge types 30ms
+stderr | tests/engine/edge-ops.test.ts > EdgeEngine Operations & Cycle Detection
+[INFO] Closed database for project "edge-test-project"
+
+stderr | tests/engine/analytical-ops.test.ts > AnalyticsEngine Operations
+[INFO] Connecting to database for project "analytics-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/analytics-test-project/graph.db
+
+stderr | tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine
+[INFO] Closed database for project "tfidf-test-project"
+
+ ✓ tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine > tokenizer > should split camelCase and ignore stop words 4ms
+ ✓ tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine > tokenizer > should normalize casing and strip special chars 1ms
+ ✓ tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine > searchTfidf core logic > should correctly rank nodes by term similarity 8ms
+ ✓ tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine > searchTfidf core logic > should return empty array if no matches 8ms
+ ✓ tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine > QueryEngine integration (searchNodes) > should return matching nodes using tfidf algorithm option 5ms
+ ✓ tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine > QueryEngine integration (searchNodes) > should respect status filter with tfidf algorithm 11ms
+ ✓ tests/engine/tfidf.test.ts > TF-IDF Vector Search Engine > QueryEngine integration (searchNodes) > should respect type filter with tfidf algorithm 9ms
+stderr | tests/integration/agent-features.test.ts > Agent-Centric Features Integration Tests
+[INFO] Closed database for project "agent-features-test-project"
+
+ ✓ tests/integration/agent-features.test.ts > Agent-Centric Features Integration Tests > should generate get_context_snapshot correctly 48ms
+ ✓ tests/integration/agent-features.test.ts > Agent-Centric Features Integration Tests > should find related decisions for an artifact 17ms
+ ✓ tests/integration/agent-features.test.ts > Agent-Centric Features Integration Tests > should find blocked tasks for a decision 19ms
+stderr | tests/engine/analytical-ops.test.ts > AnalyticsEngine Operations
+[INFO] Closed database for project "analytics-test-project"
+
+ ✓ tests/engine/analytical-ops.test.ts > AnalyticsEngine Operations > should trace upstream dependencies correctly 5ms
+ ✓ tests/engine/analytical-ops.test.ts > AnalyticsEngine Operations > should trace downstream dependencies correctly 2ms
+ ✓ tests/engine/analytical-ops.test.ts > AnalyticsEngine Operations > should find active blockers for a specific node transitively 6ms
+ ✓ tests/engine/analytical-ops.test.ts > AnalyticsEngine Operations > should list all blockers and their transitive blocks when node_id is omitted 6ms
+ ✓ tests/engine/analytical-ops.test.ts > AnalyticsEngine Operations > should return a correct project summary 22ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > listNodes > should filter by node type 8ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > listNodes > should filter by node status 6ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > listNodes > should filter by multiple tags (AND query) 11ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > listNodes > should support pagination (limit/offset) 9ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > listNodes > should respect compact mode (metadata empty) 7ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > searchNodes (FTS5) > should match keywords in title 9ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > searchNodes (FTS5) > should match keywords in metadata rationale 5ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > searchNodes (FTS5) > should update FTS index automatically via triggers on node update 14ms
+ ✓ tests/engine/export-validation.test.ts > Graph Export Validity Tests > should generate valid JSON export 32ms
+ ✓ tests/engine/export-validation.test.ts > Graph Export Validity Tests > should generate valid DOT export 20ms
+ ✓ tests/engine/export-validation.test.ts > Graph Export Validity Tests > should generate valid Mermaid export 17ms
+ ✓ tests/engine/export-validation.test.ts > Graph Export Validity Tests > should generate HTML visualization export 25ms
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine > should be idempotent and not duplicate nodes or edges on subsequent runs
+[INFO] Running static scaffolding for project: scaffolder-test-project
+[INFO] Scaffolded node: Main Development Plan (01KX6Y3DJ52BA2B5SDH1FR6W06)
+[INFO] Scaffolded node: Project Setup & Scaffolding (01KX6Y3DJCXQ8EYBS0EBWEVMSV)
+[INFO] Scaffolded node: Core Feature Development (01KX6Y3DJHY4P9V3CPAY4TFHJW)
+[INFO] Scaffolded node: Quality Assurance & Testing (01KX6Y3DJNRSKKRZMXFXRYQD8T)
+[INFO] Scaffolded node: Set up CI/CD pipeline (01KX6Y3DJSDM16RBM5M3XVKJXN)
+[INFO] Scaffolded node: Add automated testing framework (01KX6Y3DJY5CMGR63D4HXD9YRA)
+[INFO] Scaffolded node: Configure linting and formatting rules (01KX6Y3DK4P1GMB7KGN2S7FQV7)
+[INFO] Scaffolded node: Improve project documentation (01KX6Y3DKAQY04QZT6YXNF835W)
+[INFO] Scaffolded node: Architecture & Tech Stack Choice (01KX6Y3DKFJ1X4E1QRMHKSP644)
+[INFO] Scaffolded edge: milestone:setup:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: milestone:core:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: milestone:quality:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: task:linting:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: task:testing:v1 --part_of--> milestone:quality:v1
+[INFO] Scaffolded edge: task:ci-cd:v1 --part_of--> milestone:quality:v1
+[INFO] Scaffolded edge: task:documentation:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: decision:architecture:v1 --decided_in--> milestone:setup:v1
+
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine > should be idempotent and not duplicate nodes or edges on subsequent runs
+[INFO] Running static scaffolding for project: scaffolder-test-project
+
+ ✓ tests/engine/scaffolder.test.ts > Scaffolding Engine > should seed static nodes and edges on a fresh run 85ms
+ ✓ tests/engine/scaffolder.test.ts > Scaffolding Engine > should be idempotent and not duplicate nodes or edges on subsequent runs 94ms
+stderr | tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should backup and restore a database successfully
+[INFO] Connecting to database for project "test-db-ops-target" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-db-ops-target/graph.db
+[INFO] Connecting to database for project "test-db-ops-source" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-db-ops-source/graph.db
+
+stderr | tests/engine/utilities.test.ts > Utility Operations
+[INFO] Connecting to database for project "util-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/util-test-project/graph.db
+
+stderr | tests/engine/export-validation.test.ts > Graph Export Validity Tests
+[INFO] Closed database for project "export-test-project"
+
+stderr | tests/engine/query-ops.test.ts > QueryEngine Operations
+[INFO] Closed database for project "query-test-project"
+
+ ✓ tests/engine/advanced-analytics.test.ts > Advanced Analytics Engine > should compute decision trail and find contradictions 42ms
+ ✓ tests/engine/advanced-analytics.test.ts > Advanced Analytics Engine > should compute critical path for milestones based on estimates 45ms
+ ✓ tests/engine/advanced-analytics.test.ts > Advanced Analytics Engine > should perform impact analysis downstream 38ms
+ ✓ tests/engine/export-validation.test.ts > Graph Export Validity Tests > should escape special characters in DOT and Mermaid formats 25ms
+ ✓ tests/engine/query-ops.test.ts > QueryEngine Operations > getSubgraph > should retrieve a node and its N-hop neighbors 16ms
+stderr | tests/engine/utilities.test.ts > Utility Operations > exportGraph and importGraph > should import graph data from JSON bulk data correctly
+[INFO] Connecting to database for project "import-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/import-test-project/graph.db
+[INFO] Imported 2 nodes and 1 edges for project import-test-project
+
+stderr | tests/engine/utilities.test.ts > Utility Operations > exportGraph and importGraph > should prevent accidental overwrite unless force is true
+[INFO] Imported 1 nodes and 0 edges for project import-test-project
+
+stderr | tests/engine/value-metrics.test.ts > Value Metrics Engine
+[INFO] Closed database for project "metrics-test-project"
+
+ ✓ tests/engine/value-metrics.test.ts > Value Metrics Engine > should return default zero metrics for empty project 44ms
+ ✓ tests/engine/value-metrics.test.ts > Value Metrics Engine > should compute correct ROI and health metrics after nodes and edges are added 95ms
+stderr | tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should backup and restore a database successfully
+[INFO] Starting online database backup for project "test-db-ops-target" to: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-db-ops-target/backups/backup-20260710-211425.db
+
+stderr | tests/engine/utilities.test.ts > Utility Operations
+[INFO] Closed database for project "util-test-project"
+[INFO] Closed database for project "import-test-project"
+
+stderr | tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should backup and restore a database successfully
+[INFO] Database backup SHA-256 hash written to: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-db-ops-target/backups/backup-20260710-211425.db.sha256
+[INFO] Database backup completed successfully for project "test-db-ops-target"
+
+ ✓ tests/engine/git-scanner.test.ts > Git Scanner Engine > should evaluate shouldCreateTask correctly 28ms
+ ✓ tests/engine/git-scanner.test.ts > Git Scanner Engine > should detect hot files correctly 3ms
+ ✓ tests/engine/git-scanner.test.ts > Git Scanner Engine > should scan git history and create nodes correctly 141ms
+stderr | tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should backup and restore a database successfully
+[INFO] Backup file SHA-256 checksum verified successfully.
+[INFO] Closed database for project "test-db-ops-target"
+[INFO] Connecting to database for project "test-db-ops-target" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-db-ops-target/graph.db
+[INFO] Database restored successfully from: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-db-ops-target/backups/backup-20260710-211425.db
+
+stderr | tests/engine/advanced-analytics.test.ts > Advanced Analytics Engine
+[INFO] Closed database for project "adv-analytics-test-project"
+
+ ✓ tests/engine/utilities.test.ts > Utility Operations > exportGraph and importGraph > should export graph in JSON, DOT, Mermaid, and HTML formats 5ms
+ ✓ tests/engine/utilities.test.ts > Utility Operations > exportGraph and importGraph > should import graph data from JSON bulk data correctly 5ms
+ ✓ tests/engine/utilities.test.ts > Utility Operations > exportGraph and importGraph > should prevent accidental overwrite unless force is true 7ms
+ ✓ tests/engine/utilities.test.ts > Utility Operations > queryGraph (safe raw SQL) > should safely execute SELECT queries and return rows 2ms
+ ✓ tests/engine/utilities.test.ts > Utility Operations > queryGraph (safe raw SQL) > should reject non-reader queries (write attempts) 2ms
+ ✓ tests/engine/advanced-analytics.test.ts > Advanced Analytics Engine > should detect contradictions in tasks and decisions 38ms
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine > should recreate a deleted scaffold node and its edges without affecting others
+[INFO] Running static scaffolding for project: scaffolder-test-project
+[INFO] Scaffolded node: Main Development Plan (01KX6Y3DN3VNG9YVAWW6S9J5SG)
+[INFO] Scaffolded node: Project Setup & Scaffolding (01KX6Y3DNCJRYJ50TZKGGV97E8)
+[INFO] Scaffolded node: Core Feature Development (01KX6Y3DNHF98MV9S79NMFMHR5)
+[INFO] Scaffolded node: Quality Assurance & Testing (01KX6Y3DNPWWGJYG49QK8SBPDW)
+[INFO] Scaffolded node: Set up CI/CD pipeline (01KX6Y3DNW38TV4G9B80YNNM9Q)
+[INFO] Scaffolded node: Add automated testing framework (01KX6Y3DP0R059SMFMPC8RH5FJ)
+[INFO] Scaffolded node: Configure linting and formatting rules (01KX6Y3DP5XCH4J00JN86FT67A)
+[INFO] Scaffolded node: Improve project documentation (01KX6Y3DPBEHZVJVDGKJPZ8M8B)
+[INFO] Scaffolded node: Architecture & Tech Stack Choice (01KX6Y3DPJ5RRTPS911PQKWEN4)
+[INFO] Scaffolded edge: milestone:setup:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: milestone:core:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: milestone:quality:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: task:linting:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: task:testing:v1 --part_of--> milestone:quality:v1
+[INFO] Scaffolded edge: task:ci-cd:v1 --part_of--> milestone:quality:v1
+[INFO] Scaffolded edge: task:documentation:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: decision:architecture:v1 --decided_in--> milestone:setup:v1
+
+ ✓ tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should backup and restore a database successfully 74ms
+ ✓ tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should audit database and detect integrity, cycles, and contradictions 48ms
+stderr | tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should merge databases resolving conflicts by newer updated_at
+[INFO] Closed database for project "test-db-ops-source"
+
+stderr | tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should rollback merge transaction if cycle is introduced without force flag
+[INFO] Connecting to database for project "test-db-ops-source" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-db-ops-source/graph.db
+
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine > should recreate a deleted scaffold node and its edges without affecting others
+[INFO] Running static scaffolding for project: scaffolder-test-project
+[INFO] Scaffolded node: Project Setup & Scaffolding (01KX6Y3DRA47F9ZCDTE214QX8W)
+[INFO] Scaffolded edge: milestone:setup:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: task:linting:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: task:documentation:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: decision:architecture:v1 --decided_in--> milestone:setup:v1
+
+ ✓ tests/engine/scaffolder.test.ts > Scaffolding Engine > should recreate a deleted scaffold node and its edges without affecting others 160ms
+stderr | tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should rollback merge transaction if cycle is introduced without force flag
+[INFO] Closed database for project "test-db-ops-source"
+
+stderr | tests/integration/mcp.test.ts > MCP Server Integration Tests
+[INFO] Connecting to database for project "integration-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/integration-test-project/graph.db
+
+stderr | tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge)
+[INFO] Closed database for project "test-db-ops-target"
+
+ ✓ tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should merge databases resolving conflicts by newer updated_at 17ms
+ ✓ tests/engine/db-ops.test.ts > Database Operations (Backup, Restore, Audit, Merge) > should rollback merge transaction if cycle is introduced without force flag 52ms
+stderr | tests/engine/events.test.ts > EventEngine Integration Tests > should log node creation event automatically
+[INFO] Connecting to database for project "event-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/event-test-project/graph.db
+
+ ✓ tests/engine/git-scanner.test.ts > Git Scanner Engine > should decouple observation and task creation, and heal links to milestone:core:v1 197ms
+stderr | tests/engine/undo.test.ts > Undo Integration Tests > should undo last update on a node
+[INFO] Connecting to database for project "undo-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/undo-test-project/graph.db
+
+stderr | tests/engine/events.test.ts > EventEngine Integration Tests
+[INFO] Closed database for project "event-test-project"
+
+ ✓ tests/engine/events.test.ts > EventEngine Integration Tests > should log node creation event automatically 26ms
+ ✓ tests/engine/events.test.ts > EventEngine Integration Tests > should log node update events with before/after state 8ms
+ ✓ tests/engine/events.test.ts > EventEngine Integration Tests > should log node deletion events 7ms
+ ✓ tests/engine/events.test.ts > EventEngine Integration Tests > should log edge creation and deletion events 24ms
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine > should discover tech stack configuration files and link them to setup milestone
+[INFO] Running static scaffolding for project: scaffolder-test-project
+[INFO] Scaffolded node: Main Development Plan (01KX6Y3DT3M58QSN53CJMP8VP3)
+[INFO] Scaffolded node: Project Setup & Scaffolding (01KX6Y3DTA2446RQKK1P4PTFKB)
+[INFO] Scaffolded node: Core Feature Development (01KX6Y3DTH48P1Z2PEX93JV1SZ)
+[INFO] Scaffolded node: Quality Assurance & Testing (01KX6Y3DTP522Z8BBV2DQY48QK)
+[INFO] Scaffolded node: Set up CI/CD pipeline (01KX6Y3DTYDT1CN2VSXZ2QP1DK)
+[INFO] Scaffolded node: Add automated testing framework (01KX6Y3DV5JAVWEW9S6JH2QYKK)
+[INFO] Scaffolded node: Configure linting and formatting rules (01KX6Y3DVAMQQTMNP34VS03MQG)
+[INFO] Scaffolded node: Improve project documentation (01KX6Y3DVFCP0AKSM3290FBRN0)
+[INFO] Scaffolded node: Architecture & Tech Stack Choice (01KX6Y3DVN8T1Y9ZD2JV1XFWSK)
+[INFO] Scaffolded edge: milestone:setup:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: milestone:core:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: milestone:quality:v1 --part_of--> plan:main:v1
+[INFO] Scaffolded edge: task:linting:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: task:testing:v1 --part_of--> milestone:quality:v1
+[INFO] Scaffolded edge: task:ci-cd:v1 --part_of--> milestone:quality:v1
+[INFO] Scaffolded edge: task:documentation:v1 --part_of--> milestone:setup:v1
+[INFO] Scaffolded edge: decision:architecture:v1 --decided_in--> milestone:setup:v1
+
+stderr | tests/engine/snapshots.test.ts > SnapshotEngine Integration Tests > should save and list context snapshots
+[INFO] Connecting to database for project "snapshot-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/snapshot-test-project/graph.db
+
+stderr | tests/engine/sessions.test.ts > SessionEngine Integration Tests > should start and list sessions
+[INFO] Connecting to database for project "session-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/session-test-project/graph.db
+
+ ✓ tests/integration/mcp.test.ts > MCP Server Integration Tests > should list available tools 13ms
+ ✓ tests/integration/mcp.test.ts > MCP Server Integration Tests > should support nodes and edges operations via tools 75ms
+stderr | tests/engine/undo.test.ts > Undo Integration Tests
+[INFO] Closed database for project "undo-test-project"
+
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine > should discover tech stack configuration files and link them to setup milestone
+[INFO] Running tech stack discovery in root: /home/beast/Downloads/working/state-memory-mcp/temp-scaffolder-test-dir
+[INFO] Scaffolded tech stack artifact: package.json (01KX6Y3DXFK1YFQBG9FGP4KSNF)
+[INFO] Linked setup milestone to artifact produces: package.json
+[INFO] Scaffolded tech stack artifact: requirements.txt (01KX6Y3DXXM75H62JHSRETE90P)
+[INFO] Linked setup milestone to artifact produces: requirements.txt
+
+ ✓ tests/engine/scaffolder.test.ts > Scaffolding Engine > should discover tech stack configuration files and link them to setup milestone 135ms
+stderr | tests/engine/sessions.test.ts > SessionEngine Integration Tests
+[INFO] Closed database for project "session-test-project"
+
+ ✓ tests/engine/undo.test.ts > Undo Integration Tests > should undo last update on a node 25ms
+ ✓ tests/engine/undo.test.ts > Undo Integration Tests > should undo last creation of a node (should delete it) 9ms
+ ✓ tests/engine/undo.test.ts > Undo Integration Tests > should undo last deletion of a node (should restore it) 11ms
+ ✓ tests/engine/sessions.test.ts > SessionEngine Integration Tests > should start and list sessions 17ms
+ ✓ tests/engine/sessions.test.ts > SessionEngine Integration Tests > should end sessions and filter by active_only 2ms
+ ✓ tests/engine/sessions.test.ts > SessionEngine Integration Tests > should propagate session_id to events when operations are performed 7ms
+stderr | tests/integration/mcp.test.ts > MCP Server Integration Tests > should return error for invalid tool arguments
+[ERROR] Error executing tool add_node: McpError: MCP error -32602: Invalid parameters: type must be one of: task, decision, artifact, plan, observation, blocker, milestone
+    at parseArgs (/home/beast/Downloads/working/state-memory-mcp/src/server.ts:76:11)
+    at add_node (/home/beast/Downloads/working/state-memory-mcp/src/server.ts:1012:18)
+    at /home/beast/Downloads/working/state-memory-mcp/src/server.ts:1276:26
+    at wrappedHandler (file:///home/beast/Downloads/working/state-memory-mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/server/index.js:125:54)
+    at file:///home/beast/Downloads/working/state-memory-mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js:891:36
+    at file:///home/beast/Downloads/working/state-memory-mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js:367:25
+    at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  code: -32602,
+  data: undefined
+}
+
+stderr | tests/integration/mcp.test.ts > MCP Server Integration Tests
+[INFO] Closed database for project "integration-test-project"
+
+ ✓ tests/integration/mcp.test.ts > MCP Server Integration Tests > should return error for invalid tool arguments 18ms
+stderr | tests/engine/snapshots.test.ts > SnapshotEngine Integration Tests
+[INFO] Closed database for project "snapshot-test-project"
+
+ ✓ tests/engine/snapshots.test.ts > SnapshotEngine Integration Tests > should save and list context snapshots 30ms
+ ✓ tests/engine/snapshots.test.ts > SnapshotEngine Integration Tests > should semantic diff two saved snapshots 19ms
+stderr | tests/engine/graph.test.ts > GraphEngine Node Operations > should successfully add and retrieve a node
+[INFO] Connecting to database for project "test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-project/graph.db
+
+ ✓ tests/engine/errors.test.ts > Structured Error Hierarchy Tests > should instantiate error subclasses with correct codes and prototypes 3ms
+stderr | tests/engine/graph.test.ts > GraphEngine Node Operations
+[INFO] Closed database for project "test-project"
+
+stderr | tests/engine/security.test.ts > Security Hardening Tests > SQL Tool Sanitization > should allow simple SELECT statements
+[INFO] Connecting to database for project "security-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/security-test-project/graph.db
+
+ ✓ tests/engine/graph.test.ts > GraphEngine Node Operations > should successfully add and retrieve a node 20ms
+ ✓ tests/engine/graph.test.ts > GraphEngine Node Operations > should handle non-existent node gracefully 1ms
+stderr | tests/engine/trajectories.test.ts > TrajectoryEngine Integration Tests > should export events log in JSONL format
+[INFO] Connecting to database for project "trajectory-test-project" at: /home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/trajectory-test-project/graph.db
+
+stderr | tests/engine/db.test.ts > Database Project Resolution Tests > should ignore .state-memory-mcp when walking up if it is the home directory
+[WARN] Failed to read or parse global registry: SyntaxError: "undefined" is not valid JSON
+    at JSON.parse (<anonymous>)
+    at getRegistry (/home/beast/Downloads/working/state-memory-mcp/src/engine/db.ts:36:19)
+    at Module.resolveProjectRoot (/home/beast/Downloads/working/state-memory-mcp/src/engine/db.ts:96:20)
+    at /home/beast/Downloads/working/state-memory-mcp/tests/engine/db.test.ts:42:18
+    at file:///home/beast/Downloads/working/state-memory-mcp/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+    at file:///home/beast/Downloads/working/state-memory-mcp/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+    at file:///home/beast/Downloads/working/state-memory-mcp/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+    at new Promise (<anonymous>)
+    at runWithCancel (file:///home/beast/Downloads/working/state-memory-mcp/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)
+    at file:///home/beast/Downloads/working/state-memory-mcp/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+
+stderr | tests/engine/security.test.ts > Security Hardening Tests
+[INFO] Closed database for project "security-test-project"
+
+ ✓ tests/engine/security.test.ts > Security Hardening Tests > SQL Tool Sanitization > should allow simple SELECT statements 9ms
+ ✓ tests/engine/security.test.ts > Security Hardening Tests > SQL Tool Sanitization > should reject non-SELECT write operations 2ms
+ ✓ tests/engine/security.test.ts > Security Hardening Tests > SQL Tool Sanitization > should reject SQL containing forbidden keywords (case-insensitive) 1ms
+ ✓ tests/engine/security.test.ts > Security Hardening Tests > SQL Tool Sanitization > should allow valid words containing forbidden substrings due to word boundaries 1ms
+ ✓ tests/engine/security.test.ts > Security Hardening Tests > Path Traversal Protection > should reject project name resolving outside allowed base directory 1ms
+ ✓ tests/engine/security.test.ts > Security Hardening Tests > Path Traversal Protection > should reject backupProjectDb with path traversal target 1ms
+ ✓ tests/engine/security.test.ts > Security Hardening Tests > Path Traversal Protection > should reject restoreProjectDb with path traversal target 1ms
+ ✓ tests/engine/security.test.ts > Security Hardening Tests > Path Traversal Protection > should reject mergeProjectDb with path traversal target 1ms
+ ✓ tests/engine/db.test.ts > Database Project Resolution Tests > should ignore .state-memory-mcp when walking up if it is the home directory 10ms
+ ✓ tests/engine/db.test.ts > Database Project Resolution Tests > should throw DatabaseError in getProjectSlug if resolved root is unregistered home directory 2ms
+stderr | tests/engine/trajectories.test.ts > TrajectoryEngine Integration Tests
+[INFO] Closed database for project "trajectory-test-project"
+
+ ✓ tests/engine/trajectories.test.ts > TrajectoryEngine Integration Tests > should export events log in JSONL format 21ms
+stderr | tests/engine/scaffolder.test.ts > Scaffolding Engine
+[INFO] Closed database for project "scaffolder-test-project"
+
+ ✓ tests/engine/scaffolder.test.ts > Scaffolding Engine > should scaffold FDD and RFC templates successfully 94ms
+ ✓ tests/engine/git-scanner.test.ts > Git Scanner Engine > should be idempotent and support incremental scans 179ms
+stderr | tests/engine/git-scanner.test.ts > Git Scanner Engine
+[INFO] Closed database for project "git-scanner-test-project"
+
+ ✓ tests/engine/git-scanner.test.ts > Git Scanner Engine > Recursive Sub-Repository Scanning > should recursively detect and scan multiple sub-repositories 48ms
+ ✓ tests/engine/deep-graph.test.ts > Deep Graph CTE and Concurrency Tests > should support deep graph CTE traversal (100+ hops) without stack overflow or performance degradation 911ms
+stderr | tests/engine/deep-graph.test.ts > Deep Graph CTE and Concurrency Tests
+[INFO] Closed database for project "deep-graph-test-project"
+
+ ✓ tests/engine/deep-graph.test.ts > Deep Graph CTE and Concurrency Tests > should handle concurrent read and write operations gracefully using WAL mode 78ms
+
+ Test Files  24 passed (24)
+      Tests  95 passed (95)
+   Start at  17:14:25
+   Duration  1.48s (transform 3.16s, setup 0ms, import 5.61s, tests 4.10s, environment 4ms)
+

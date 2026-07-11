@@ -1,0 +1,4 @@
+
+> state-memory-mcp@0.3.3 typecheck
+> tsc --noEmit
+

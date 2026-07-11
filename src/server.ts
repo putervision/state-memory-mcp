@@ -48,6 +48,13 @@ import {
   ListSnapshotsSchema,
   DiffSnapshotsSchema,
   ExportTrajectoriesSchema,
+  BatchUpdateSchema,
+  NextTasksSchema,
+  WhatChangedSchema,
+  GetStaleNodesSchema,
+  ValidateGraphSchema,
+  PruneEventsSchema,
+  AddNoteSchema,
   ParseResult,
 } from './schema/schemas.js';
 import { GraphEngine } from './engine/graph.js';
@@ -66,6 +73,11 @@ import { SessionEngine } from './engine/sessions.js';
 import { EventEngine } from './engine/events.js';
 import { SnapshotEngine } from './engine/snapshots.js';
 import { TrajectoryEngine } from './engine/trajectories.js';
+import { batchUpdate } from './engine/batch.js';
+import { getNextTasks } from './engine/work-queue.js';
+import { getChanges } from './engine/changeset.js';
+import { getStaleNodes } from './engine/staleness.js';
+import { validateGraph } from './engine/validate.js';
 import { logger } from './utils/logger.js';
 import { VERSION } from './utils/version.js';
 
@@ -239,7 +251,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             type: {
               type: 'string',
-              enum: ['depends_on', 'blocks', 'produces', 'references', 'decided_in', 'updates', 'contradicts', 'part_of', 'implements', 'child_of'],
+              enum: ['depends_on', 'blocks', 'produces', 'references', 'decided_in', 'updates', 'contradicts', 'part_of', 'implements', 'child_of', 'extends', 'modifies'],
               description: 'The relationship type.',
             },
             properties: {
@@ -345,6 +357,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             limit: {
               type: 'number',
               description: 'Maximum number of results. Defaults to 20.',
+            },
+            offset: {
+              type: 'number',
+              description: 'Offset for pagination. Defaults to 0.',
             },
             algorithm: {
               type: 'string',
@@ -874,6 +890,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'string',
               description: 'Optional session ID to associate with the snapshot.',
             },
+            force: {
+              type: 'boolean',
+              description: 'Force saving snapshot even if the graph is large.',
+            },
           },
         },
       },
@@ -938,7 +958,205 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'string',
               description: 'Optional end ISO 8601 timestamp.',
             },
+            limit: {
+              type: 'number',
+              description: 'Optional maximum number of events to export. Defaults to 10000.',
+            },
+            offset: {
+              type: 'number',
+              description: 'Optional offset for pagination. Defaults to 0.',
+            },
           },
+        },
+      },
+      {
+        name: 'batch_update',
+        description: 'Update the status, metadata, or tags of multiple nodes in a single atomic transaction. Max 100 IDs.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'List of node IDs to update.',
+            },
+            status: {
+              type: 'string',
+              description: 'Optional new status to apply to all nodes.',
+            },
+            metadata: {
+              type: 'object',
+              description: 'Optional metadata updates to merge into all nodes.',
+            },
+            tags: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional new list of tags to apply to all nodes.',
+            },
+          },
+          required: ['ids'],
+        },
+      },
+      {
+        name: 'next_tasks',
+        description: 'Get the next unblocked runnable tasks, ordered by blocking impact and age.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            git_branch: {
+              type: 'string',
+              description: 'Optional git branch name to filter by. Defaults to active branch.',
+            },
+            limit: {
+              type: 'number',
+              description: 'Maximum number of tasks to return. Defaults to 5.',
+            },
+            include_context: {
+              type: 'boolean',
+              description: 'Whether to include blockers and downstream tasks in context. Defaults to false.',
+            },
+          },
+        },
+      },
+      {
+        name: 'what_changed',
+        description: 'Retrieve a structured diff of all graph changes since a timestamp or session start.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            since: {
+              type: 'string',
+              description: 'ISO 8601 start timestamp.',
+            },
+            since_session: {
+              type: 'string',
+              description: 'Session ID to get changes since that session started.',
+            },
+            git_branch: {
+              type: 'string',
+              description: 'Optional git branch name to filter by.',
+            },
+          },
+        },
+      },
+      {
+        name: 'get_stale_nodes',
+        description: 'Find nodes of a given status/type that have not been updated for a specified duration.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            older_than: {
+              type: 'string',
+              description: 'Minimum duration of inactivity, e.g., "7d", "24h", "30m". Defaults to "7d".',
+            },
+            status: {
+              type: 'string',
+              description: 'Status to filter by, or "*" for all. Defaults to "in_progress".',
+            },
+            type: {
+              type: 'string',
+              description: 'Optional node type to filter by.',
+            },
+            git_branch: {
+              type: 'string',
+              description: 'Optional git branch to filter by.',
+            },
+            limit: {
+              type: 'number',
+              description: 'Maximum number of results to return. Defaults to 20.',
+            },
+          },
+        },
+      },
+      {
+        name: 'validate_graph',
+        description: 'Check the graph for logical issues (blocked done tasks, circular dependencies, empty milestones, orphan nodes, dangling edges).',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            checks: {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['blocked_done', 'orphan_nodes', 'empty_milestones', 'stale_in_progress', 'missing_decisions', 'dangling_edges', 'cycle_check'],
+              },
+              description: 'Specific validation checks to run. Runs all by default.',
+            },
+          },
+        },
+      },
+      {
+        name: 'prune_events',
+        description: 'Prune old event log entries older than a specified duration, preserving the latest event for each entity.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            older_than: {
+              type: 'string',
+              description: 'Prune events older than this duration, e.g., "30d", "90d".',
+            },
+            dry_run: {
+              type: 'boolean',
+              description: 'Preview the count of events to be deleted without modifying the DB. Defaults to true.',
+            },
+            preserve_types: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Event types that should never be pruned.',
+            },
+          },
+          required: ['older_than'],
+        },
+      },
+      {
+        name: 'add_note',
+        description: 'Attach a quick developer note or observation to a node or the project.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            text: {
+              type: 'string',
+              description: 'Observation note text.',
+            },
+            attach_to: {
+              type: 'string',
+              description: 'Optional target node ID to attach this note to.',
+            },
+            tags: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional tags to associate with this note.',
+            },
+          },
+          required: ['text'],
         },
       },
     ];
@@ -946,7 +1164,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
       tools: tools.map(t => {
         const title = t.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        const isDestructive = ['remove_node', 'remove_edge', 'restore_project_db', 'import_graph', 'undo_last'].includes(t.name);
+        const isDestructive = ['remove_node', 'remove_edge', 'restore_project_db', 'import_graph', 'undo_last', 'prune_events'].includes(t.name);
         const isReadOnly = [
           'get_node', 'list_nodes', 'search_nodes', 'get_subgraph', 'trace_dependencies',
           'find_blockers', 'get_project_summary', 'decision_trail', 'critical_path',
@@ -954,7 +1172,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           'backup_project_db', 'audit_project_db', 'get_context_snapshot',
           'find_related_decisions', 'find_blocked_tasks', 'value_metrics',
           'get_event_log', 'get_node_history', 'list_snapshots', 'diff_snapshots',
-          'export_trajectories'
+          'export_trajectories', 'next_tasks', 'what_changed', 'get_stale_nodes', 'validate_graph'
         ].includes(t.name);
 
         return {
@@ -970,299 +1188,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     };
   });
 
-function suggestLinks(projectSlug: string, node: any) {
-  try {
-    const db = getDb(projectSlug);
-    const suggestions: string[] = [];
-    if (node.type === 'decision') {
-      const recentTasks = db.prepare(`
-        SELECT id, title FROM nodes 
-        WHERE project = ? AND type = 'task' AND status != 'done' AND status != 'cancelled'
-        ORDER BY updated_at DESC LIMIT 3
-      `).all(projectSlug) as any[];
-      if (recentTasks.length > 0) {
-        suggestions.push(`Consider linking decision "${node.title}" (${node.id}) to pending tasks using add_edge (type: 'decided_in' or 'blocks'):`);
-        for (const t of recentTasks) {
-          suggestions.push(`- Task: "${t.title}" (ID: ${t.id})`);
-        }
-      }
-    } else if (node.type === 'task') {
-      const recentDecisions = db.prepare(`
-        SELECT id, title FROM nodes 
-        WHERE project = ? AND type = 'decision' AND status = 'accepted'
-        ORDER BY updated_at DESC LIMIT 3
-      `).all(projectSlug) as any[];
-      if (recentDecisions.length > 0) {
-        suggestions.push(`Did task "${node.title}" (${node.id}) originate from a decision? Consider linking them via decided_in:`);
-        for (const d of recentDecisions) {
-          suggestions.push(`- Decision: "${d.title}" (ID: ${d.id})`);
-        }
-      }
-    }
-    if (suggestions.length > 0) {
-      node._suggestions = suggestions;
-    }
-  } catch {
-    // Ignore suggestion errors
-  }
-}
-
-const toolHandlers: Record<string, (args: any) => Promise<any> | any> = {
-  add_node: (args) => {
-    const data = parseArgs(AddNodeSchema, args);
-    const node = GraphEngine.addNode(data);
-    suggestLinks(node.project, node);
-    return node;
-  },
-  update_node: (args) => {
-    const data = parseArgs(UpdateNodeSchema, args);
-    const node = GraphEngine.updateNode(data);
-    if (!node) {
-      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
-    }
-    suggestLinks(node.project, node);
-    return node;
-  },
-  get_node: (args) => {
-    const data = parseArgs(GetNodeSchema, args);
-    const result = GraphEngine.getNode(data);
-    if (!result) {
-      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
-    }
-    return result;
-  },
-  remove_node: (args) => {
-    const data = parseArgs(RemoveNodeSchema, args);
-    const result = GraphEngine.removeNode(data);
-    if (!result) {
-      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
-    }
-    return result;
-  },
-  add_edge: (args) => {
-    const data = parseArgs(AddEdgeSchema, args);
-    return EdgeEngine.addEdge(data);
-  },
-  remove_edge: (args) => {
-    const data = parseArgs(RemoveEdgeSchema, args);
-    const result = EdgeEngine.removeEdge(data);
-    if (!result) {
-      throw new McpError(
-        ErrorCode.InvalidRequest,
-        `Edge not found: relationship from ${data.source_id} to ${data.target_id} of type ${data.type}`
-      );
-    }
-    return { removed: true };
-  },
-  list_nodes: (args) => {
-    const data = parseArgs(ListNodesSchema, args);
-    return QueryEngine.listNodes(data);
-  },
-  search_nodes: (args) => {
-    const data = parseArgs(SearchNodesSchema, args);
-    return QueryEngine.searchNodes(data);
-  },
-  get_subgraph: (args) => {
-    const data = parseArgs(GetSubgraphSchema, args);
-    return QueryEngine.getSubgraph(data);
-  },
-  trace_dependencies: (args) => {
-    const data = parseArgs(TraceDependenciesSchema, args);
-    return AnalyticsEngine.traceDependencies({
-      ...data,
-      direction: data.direction as 'upstream' | 'downstream',
-    });
-  },
-  find_blockers: (args) => {
-    const data = parseArgs(FindBlockersSchema, args);
-    return AnalyticsEngine.findBlockers(data);
-  },
-  get_project_summary: (args) => {
-    const data = parseArgs(GetProjectSummarySchema, args);
-    return AnalyticsEngine.getProjectSummary(data);
-  },
-  decision_trail: (args) => {
-    const data = parseArgs(DecisionTrailSchema, args);
-    return AnalyticsEngine.decisionTrail(data);
-  },
-  critical_path: (args) => {
-    const data = parseArgs(CriticalPathSchema, args);
-    return AnalyticsEngine.criticalPath(data);
-  },
-  impact_analysis: (args) => {
-    const data = parseArgs(ImpactAnalysisSchema, args);
-    return AnalyticsEngine.impactAnalysis(data);
-  },
-  detect_contradictions: (args) => {
-    const data = parseArgs(DetectContradictionsSchema, args);
-    return AnalyticsEngine.detectContradictions(data);
-  },
-  export_graph: (args) => {
-    const data = parseArgs(ExportGraphSchema, args);
-    return exportGraph(data);
-  },
-  import_graph: (args) => {
-    const data = parseArgs(ImportGraphSchema, args);
-    return importGraph(data);
-  },
-  query_graph: (args) => {
-    const data = parseArgs(QueryGraphSchema, args);
-    return queryGraph(data);
-  },
-  backup_project_db: async (args) => {
-    const data = parseArgs(BackupProjectDbSchema, args);
-    const path = await backupProjectDb(data);
-    return `Backup completed successfully! Saved to: ${path}`;
-  },
-  restore_project_db: (args) => {
-    const data = parseArgs(RestoreProjectDbSchema, args);
-    restoreProjectDb(data);
-    return `Database restored successfully from: ${data.backupPath}`;
-  },
-  audit_project_db: (args) => {
-    const data = parseArgs(AuditProjectDbSchema, args);
-    return auditProjectDb(data);
-  },
-  merge_project_db: (args) => {
-    const data = parseArgs(MergeProjectDbSchema, args);
-    return mergeProjectDb(data);
-  },
-  get_context_snapshot: (args) => {
-    const data = parseArgs(GetContextSnapshotSchema, args);
-    const result = AnalyticsEngine.getContextSnapshot(data);
-    return {
-      content: [
-        { type: 'text', text: JSON.stringify(result, null, 2) },
-        { type: 'text', text: result.formatted_summary }
-      ]
-    };
-  },
-  find_related_decisions: (args) => {
-    const data = parseArgs(FindRelatedDecisionsSchema, args);
-    return AnalyticsEngine.findRelatedDecisions(data);
-  },
-  find_blocked_tasks: (args) => {
-    const data = parseArgs(FindBlockedTasksSchema, args);
-    return AnalyticsEngine.findBlockedTasks(data);
-  },
-  scaffold_template: (args) => {
-    const data = parseArgs(ScaffoldTemplateSchema, args);
-    return scaffoldTemplate({
-      ...data,
-      template: data.template as 'fdd' | 'rfc',
-    });
-  },
-  value_metrics: (args) => {
-    const data = parseArgs(ValueMetricsSchema, args);
-    const result = AnalyticsEngine.valueMetrics(data);
-    return {
-      content: [
-        { type: 'text', text: JSON.stringify(result, null, 2) },
-        { type: 'text', text: result.markdown_summary }
-      ]
-    };
-  },
-  start_session: (args) => {
-    const data = parseArgs(StartSessionSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return SessionEngine.startSession(db, {
-      project: projectSlug,
-      agent_id: data.agent_id,
-      metadata: data.metadata,
-    });
-  },
-  end_session: (args) => {
-    const data = parseArgs(EndSessionSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    const result = SessionEngine.endSession(db, {
-      project: projectSlug,
-      session_id: data.session_id,
-    });
-    if (!result.success) {
-      throw new McpError(ErrorCode.InvalidRequest, `Session not found: ${data.session_id}`);
-    }
-    return result;
-  },
-  get_event_log: (args) => {
-    const data = parseArgs(GetEventLogSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return EventEngine.getEventLog(db, {
-      project: projectSlug,
-      entity_id: data.entity_id,
-      event_type: data.event_type,
-      session_id: data.session_id,
-      since: data.since,
-      until: data.until,
-      limit: data.limit,
-      offset: data.offset,
-    });
-  },
-  get_node_history: (args) => {
-    const data = parseArgs(GetNodeHistorySchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return EventEngine.getNodeHistory(db, {
-      project: projectSlug,
-      node_id: data.node_id,
-    });
-  },
-  undo_last: (args) => {
-    const data = parseArgs(UndoLastSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return EventEngine.undoLast(db, {
-      project: projectSlug,
-      node_id: data.node_id,
-    });
-  },
-  save_snapshot: (args) => {
-    const data = parseArgs(SaveSnapshotSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return SnapshotEngine.saveSnapshot(db, {
-      project: projectSlug,
-      session_id: data.session_id,
-    });
-  },
-  list_snapshots: (args) => {
-    const data = parseArgs(ListSnapshotsSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return SnapshotEngine.listSnapshots(db, {
-      project: projectSlug,
-      limit: data.limit,
-    });
-  },
-  diff_snapshots: (args) => {
-    const data = parseArgs(DiffSnapshotsSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return SnapshotEngine.diffSnapshots(db, {
-      project: projectSlug,
-      snapshot_id_a: data.snapshot_id_a,
-      snapshot_id_b: data.snapshot_id_b,
-    });
-  },
-  export_trajectories: (args) => {
-    const data = parseArgs(ExportTrajectoriesSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    const trajectories = TrajectoryEngine.exportTrajectories(db, {
-      project: projectSlug,
-      session_id: data.session_id,
-      since: data.since,
-      until: data.until,
-    });
-    return {
-      content: [
-        { type: 'text', text: trajectories }
-      ]
-    };
-  },
-};
+import { toolHandlers } from './handlers/index.js';
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
@@ -1383,7 +1309,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     throw new McpError(ErrorCode.InvalidRequest, `Invalid resource URI: ${uri}`);
   }
 
-  const projectSlug = match[1];
+  const projectSlug = getProjectSlug(match[1]);
   const resourceType = match[2];
 
   let text = '';

@@ -339,7 +339,7 @@ For maximum developer-agent alignment, seed your graph immediately after initial
 
 ---
 
-## Tool Reference (28 Tools)
+## Tool Reference (44 Tools)
 
 ### 🟢 Node & Relationship Management (6 Tools)
 * **`add_node`**: Creates a node (`task`, `decision`, `artifact`, `plan`, `observation`, `blocker`, `milestone`).
@@ -406,6 +406,42 @@ For maximum developer-agent alignment, seed your graph immediately after initial
   * Inputs: `project`.
 * **`merge_project_db`**: Safely merges two project databases, keeping the newer node (based on `updated_at`) and validating circular dependencies.
   * Inputs: `sourcePath`, `force`, `project`.
+
+### ⏱️ Event Sourcing & Trajectories (9 Tools)
+* **`start_session`**: Starts a tracking session for mutations.
+  * Inputs: `agent_id`, `project`, `metadata`.
+* **`end_session`**: Concludes an active session.
+  * Inputs: `session_id`, `project`.
+* **`get_event_log`**: Retrieves mutation event logs.
+  * Inputs: `session_id`, `entity_id`, `event_type`, `since`, `until`, `limit`, `offset`, `project`.
+* **`get_node_history`**: Fetches modification history for a specific node.
+  * Inputs: `node_id`, `project`.
+* **`undo_last`**: Undoes the last mutation event on a specific node.
+  * Inputs: `node_id`, `project`.
+* **`save_snapshot`**: Saves a full static graph snapshot.
+  * Inputs: `session_id`, `project`.
+* **`list_snapshots`**: Lists saved snapshots.
+  * Inputs: `limit`, `project`.
+* **`diff_snapshots`**: Computes changes (added, removed, status/property changes) between two snapshots.
+  * Inputs: `snapshot_id_a`, `snapshot_id_b`, `project`.
+* **`export_trajectories`**: Exports trajectories in JSONL format for agent training.
+  * Inputs: `session_id`, `since`, `until`, `limit`, `offset`, `project`.
+
+### ⚡ Batch & Staleness Utilities (7 Tools)
+* **`batch_update`**: Executes atomic batch node updates (status, metadata, tags).
+  * Inputs: `ids`, `status`, `metadata`, `tags`, `project`.
+* **`next_tasks`**: Suggests next runnable tasks based on priority, blocker status, and branch.
+  * Inputs: `git_branch`, `limit`, `include_context`, `project`.
+* **`what_changed`**: Reports graph changeset diffs since a session start or timestamp.
+  * Inputs: `since`, `since_session`, `git_branch`, `project`.
+* **`get_stale_nodes`**: Identifies nodes that have been inactive/untouched for longer than a given threshold.
+  * Inputs: `older_than`, `status`, `type`, `git_branch`, `limit`, `project`.
+* **`validate_graph`**: Validates the graph for structural anomalies (cycles, orphans, stale WIP).
+  * Inputs: `checks`, `project`.
+* **`prune_events`**: Prunes event logs older than a threshold while preserving entity states.
+  * Inputs: `older_than`, `dry_run`, `preserve_types`, `project`.
+* **`add_note`**: Atomically creates an observation note and references an existing node.
+  * Inputs: `text`, `attach_to`, `tags`, `project`.
 
 ---
 

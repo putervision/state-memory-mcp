@@ -1,14 +1,29 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { logger } from './logger.js';
 import { GitCommit } from '../schema/types.js';
-
 import * as fs from 'fs';
 import * as path from 'path';
 
-export function getCurrentBranch(cwd: string = process.cwd()): string {
+const branchCache = new Map<string, { branch: string | null; timestamp: number }>();
+const BRANCH_TTL_MS = 2000; // 2 seconds TTL
+
+export function getCurrentBranch(cwd: string = process.cwd()): string | null {
   if (process.env.STATE_MEMORY_MCP_DEFAULT_BRANCH) {
     return process.env.STATE_MEMORY_MCP_DEFAULT_BRANCH;
   }
+
+  const now = Date.now();
+  const cached = branchCache.get(cwd);
+  if (cached && now - cached.timestamp < BRANCH_TTL_MS) {
+    return cached.branch;
+  }
+
+  const branch = getCurrentBranchDirect(cwd);
+  branchCache.set(cwd, { branch, timestamp: now });
+  return branch;
+}
+
+function getCurrentBranchDirect(cwd: string): string | null {
   try {
     let current = path.resolve(cwd);
     while (true) {
@@ -36,7 +51,7 @@ export function getCurrentBranch(cwd: string = process.cwd()): string {
     // Ignore config check errors
   }
   try {
-    const branch = execSync('git branch --show-current', {
+    const branch = execFileSync('git', ['branch', '--show-current'], {
       cwd,
       stdio: ['ignore', 'pipe', 'ignore'],
       encoding: 'utf-8',
@@ -46,9 +61,9 @@ export function getCurrentBranch(cwd: string = process.cwd()): string {
     }
   } catch (err) {
     // Gracefully handle if not a git repository or git command fails
-    logger.debug('Failed to auto-detect git branch, falling back to "main".', err);
+    logger.debug('Failed to auto-detect git branch.', err);
   }
-  return 'main';
+  return null;
 }
 
 export function parseConventionalCommit(subject: string): {
@@ -70,15 +85,19 @@ export function parseConventionalCommit(subject: string): {
 }
 
 export function getFilesChanged(hash: string, cwd: string = process.cwd()): string[] {
-  if (hash && !/^[a-fA-F0-9]+$/.test(hash)) {
+  if (hash && !/^[a-fA-F0-9]{7,40}$/.test(hash)) {
     throw new Error(`Invalid git reference or commit hash: ${hash}`);
   }
   try {
-    const output = execSync(`git diff-tree --no-commit-id --name-only -r --root ${hash}`, {
-      cwd,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf-8',
-    });
+    const output = execFileSync(
+      'git',
+      ['diff-tree', '--no-commit-id', '--name-only', '-r', '--root', hash],
+      {
+        cwd,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        encoding: 'utf-8',
+      }
+    );
     return output
       .split('\n')
       .map((line) => line.trim())
@@ -90,8 +109,8 @@ export function getFilesChanged(hash: string, cwd: string = process.cwd()): stri
 }
 
 export function getCommitLog(cwd: string, count: number, since?: string): GitCommit[] {
-  const limit = Math.max(1, Math.floor(count) || 30);
-  if (since && !/^[a-fA-F0-9]+$/.test(since)) {
+  const limit = Math.max(1, Math.floor(count ?? 30));
+  if (since && !/^[a-fA-F0-9]{7,40}$/.test(since)) {
     throw new Error(`Invalid git reference or commit hash: ${since}`);
   }
 
@@ -107,6 +126,12 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
       const committedAt = tokens[i + 4];
       const subject = tokens[i + 5];
       const message = tokens[i + 6];
+
+      // Fix commit parsing guard for malformed entries
+      if (!shortHash || !author || !authorEmail || !committedAt || !subject) {
+        logger.warn(`Skipping malformed commit log entry at index ${i}`);
+        continue;
+      }
 
       const parsed = parseConventionalCommit(subject);
       commits.push({
@@ -127,7 +152,7 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
   if (since) {
     let sinceExists = false;
     try {
-      execSync(`git cat-file -e ${since}`, { cwd, stdio: 'ignore' });
+      execFileSync('git', ['cat-file', '-e', since], { cwd, stdio: 'ignore' });
       sinceExists = true;
     } catch {
       logger.debug(
@@ -137,12 +162,22 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
 
     if (sinceExists) {
       try {
-        const command = `git log -n ${limit} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00' ${since}..HEAD`;
-        const output = execSync(command, {
-          cwd,
-          stdio: ['ignore', 'pipe', 'ignore'],
-          encoding: 'utf-8',
-        });
+        const output = execFileSync(
+          'git',
+          [
+            'log',
+            '-n',
+            String(limit),
+            '--no-merges',
+            '--format=%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00',
+            `${since}..HEAD`,
+          ],
+          {
+            cwd,
+            stdio: ['ignore', 'pipe', 'ignore'],
+            encoding: 'utf-8',
+          }
+        );
         return parseGitLogOutput(output);
       } catch (err) {
         logger.debug(`Failed to retrieve git log range ${since}..HEAD, falling back:`, err);
@@ -151,12 +186,21 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
   }
 
   try {
-    const command = `git log -n ${limit} --no-merges --format='%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00'`;
-    const output = execSync(command, {
-      cwd,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      encoding: 'utf-8',
-    });
+    const output = execFileSync(
+      'git',
+      [
+        'log',
+        '-n',
+        String(limit),
+        '--no-merges',
+        '--format=%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%B%x00',
+      ],
+      {
+        cwd,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        encoding: 'utf-8',
+      }
+    );
     return parseGitLogOutput(output);
   } catch (err) {
     logger.debug('Failed to retrieve fallback git log:', err);

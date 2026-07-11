@@ -1,9 +1,20 @@
 {
   "servers": {
+    "codebase-memory-mcp": {
+            "type": "stdio",
+            "command": "/home/beast/.local/bin/codebase-memory-mcp"
+    },
     "state-memory-mcp": {
       "command": "state-memory-mcp",
       "args": [
         "run"
+      ]
+    },
+    "sequentialthinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
       ]
     }
   }

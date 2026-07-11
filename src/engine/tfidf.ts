@@ -205,6 +205,34 @@ function extractMetadataText(obj: unknown): string {
   return '';
 }
 
+interface CachedCorpus {
+  fingerprint: string;
+  dfMap: Map<string, number>;
+  docTfs: Map<string, Map<string, number>>;
+  docNorms: Map<string, number>;
+  docWeightsList: Map<string, Map<string, number>>;
+}
+
+const corpusCache = new Map<string, CachedCorpus>();
+const tokenizedNodesCache = new Map<string, { tokens: string[]; updatedAt: string }>();
+
+function getOrTokenizeNode(node: BaseNode): string[] {
+  const cached = tokenizedNodesCache.get(node.id);
+  if (cached && cached.updatedAt === node.updated_at) {
+    return cached.tokens;
+  }
+  const text = [
+    node.title,
+    node.type,
+    node.status,
+    ...(node.tags || []),
+    extractMetadataText(node.metadata),
+  ].join(' ');
+  const tokens = tokenize(text);
+  tokenizedNodesCache.set(node.id, { tokens, updatedAt: node.updated_at || '' });
+  return tokens;
+}
+
 export function searchTfidf(nodes: BaseNode[], query: string, limit: number): BaseNode[] {
   if (nodes.length === 0 || !query.trim()) {
     return [];
@@ -215,46 +243,84 @@ export function searchTfidf(nodes: BaseNode[], query: string, limit: number): Ba
     return [];
   }
 
-  // 1. Extract and tokenize text for all documents (nodes)
-  const corpusTokens = nodes.map((node) => {
-    const text = [
-      node.title,
-      node.type,
-      node.status,
-      ...(node.tags || []),
-      extractMetadataText(node.metadata),
-    ].join(' ');
-    return tokenize(text);
-  });
-
   const N = nodes.length;
 
-  // 2. Compute Document Frequency (DF) for each term in the corpus
-  const dfMap = new Map<string, number>();
-  for (const tokens of corpusTokens) {
-    const uniqueTokens = new Set(tokens);
-    for (const token of uniqueTokens) {
-      dfMap.set(token, (dfMap.get(token) || 0) + 1);
+  // Compute corpus fingerprint (includes all node IDs to be order-independent)
+  const sortedIds = nodes.map((n) => n.id).sort();
+  let maxUpdatedAt = '';
+  const project = nodes[0].project || '';
+  for (const node of nodes) {
+    if (node.updated_at && node.updated_at > maxUpdatedAt) {
+      maxUpdatedAt = node.updated_at;
     }
   }
+  const fingerprint = `${project}:${N}:${maxUpdatedAt}:${sortedIds.join(',')}`;
 
-  // Helper to compute IDF
+  let corpus = corpusCache.get(project);
+  if (!corpus || corpus.fingerprint !== fingerprint) {
+    const docTfs = new Map<string, Map<string, number>>();
+    const dfMap = new Map<string, number>();
+
+    // 1. Tokenize all nodes and compute DF Map
+    for (const node of nodes) {
+      const tokens = getOrTokenizeNode(node);
+
+      const uniqueTokens = new Set(tokens);
+      for (const token of uniqueTokens) {
+        dfMap.set(token, (dfMap.get(token) || 0) + 1);
+      }
+
+      // Compute TF
+      const tf = new Map<string, number>();
+      for (const token of tokens) {
+        tf.set(token, (tf.get(token) || 0) + 1);
+      }
+      docTfs.set(node.id, tf);
+    }
+
+    const getIdfVal = (term: string): number => {
+      const df = dfMap.get(term) || 0;
+      if (df === 0) return 0;
+      return Math.log(1 + N / df);
+    };
+
+    // Precompute document weights and norms
+    const docWeightsList = new Map<string, Map<string, number>>();
+    const docNorms = new Map<string, number>();
+
+    for (const node of nodes) {
+      const tfMap = docTfs.get(node.id)!;
+      const docWeights = new Map<string, number>();
+      let docNormSq = 0;
+
+      for (const [token, count] of tfMap.entries()) {
+        const idf = getIdfVal(token);
+        const weight = count * idf;
+        docWeights.set(token, weight);
+        docNormSq += weight * weight;
+      }
+      docWeightsList.set(node.id, docWeights);
+      docNorms.set(node.id, Math.sqrt(docNormSq));
+    }
+
+    corpus = {
+      fingerprint,
+      dfMap,
+      docTfs,
+      docNorms,
+      docWeightsList,
+    };
+    corpusCache.set(project, corpus);
+  }
+
+  const { dfMap, docTfs, docNorms, docWeightsList } = corpus;
+
   const getIdf = (term: string): number => {
     const df = dfMap.get(term) || 0;
     if (df === 0) return 0;
     return Math.log(1 + N / df);
   };
 
-  // 3. Compute Term Frequency (TF) for each document
-  const docTfs = corpusTokens.map((tokens) => {
-    const tf = new Map<string, number>();
-    for (const token of tokens) {
-      tf.set(token, (tf.get(token) || 0) + 1);
-    }
-    return tf;
-  });
-
-  // 4. Compute Query Vector (TF-IDF weights for query terms)
   const queryTf = new Map<string, number>();
   for (const token of queryTokens) {
     queryTf.set(token, (queryTf.get(token) || 0) + 1);
@@ -274,31 +340,31 @@ export function searchTfidf(nodes: BaseNode[], query: string, limit: number): Ba
     return [];
   }
 
-  // 5. Calculate Cosine Similarity for each document
   const scoredNodes: ScoredNode[] = [];
 
-  for (let i = 0; i < N; i++) {
-    const node = nodes[i];
-    const tfMap = docTfs[i];
+  for (const node of nodes) {
+    const tfMap = docTfs.get(node.id);
+    const docNorm = docNorms.get(node.id);
+    const docWeights = docWeightsList.get(node.id);
 
-    // Compute weights for all terms in this document to calculate document norm
-    const docWeights = new Map<string, number>();
-    let docNormSq = 0;
-
-    for (const [token, count] of tfMap.entries()) {
-      const idf = getIdf(token);
-      const weight = count * idf;
-      docWeights.set(token, weight);
-      docNormSq += weight * weight;
-    }
-    const docNorm = Math.sqrt(docNormSq);
-
-    if (docNorm === 0) {
+    if (!tfMap || !docWeights || docNorm === undefined || docNorm === 0) {
       scoredNodes.push({ node, score: 0 });
       continue;
     }
 
-    // Dot product with query terms
+    // Skip zero-term scoring
+    let hasOverlap = false;
+    for (const token of queryTokens) {
+      if (tfMap.has(token)) {
+        hasOverlap = true;
+        break;
+      }
+    }
+    if (!hasOverlap) {
+      scoredNodes.push({ node, score: 0 });
+      continue;
+    }
+
     let dotProduct = 0;
     for (const token of queryTf.keys()) {
       const qWeight = queryWeights.get(token) || 0;
@@ -310,7 +376,6 @@ export function searchTfidf(nodes: BaseNode[], query: string, limit: number): Ba
     scoredNodes.push({ node, score: similarity });
   }
 
-  // 6. Sort and filter out zero-similarity results, then return top `limit`
   return scoredNodes
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)

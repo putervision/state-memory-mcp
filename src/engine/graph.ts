@@ -30,57 +30,70 @@ export class GraphEngine {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
-    const id = generateId();
-    const now = getCurrentIsoString();
-    const branch = getCurrentBranch();
-    const status = params.status || DEFAULT_STATUS_BY_TYPE[params.type];
+    return db.transaction(() => {
+      const id = generateId();
+      const now = getCurrentIsoString();
+      const branch = getCurrentBranch() || undefined;
+      const status = params.status || DEFAULT_STATUS_BY_TYPE[params.type];
 
-    const metadataStr = JSON.stringify(params.metadata || {});
-    const tagsStr = JSON.stringify(params.tags || []);
+      const metadataStr = JSON.stringify(params.metadata || {});
+      const tagsStr = JSON.stringify(params.tags || []);
 
-    const stmt = db.prepare(`
-      INSERT INTO nodes (id, type, title, status, project, git_branch, metadata, tags, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+      const stmt = db.prepare(`
+        INSERT INTO nodes (id, type, title, status, project, git_branch, metadata, tags, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
 
-    stmt.run(
-      id,
-      params.type,
-      params.title,
-      status,
-      projectSlug,
-      branch,
-      metadataStr,
-      tagsStr,
-      now,
-      now
-    );
+      const result = stmt.run(
+        id,
+        params.type,
+        params.title,
+        status,
+        projectSlug,
+        branch,
+        metadataStr,
+        tagsStr,
+        now,
+        now
+      );
 
-    logger.debug(`Added node ${id} (${params.type}) to project ${projectSlug}`);
+      try {
+        db.prepare(
+          `
+          INSERT INTO nodes_fts(rowid, title, metadata, tags)
+          VALUES (?, ?, ?, ?)
+        `
+        ).run(result.lastInsertRowid, params.title, metadataStr, tagsStr);
+      } catch (err: any) {
+        logger.warn(`Failed to update full-text search index for node ${id}: ${err.message}`);
+      }
 
-    const node: BaseNode = {
-      id,
-      type: params.type,
-      title: params.title,
-      status,
-      project: projectSlug,
-      git_branch: branch,
-      metadata: params.metadata || {},
-      tags: params.tags || [],
-      created_at: now,
-      updated_at: now,
-    };
+      logger.debug(`Added node ${id} (${params.type}) to project ${projectSlug}`);
 
-    EventEngine.logEvent(db, {
-      session_id: params.session_id,
-      event_type: 'node_created',
-      entity_type: 'node',
-      entity_id: id,
-      after_state: node,
-      project: projectSlug,
-    });
+      const node: BaseNode = {
+        id,
+        type: params.type,
+        title: params.title,
+        status,
+        project: projectSlug,
+        git_branch: branch,
+        metadata: params.metadata || {},
+        tags: params.tags || [],
+        created_at: now,
+        updated_at: now,
+      };
 
-    return node;
+      EventEngine.logEvent(db, {
+        session_id: params.session_id,
+        event_type: 'node_created',
+        entity_type: 'node',
+        entity_id: id,
+        after_state: node,
+        project: projectSlug,
+      });
+
+      return node;
+    })();
   }
 
   /**
@@ -151,57 +164,83 @@ export class GraphEngine {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
-    const existingResult = GraphEngine.getNode({
-      project: projectSlug,
-      id: params.id,
-      include_edges: false,
-    });
-    if (!existingResult) {
-      return null;
-    }
+    return db.transaction(() => {
+      const existingResult = GraphEngine.getNode({
+        project: projectSlug,
+        id: params.id,
+        include_edges: false,
+      });
+      if (!existingResult) {
+        return null;
+      }
 
-    const { node } = existingResult;
-    const now = getCurrentIsoString();
+      const { node } = existingResult;
+      const now = getCurrentIsoString();
 
-    const finalMetadata = params.metadata
-      ? { ...node.metadata, ...params.metadata }
-      : node.metadata;
+      const finalMetadata = params.metadata
+        ? { ...node.metadata, ...params.metadata }
+        : node.metadata;
 
-    const title = params.title !== undefined ? params.title : node.title;
-    const status = params.status !== undefined ? params.status : node.status;
-    const tags = params.tags !== undefined ? params.tags : node.tags;
+      const title = params.title !== undefined ? params.title : node.title;
+      const status = params.status !== undefined ? params.status : node.status;
+      const tags = params.tags !== undefined ? params.tags : node.tags;
 
-    const metadataStr = JSON.stringify(finalMetadata);
-    const tagsStr = JSON.stringify(tags);
+      const metadataStr = JSON.stringify(finalMetadata);
+      const tagsStr = JSON.stringify(tags);
 
-    const stmt = db.prepare(`
-      UPDATE nodes
-      SET title = ?, status = ?, metadata = ?, tags = ?, updated_at = ?
-      WHERE id = ?
-    `);
+      const row = db.prepare('SELECT rowid FROM nodes WHERE id = ?').get(params.id) as
+        { rowid: number } | undefined;
 
-    stmt.run(title, status, metadataStr, tagsStr, now, params.id);
+      const stmt = db.prepare(`
+        UPDATE nodes
+        SET title = ?, status = ?, metadata = ?, tags = ?, updated_at = ?
+        WHERE id = ?
+      `);
+      stmt.run(title, status, metadataStr, tagsStr, now, params.id);
 
-    const updatedNode: BaseNode = {
-      ...node,
-      title,
-      status,
-      metadata: finalMetadata,
-      tags,
-      updated_at: now,
-    };
+      if (row) {
+        try {
+          db.prepare(
+            `
+            INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags)
+            VALUES ('delete', ?, ?, ?, ?)
+          `
+          ).run(row.rowid, node.title, JSON.stringify(node.metadata), JSON.stringify(node.tags));
 
-    EventEngine.logEvent(db, {
-      session_id: params.session_id,
-      event_type: 'node_updated',
-      entity_type: 'node',
-      entity_id: params.id,
-      before_state: node,
-      after_state: updatedNode,
-      project: projectSlug,
-    });
+          db.prepare(
+            `
+            INSERT INTO nodes_fts(rowid, title, metadata, tags)
+            VALUES (?, ?, ?, ?)
+          `
+          ).run(row.rowid, title, metadataStr, tagsStr);
+        } catch (err: any) {
+          logger.warn(
+            `Failed to update full-text search index for updated node ${params.id}: ${err.message}`
+          );
+        }
+      }
 
-    return updatedNode;
+      const updatedNode: BaseNode = {
+        ...node,
+        title,
+        status,
+        metadata: finalMetadata,
+        tags,
+        updated_at: now,
+      };
+
+      EventEngine.logEvent(db, {
+        session_id: params.session_id,
+        event_type: 'node_updated',
+        entity_type: 'node',
+        entity_id: params.id,
+        before_state: node,
+        after_state: updatedNode,
+        project: projectSlug,
+      });
+
+      return updatedNode;
+    })();
   }
 
   /**
@@ -235,14 +274,31 @@ export class GraphEngine {
 
     const deletedEdgeCount = edgeCountRow ? edgeCountRow.count : 0;
 
+    const row = db.prepare('SELECT rowid FROM nodes WHERE id = ?').get(params.id) as
+      { rowid: number } | undefined;
+
     const stmt = db.prepare(`
       DELETE FROM nodes WHERE id = ?
     `);
-
     const result = stmt.run(params.id);
 
     if (result.changes === 0) {
       return null;
+    }
+
+    if (row) {
+      try {
+        db.prepare(
+          `
+          INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags)
+          VALUES ('delete', ?, ?, ?, ?)
+        `
+        ).run(row.rowid, node.title, JSON.stringify(node.metadata), JSON.stringify(node.tags));
+      } catch (err: any) {
+        logger.warn(
+          `Failed to remove full-text search index for deleted node ${params.id}: ${err.message}`
+        );
+      }
     }
 
     logger.debug(

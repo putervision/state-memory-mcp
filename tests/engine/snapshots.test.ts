@@ -70,4 +70,28 @@ describe('SnapshotEngine Integration Tests', () => {
     expect(diff.nodes_removed.length).toBe(0);
     expect(diff.edges_removed.length).toBe(0);
   });
+
+  it('should enforce tiered memory limits on saveSnapshot', () => {
+    const db = getDb(project);
+
+    // Insert 10,001 mock nodes in a fast transaction
+    db.transaction(() => {
+      for (let i = 0; i <= 10000; i++) {
+        db.prepare(
+          'INSERT INTO nodes (id, type, title, status, project, created_at, updated_at) ' +
+            "VALUES (?, 'task', ?, 'pending', ?, datetime('now'), datetime('now'))"
+        ).run(`mock-${i}`, `Mock Node ${i}`, project);
+      }
+    })();
+
+    // Attempting to save snapshot without force: true should throw Error
+    expect(() => {
+      SnapshotEngine.saveSnapshot(db, { project });
+    }).toThrow(/Snapshot aborted: graph contains 10001 nodes/);
+
+    // Attempting to save snapshot with force: true should succeed
+    const snap = SnapshotEngine.saveSnapshot(db, { project, force: true });
+    expect(snap.snapshot_id).toBeDefined();
+    expect(snap.node_count).toBe(10001);
+  });
 });

@@ -1,7 +1,19 @@
-import { getDb, getProjectSlug } from './db.js';
+import { getDb, getProjectSlug, resolveProjectRoot } from './db.js';
 import { BaseNode, Edge, NodeType, NodeRow, EdgeRow } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { logger } from '../utils/logger.js';
+import { validatePath, loadPathConfig } from '../utils/path-validator.js';
+import * as fs from 'fs';
+import * as path from 'path';
+
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 const TYPE_COLORS: Record<NodeType, string> = {
   task: '#3b82f6',
@@ -34,6 +46,7 @@ export function generateVisualizerHtml(
   nodes: BaseNode[],
   edges: Edge[]
 ): string {
+  const escapedSlug = escapeHtml(projectSlug);
   if (nodes.length > 1000) {
     logger.warn(
       `Project has ${nodes.length} nodes. Visualizer performance or user experience might degrade.`
@@ -73,10 +86,10 @@ export function generateVisualizerHtml(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>state-memory-mcp - ${projectSlug}</title>
+  <title>state-memory-mcp - ${escapedSlug}</title>
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/3d-force-graph@1.72.0"></script>
-  <script src="https://unpkg.com/three-spritetext"></script>
+  <script src="https://unpkg.com/3d-force-graph@1.72.0/dist/3d-force-graph.min.js"></script>
+  <script src="https://unpkg.com/three-spritetext@1.8.2/dist/three-spritetext.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -280,7 +293,7 @@ export function generateVisualizerHtml(
   <div id="sidebar">
     <div>
       <div class="brand">state-memory-mcp</div>
-      <div style="font-size: 12px; color: var(--text-muted)">Project Workspace: <b>${projectSlug}</b></div>
+      <div style="font-size: 12px; color: var(--text-muted)">Project Workspace: <b>${escapedSlug}</b></div>
     </div>
     
     <div class="card">
@@ -485,6 +498,16 @@ export function generateVisualizerHtml(
       }
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function showDetails(details) {
       document.getElementById('detail-card').style.display = 'flex';
       
@@ -496,10 +519,10 @@ export function generateVisualizerHtml(
       
       const meta = document.getElementById('detail-meta');
       meta.innerHTML = \`
-        <div class="meta-item"><span class="meta-label">ID</span><span class="meta-value" style="font-family:monospace; font-size:11px;">\${details.id}</span></div>
-        <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">\${details.status}</span></div>
-        <div class="meta-item"><span class="meta-label">Branch</span><span class="meta-value">\${details.git_branch || 'main'}</span></div>
-        <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">\${new Date(details.created_at).toLocaleDateString()}</span></div>
+        <div class="meta-item"><span class="meta-label">ID</span><span class="meta-value" style="font-family:monospace; font-size:11px;">\${escapeHtml(details.id)}</span></div>
+        <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">\${escapeHtml(details.status)}</span></div>
+        <div class="meta-item"><span class="meta-label">Branch</span><span class="meta-value">\${escapeHtml(details.git_branch || 'main')}</span></div>
+        <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">\${escapeHtml(new Date(details.created_at).toLocaleDateString())}</span></div>
       \`;
 
       const tagsContainer = document.getElementById('detail-tags');
@@ -549,6 +572,7 @@ export function generateVisualizerHtml(
 export function exportGraph(params: {
   project?: string;
   format: 'json' | 'dot' | 'mermaid' | 'html';
+  outputPath?: string;
 }): string {
   const projectSlug = getProjectSlug(params.project);
   const db = getDb(projectSlug);
@@ -563,11 +587,10 @@ export function exportGraph(params: {
   const nodes = nodeRows.map(parseNodeRow);
   const edges = edgeRows.map(parseEdgeRow);
 
+  let result = '';
   if (params.format === 'json') {
-    return JSON.stringify({ nodes, edges }, null, 2);
-  }
-
-  if (params.format === 'dot') {
+    result = JSON.stringify({ nodes, edges }, null, 2);
+  } else if (params.format === 'dot') {
     let dot = 'digraph G {\n';
     dot += '  rankdir=LR;\n';
     dot += '  node [shape=box, style="filled,rounded", fontname="Arial"];\n';
@@ -594,10 +617,8 @@ export function exportGraph(params: {
     }
 
     dot += '}\n';
-    return dot;
-  }
-
-  if (params.format === 'mermaid') {
+    result = dot;
+  } else if (params.format === 'mermaid') {
     let mermaid = 'flowchart TD\n';
     mermaid += '  classDef task fill:#bae6fd,stroke:#0284c7;\n';
     mermaid += '  classDef decision fill:#bbf7d0,stroke:#16a34a;\n';
@@ -624,12 +645,26 @@ export function exportGraph(params: {
       mermaid += `  ${e.source_id} -->|${e.type}| ${e.target_id}\n`;
     }
 
-    return mermaid;
+    result = mermaid;
+  } else if (params.format === 'html') {
+    result = generateVisualizerHtml(projectSlug, nodes, edges);
+  } else {
+    throw new Error(`Unsupported format: ${params.format}`);
   }
 
-  if (params.format === 'html') {
-    return generateVisualizerHtml(projectSlug, nodes, edges);
+  if (params.outputPath) {
+    const projectRoot = resolveProjectRoot(params.project);
+    const pathConfig = loadPathConfig(projectRoot);
+    const validatedPath = validatePath(params.outputPath, pathConfig);
+
+    const parentDir = path.dirname(validatedPath);
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true });
+    }
+
+    fs.writeFileSync(validatedPath, result, 'utf-8');
+    return `Exported project ${projectSlug} to ${validatedPath} in ${params.format} format`;
   }
 
-  throw new Error(`Unsupported format: ${params.format}`);
+  return result;
 }

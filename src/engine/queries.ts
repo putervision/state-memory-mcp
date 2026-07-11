@@ -3,6 +3,7 @@ import { BaseNode, Edge, NodeType, NodeRow, EdgeRow } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { getCurrentBranch } from '../utils/git.js';
 import { searchTfidf } from './tfidf.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Engine for querying nodes and subgraphs from the database.
@@ -69,18 +70,31 @@ export class QueryEngine {
       }
     }
 
-    // First get the total count for pagination info
-    const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
-    const countRow = db.prepare(countSql).get(...queryParams) as any;
-    const total_count = countRow ? countRow.total : 0;
-
-    // Apply pagination
-    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     const limit = params.limit !== undefined ? params.limit : 50;
     const offset = params.offset !== undefined ? params.offset : 0;
-    queryParams.push(limit, offset);
 
-    const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
+    // Apply pagination with limit + 1 to determine if there are more results
+    const paginatedSql = sql + ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    const paginatedParams = [...queryParams, limit + 1, offset];
+
+    const rows = db.prepare(paginatedSql).all(...paginatedParams) as NodeRow[];
+
+    let total_count = 0;
+    let hasMore = false;
+
+    if (rows.length > limit) {
+      hasMore = true;
+      rows.pop(); // Remove the extra row
+    }
+
+    if (hasMore) {
+      // Run count query only when there are more results than the limit
+      const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
+      const countRow = db.prepare(countSql).get(...queryParams) as any;
+      total_count = countRow ? countRow.total : 0;
+    } else {
+      total_count = offset + rows.length;
+    }
 
     const nodes = rows.map(parseNodeRow);
 
@@ -106,6 +120,7 @@ export class QueryEngine {
     type?: NodeType;
     status?: string;
     limit?: number;
+    offset?: number;
     git_branch?: string;
     algorithm?: 'fts' | 'tfidf';
   }): { nodes: BaseNode[]; total_count: number } {
@@ -132,13 +147,27 @@ export class QueryEngine {
         queryParams.push(params.status);
       }
 
+      const MAX_TFIDF_CANDIDATES = 1000;
+      sql += ` LIMIT ${MAX_TFIDF_CANDIDATES + 1}`;
+
       const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
+      if (rows.length > MAX_TFIDF_CANDIDATES) {
+        logger.warn(
+          `TF-IDF search candidate list truncated to ${MAX_TFIDF_CANDIDATES} nodes to prevent memory pressure.`
+        );
+        rows.pop();
+      }
+
       const candidates = rows.map(parseNodeRow);
 
       const limit = params.limit !== undefined ? params.limit : 20;
-      const matched = searchTfidf(candidates, params.query, limit);
+      const offset = params.offset !== undefined ? params.offset : 0;
 
-      return { nodes: matched, total_count: matched.length };
+      // Get all matches from TF-IDF first, then paginate
+      const matched = searchTfidf(candidates, params.query, candidates.length);
+      const paginated = matched.slice(offset, offset + limit);
+
+      return { nodes: paginated, total_count: matched.length };
     }
 
     // SQLite FTS5 query matching n.rowid to f.rowid
@@ -171,9 +200,10 @@ export class QueryEngine {
     const countRow = db.prepare(countSql).get(...queryParams) as any;
     const total_count = countRow ? countRow.total : 0;
 
-    sql += ' LIMIT ?';
+    sql += ' LIMIT ? OFFSET ?';
     const limit = params.limit !== undefined ? params.limit : 20;
-    queryParams.push(limit);
+    const offset = params.offset !== undefined ? params.offset : 0;
+    queryParams.push(limit, offset);
 
     const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
 
@@ -212,7 +242,7 @@ export class QueryEngine {
     }
 
     let edgeTypeFilter = '';
-    const recursiveParams: any[] = [params.root_id, depth];
+    const recursiveParams: any[] = [params.root_id, params.root_id, depth];
 
     if (params.edge_types && params.edge_types.length > 0) {
       const placeholders = params.edge_types.map(() => '?').join(',');
@@ -220,20 +250,22 @@ export class QueryEngine {
       recursiveParams.push(...params.edge_types);
     }
 
-    // Recursive CTE to gather node IDs in N hops
+    // Recursive CTE to gather node IDs in N hops, avoiding cycles via path tracking
     const idQuery = `
-      WITH RECURSIVE neighborhood(node_id, depth) AS (
-        SELECT ?, 0
+      WITH RECURSIVE neighborhood(node_id, depth, path) AS (
+        SELECT ?, 0, ',' || ? || ','
         UNION
         SELECT 
           CASE 
             WHEN e.source_id = n.node_id THEN e.target_id
             ELSE e.source_id
           END,
-          n.depth + 1
+          n.depth + 1,
+          n.path || CASE WHEN e.source_id = n.node_id THEN e.target_id ELSE e.source_id END || ','
         FROM neighborhood n
         JOIN edges e ON (e.source_id = n.node_id OR e.target_id = n.node_id)
         WHERE n.depth < ? ${edgeTypeFilter}
+          AND instr(n.path, ',' || CASE WHEN e.source_id = n.node_id THEN e.target_id ELSE e.source_id END || ',') = 0
       )
       SELECT DISTINCT node_id FROM neighborhood
     `;

@@ -39,7 +39,7 @@ describe('MCP Server Integration Tests', () => {
   it('should list available tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(37);
+    expect(tools.tools.length).toBe(44);
 
     const toolNames = tools.tools.map((t) => t.name);
     expect(toolNames).toContain('value_metrics');

@@ -11,12 +11,22 @@ The project is structured with a single-responsibility architecture:
 - **`src/schema/`**: Defines the data models, TypeScript types, and validation schemas:
   - `src/schema/types.ts`: Domain models (`BaseNode`, `Edge`, `NodeType`, etc.) and database row interfaces (`NodeRow`, `EdgeRow`).
   - `src/schema/schemas.ts`: Zod/custom schemas for validating tool parameters.
+- **`src/handlers/`**: Decomposed tool handlers and dispatcher:
+  - `src/handlers/node.ts`: Handlers for node CRUD, list, search, and history.
+  - `src/handlers/edge.ts`: Handlers for edge add and remove.
+  - `src/handlers/graph.ts`: Handlers for subgraphing, backups, raw queries, template scaffolding, and graph validation.
+  - `src/handlers/analytics.ts`: Handlers for tracing, blockers, summary, paths, metrics, and staleness detection.
+  - `src/handlers/session.ts`: Handlers for session start/end, event logs, rollback, and event pruning.
+  - `src/handlers/snapshot.ts`: Handlers for snapshots save/list/diff and trajectory exports.
+  - `src/handlers/batch.ts`: Handlers for batch updates and adding observation notes.
+  - `src/handlers/helper.ts`: Shared helper functions like schema arguments parsing.
+  - `src/handlers/index.ts`: Aggregates and exports the unified `toolHandlers` dispatch map.
 - **`src/engine/`**: The core domain engine:
   - `src/engine/db.ts`: Manages project databases paths, connection caching, and path traversal validation.
   - `src/engine/graph.ts`: Core CRUD operations for nodes.
   - `src/engine/edges.ts`: CRUD operations for edges, including circular dependency detection.
   - `src/engine/queries.ts`: Search, full-text indexing, and pagination.
-  - `src/engine/analytics.ts`: Graph theory algorithms (recursive CTE dependency tracing, blockers pathing, critical path estimation, impact analysis, contradictions auditor).
+  - `src/engine/analytics/`: Decomposed topological sorting, path tracking, decision trails, critical paths, blast radius/impact, contradictions, value metrics, and transitively blocked task algorithms.
   - `src/engine/row-mappers.ts`: Maps SQLite database rows to typed domain models securely.
   - `src/engine/scaffolder.ts`: Automatically seeds workflows and handles static roadmap/tech-stack discovery.
   - `src/engine/git-scanner.ts`: Incrementally scans git history to map observations, tasks, and file modifications.
@@ -26,12 +36,20 @@ The project is structured with a single-responsibility architecture:
   - `src/engine/audit.ts`: Audits database structure, foreign key constraints, orphaned edges, cycles, and logical contradictions.
   - `src/engine/merge.ts`: Performs two-database merges, conflict resolution, and dependency cycle validation.
   - `src/engine/query-raw.ts`: Executes read-only SQL queries with syntax sanitization.
+  - `src/engine/batch.ts`: Core engine for atomic batch node updates.
+  - `src/engine/work-queue.ts`: Core engine for prioritizing runnable tasks.
+  - `src/engine/changeset.ts`: Core engine for diffing session changeset updates.
+  - `src/engine/staleness.ts`: Core engine for inactivity staleness detection.
+  - `src/engine/validate.ts`: Core engine for logical graph validation.
 - **`src/cli/`**: The Command Line Interface:
   - `src/cli/init.ts`: Bootstraps project settings, Git configurations, instructions, and MCP settings.
   - `src/cli/templates.ts`: Embedded rule instructions and template mappings.
+  - `src/cli/helper.ts`: Shared CLI utility classes (like Table formatting).
+  - `src/cli/commands/`: Decomposed CLI subcommands (inspect, scan-git, metrics, view, export, import, backup, restore, audit, merge, sessions, events, export-trajectories).
 - **`src/utils/`**: Shared helper functions (logger, versioning, id-generators, time-utilities).
-- **`src/server.ts`**: The Model Context Protocol (MCP) server definition. Contains tool registrations and unified request router.
+- **`src/server.ts`**: The Model Context Protocol (MCP) server definition. Imports decomposed tool handlers and registers prompt/resource endpoints.
 - **`src/index.ts`**: The main entry point starting the MCP server with graceful shutdown handlers.
+- **`src/cli.ts`**: The command-line parser entry point delegating to subcommand actions.
 
 ---
 

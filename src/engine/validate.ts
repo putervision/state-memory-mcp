@@ -1,0 +1,283 @@
+import Database from 'better-sqlite3';
+
+export type ValidateCheck =
+  | 'blocked_done'
+  | 'orphan_nodes'
+  | 'empty_milestones'
+  | 'stale_in_progress'
+  | 'missing_decisions'
+  | 'dangling_edges'
+  | 'cycle_check';
+
+export interface ValidateIssue {
+  check: string;
+  severity: 'error' | 'warning';
+  message: string;
+  node_ids: string[];
+}
+
+export function validateGraph(
+  db: Database.Database,
+  params: {
+    project: string;
+    checks?: ValidateCheck[];
+  }
+): { passed: boolean; issues: ValidateIssue[] } {
+  const checksToRun =
+    params.checks && params.checks.length > 0
+      ? params.checks
+      : ([
+          'blocked_done',
+          'orphan_nodes',
+          'empty_milestones',
+          'stale_in_progress',
+          'missing_decisions',
+          'dangling_edges',
+          'cycle_check',
+        ] as ValidateCheck[]);
+
+  const issues: ValidateIssue[] = [];
+
+  // Helper to add issue
+  const addIssue = (
+    check: string,
+    severity: 'error' | 'warning',
+    message: string,
+    nodeIds: string[]
+  ) => {
+    issues.push({ check, severity, message, node_ids: nodeIds });
+  };
+
+  // 1. blocked_done
+  if (checksToRun.includes('blocked_done')) {
+    const rows = db
+      .prepare(
+        `
+      SELECT DISTINCT t.id, t.title
+      FROM nodes t
+      JOIN edges e ON (e.source_id = t.id AND e.type = 'depends_on') OR (e.target_id = t.id AND e.type = 'blocks')
+      JOIN nodes b ON (e.type = 'depends_on' AND e.target_id = b.id) OR (e.type = 'blocks' AND e.source_id = b.id)
+      WHERE t.project = ? AND t.type = 'task' AND t.status = 'done'
+        AND b.status != 'done' AND b.status != 'cancelled'
+    `
+      )
+      .all(params.project) as { id: string; title: string }[];
+
+    for (const row of rows) {
+      addIssue(
+        'blocked_done',
+        'error',
+        `Task "${row.title}" is marked done but has incomplete dependencies/blockers`,
+        [row.id]
+      );
+    }
+  }
+
+  // 2. orphan_nodes
+  if (checksToRun.includes('orphan_nodes')) {
+    const rows = db
+      .prepare(
+        `
+      SELECT n.id, n.title
+      FROM nodes n
+      WHERE n.project = ? AND n.type != 'observation' AND NOT EXISTS (
+        SELECT 1 FROM edges e WHERE e.project = ? AND (e.source_id = n.id OR e.target_id = n.id)
+      )
+    `
+      )
+      .all(params.project, params.project) as { id: string; title: string }[];
+
+    for (const row of rows) {
+      addIssue(
+        'orphan_nodes',
+        'warning',
+        `Node "${row.title}" (${row.id}) is an orphan with no connecting relationships`,
+        [row.id]
+      );
+    }
+  }
+
+  // 3. empty_milestones
+  if (checksToRun.includes('empty_milestones')) {
+    const rows = db
+      .prepare(
+        `
+      SELECT m.id, m.title
+      FROM nodes m
+      WHERE m.project = ? AND m.type = 'milestone' AND NOT EXISTS (
+        SELECT 1 FROM edges e
+        WHERE e.project = ? AND e.target_id = m.id AND e.type = 'child_of'
+      )
+    `
+      )
+      .all(params.project, params.project) as { id: string; title: string }[];
+
+    for (const row of rows) {
+      addIssue(
+        'empty_milestones',
+        'warning',
+        `Milestone "${row.title}" has no associated child tasks`,
+        [row.id]
+      );
+    }
+  }
+
+  // 4. stale_in_progress
+  if (checksToRun.includes('stale_in_progress')) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const rows = db
+      .prepare(
+        `
+      SELECT id, title, updated_at
+      FROM nodes
+      WHERE project = ? AND type = 'task' AND status = 'in_progress' AND updated_at < ?
+    `
+      )
+      .all(params.project, sevenDaysAgo) as { id: string; title: string; updated_at: string }[];
+
+    for (const row of rows) {
+      addIssue(
+        'stale_in_progress',
+        'warning',
+        `Task "${row.title}" has been "in_progress" with no updates for over 7 days`,
+        [row.id]
+      );
+    }
+  }
+
+  // 5. missing_decisions
+  if (checksToRun.includes('missing_decisions')) {
+    const rows = db
+      .prepare(
+        `
+      SELECT t.id, t.title
+      FROM nodes t
+      WHERE t.project = ? AND t.type = 'task' AND t.status = 'done' AND NOT EXISTS (
+        SELECT 1 FROM edges e
+        JOIN nodes d ON (e.source_id = d.id OR e.target_id = d.id)
+        WHERE e.project = ? AND (e.source_id = t.id OR e.target_id = t.id)
+          AND d.type = 'decision'
+      )
+    `
+      )
+      .all(params.project, params.project) as { id: string; title: string }[];
+
+    for (const row of rows) {
+      addIssue(
+        'missing_decisions',
+        'warning',
+        `Completed task "${row.title}" does not reference any design decisions`,
+        [row.id]
+      );
+    }
+  }
+
+  // 6. dangling_edges
+  if (checksToRun.includes('dangling_edges')) {
+    const rows = db
+      .prepare(
+        `
+      SELECT e.id, e.source_id, e.target_id, e.type
+      FROM edges e
+      WHERE e.project = ? AND (
+        NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = e.source_id) OR
+        NOT EXISTS (SELECT 1 FROM nodes n WHERE n.id = e.target_id)
+      )
+    `
+      )
+      .all(params.project) as { id: string; source_id: string; target_id: string; type: string }[];
+
+    for (const row of rows) {
+      addIssue(
+        'dangling_edges',
+        'error',
+        `Edge ${row.id} (${row.type}) references non-existent node(s): source ${row.source_id}, target ${row.target_id}`,
+        []
+      );
+    }
+  }
+
+  // 7. cycle_check
+  if (checksToRun.includes('cycle_check')) {
+    const edgeRows = db
+      .prepare('SELECT source_id, target_id, type FROM edges WHERE project = ?')
+      .all(params.project) as { source_id: string; target_id: string; type: string }[];
+    const adj = new Map<string, string[]>();
+    const nodeIds = new Set<string>();
+
+    for (const edge of edgeRows) {
+      if (['depends_on', 'blocks', 'child_of'].includes(edge.type)) {
+        let u = '';
+        let v = '';
+        if (edge.type === 'depends_on') {
+          u = edge.target_id;
+          v = edge.source_id;
+        } else if (edge.type === 'blocks') {
+          u = edge.source_id;
+          v = edge.target_id;
+        } else if (edge.type === 'child_of') {
+          u = edge.source_id;
+          v = edge.target_id;
+        }
+        if (u && v) {
+          nodeIds.add(u);
+          nodeIds.add(v);
+          if (!adj.has(u)) adj.set(u, []);
+          adj.get(u)!.push(v);
+        }
+      }
+    }
+
+    const visited = new Set<string>();
+    const recStack = new Set<string>();
+    const cycleNodes = new Set<string>();
+    let hasCycle = false;
+
+    const dfs = (node: string): boolean => {
+      visited.add(node);
+      recStack.add(node);
+
+      const neighbors = adj.get(node) || [];
+      for (const neighbor of neighbors) {
+        if (!visited.has(neighbor)) {
+          if (dfs(neighbor)) {
+            cycleNodes.add(node);
+            cycleNodes.add(neighbor);
+            return true;
+          }
+        } else if (recStack.has(neighbor)) {
+          cycleNodes.add(node);
+          cycleNodes.add(neighbor);
+          return true;
+        }
+      }
+
+      recStack.delete(node);
+      return false;
+    };
+
+    for (const node of nodeIds) {
+      if (!visited.has(node)) {
+        if (dfs(node)) {
+          hasCycle = true;
+        }
+      }
+    }
+
+    if (hasCycle) {
+      addIssue(
+        'cycle_check',
+        'error',
+        `Circular dependencies detected in project graph`,
+        Array.from(cycleNodes)
+      );
+    }
+  }
+
+  const passed = !issues.some((issue) => issue.severity === 'error');
+
+  return {
+    passed,
+    issues,
+  };
+}

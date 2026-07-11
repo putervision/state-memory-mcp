@@ -133,5 +133,32 @@ describe('TF-IDF Vector Search Engine', () => {
       });
       expect(resultTask.nodes.length).toBe(0);
     });
+
+    it('should truncate candidate list to 1000 nodes for TF-IDF to prevent memory issues', () => {
+      const db = getDb(project);
+
+      // Clear nodes temporarily (at the end of the suite, so we do not disrupt other tests)
+      db.prepare('DELETE FROM nodes').run();
+
+      // Insert 1005 mock nodes quickly
+      db.transaction(() => {
+        for (let i = 0; i < 1005; i++) {
+          db.prepare(
+            'INSERT INTO nodes (id, type, title, status, project, created_at, updated_at) ' +
+              "VALUES (?, 'task', ?, 'pending', ?, datetime('now'), datetime('now'))"
+          ).run(`mock-${i}`, `Node Auth ${i}`, project);
+        }
+      })();
+
+      const result = QueryEngine.searchNodes({
+        project,
+        query: 'Auth',
+        algorithm: 'tfidf',
+        limit: 10,
+      });
+
+      expect(result.total_count).toBe(1000);
+      expect(result.nodes.length).toBe(10);
+    });
   });
 });

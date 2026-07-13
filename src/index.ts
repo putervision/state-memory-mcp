@@ -1,7 +1,9 @@
+import * as path from 'path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { server } from './server.js';
 import { logger } from './utils/logger.js';
-import { closeAllDbs } from './engine/db.js';
+import { closeAllDbs, resolveProjectRoot, getProjectSlug } from './engine/db.js';
+import { runAutoInit } from './cli/init.js';
 
 let isShuttingDown = false;
 
@@ -32,6 +34,18 @@ async function shutdown(signal: string) {
 }
 
 async function main() {
+  // Automatically initialize/update project configurations and customizations on start
+  try {
+    const root = resolveProjectRoot();
+    const projectName = path.basename(root);
+    const projectSlug = getProjectSlug(projectName);
+    
+    // Perform fast, non-destructive file scaffolding check
+    await runAutoInit(root, projectSlug);
+  } catch (err: any) {
+    logger.warn(`Auto-initialization skipped: ${err.message}`);
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   logger.info('state-memory-mcp server started');

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-07-13
+
+### Fixed
+- Prevented stdio MCP transport corruption on server startup by redirecting all `console.log` statements inside `runAutoInit` to `console.error` (stderr).
+
+## [0.4.2] - 2026-07-13
+
+### Added
+- Auto-initialization check on server start: When launched as an MCP server, `state-memory-mcp` automatically performs a silent, lightweight configuration audit of instruction files, global and local configs, rules, and customizations to ensure they are up to date with the latest templates.
+- Overwrite capability for `.agents/skills/state-memory-mcp/SKILL.md` to guarantee the agent has the correct matching tool reference on version update.
+
+## [0.4.1] - 2026-07-13
+
+### Added
+- `state-memory-mcp init` now scaffolds the global Google Antigravity (Gemini) MCP config (`~/.gemini/config/mcp_config.json`), creating or merging the `state-memory-mcp` server entry automatically.
+- `state-memory-mcp init` now creates workspace-level agent customizations:
+  - `.agents/AGENTS.md` — Concise mandatory workflow rules and tool priority order for AI agents.
+  - `.agents/skills/state-memory-mcp/SKILL.md` — Comprehensive agent skill reference covering all 44 tools, node/edge types, workflow patterns, and CLI commands.
+- New template functions: `getMcpConfigAntigravity()`, `getSkillTemplate()`, `getAgentsMdTemplate()`.
+
 ## [0.4.0] - 2026-07-10
 
 ### Added

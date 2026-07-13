@@ -8,6 +8,9 @@ import {
   getMcpConfigCursor,
   getMcpConfigVscode,
   getGlobalRulesTemplate,
+  getMcpConfigAntigravity,
+  getSkillTemplate,
+  getAgentsMdTemplate,
 } from './templates.js';
 import { registerProject, getDb, getProjectSlug, getProjectDbDir } from '../engine/db.js';
 import { GraphEngine } from '../engine/graph.js';
@@ -46,6 +49,8 @@ export async function runInit(
   scaffoldInstructions(root, projectSlug);
   scaffoldMcpConfigs(root, projectSlug);
   scaffoldGlobalRules(projectSlug);
+  scaffoldGlobalAntigravityMcpConfig();
+  scaffoldAgentsCustomizations(root, projectSlug);
 
   // Step 7 — Seed node (always, on fresh init)
   const db = getDb(projectSlug);
@@ -334,3 +339,100 @@ function scaffoldGlobalRules(projectSlug: string): void {
     }
   }
 }
+
+/**
+ * Create or merge the global Google Antigravity (Gemini) MCP config.
+ * Only runs if ~/.gemini/config/ directory exists.
+ */
+function scaffoldGlobalAntigravityMcpConfig(): void {
+  const homedir = os.homedir();
+  const geminiConfigDir = path.join(homedir, '.gemini', 'config');
+
+  if (!fs.existsSync(geminiConfigDir)) {
+    return; // Not an Antigravity user — skip silently
+  }
+
+  console.log('');
+  console.log('   🌎 Global Antigravity MCP Config:');
+  mergeMcpConfig(
+    homedir,
+    '.gemini/config/mcp_config.json',
+    'Google Antigravity (Gemini)',
+    getMcpConfigAntigravity(),
+    'mcpServers'
+  );
+}
+
+/**
+ * Scaffold workspace-level agent customizations:
+ * - .agents/AGENTS.md (concise workflow rules)
+ * - .agents/skills/state-memory-mcp/SKILL.md (comprehensive skill reference)
+ */
+function scaffoldAgentsCustomizations(root: string, projectSlug: string): void {
+  console.log('');
+  console.log('   🤖 Agent Customizations (.agents/):');
+
+  // --- .agents/AGENTS.md ---
+  const agentsMdPath = path.join(root, '.agents', 'AGENTS.md');
+  const agentsMdDir = path.dirname(agentsMdPath);
+
+  if (!fs.existsSync(agentsMdDir)) {
+    fs.mkdirSync(agentsMdDir, { recursive: true });
+  }
+
+  const agentsMdContent = getAgentsMdTemplate(projectSlug);
+
+  if (fs.existsSync(agentsMdPath)) {
+    const existing = fs.readFileSync(agentsMdPath, 'utf-8');
+    if (existing.includes(MARKER)) {
+      console.log('      ⏭️  .agents/AGENTS.md — already configured');
+    } else {
+      const separator = existing.endsWith('\n') ? '\n' : '\n\n';
+      fs.appendFileSync(agentsMdPath, `${separator}${agentsMdContent}`, 'utf-8');
+      console.log('      ✅ .agents/AGENTS.md — appended state-memory-mcp rules');
+    }
+  } else {
+    fs.writeFileSync(agentsMdPath, agentsMdContent, 'utf-8');
+    console.log('      ✅ .agents/AGENTS.md — created');
+  }
+
+  // --- .agents/skills/state-memory-mcp/SKILL.md ---
+  const skillPath = path.join(root, '.agents', 'skills', 'state-memory-mcp', 'SKILL.md');
+  const skillDir = path.dirname(skillPath);
+
+  if (!fs.existsSync(skillDir)) {
+    fs.mkdirSync(skillDir, { recursive: true });
+  }
+
+  const skillContent = getSkillTemplate(projectSlug);
+
+  fs.writeFileSync(skillPath, skillContent, 'utf-8');
+  console.log('      ✅ .agents/skills/state-memory-mcp/SKILL.md — updated to latest version');
+}
+
+/**
+ * Lightweight auto-initialization sequence executed on server start.
+ * Scaffolds project files and registers the project root without scanning git.
+ */
+export async function runAutoInit(root: string, projectSlug: string): Promise<void> {
+  const originalLog = console.log;
+  // Redirect all console.log output to console.error (stderr) so that we don't
+  // corrupt the stdio transport on server startup.
+  console.log = (...args) => console.error(...args);
+
+  try {
+    const projectName = path.basename(root);
+    registerProject(projectName, root);
+
+    initDataDirectory(root);
+    updateGitignore(root);
+    scaffoldInstructions(root, projectSlug);
+    scaffoldMcpConfigs(root, projectSlug);
+    scaffoldGlobalRules(projectSlug);
+    scaffoldGlobalAntigravityMcpConfig();
+    scaffoldAgentsCustomizations(root, projectSlug);
+  } finally {
+    console.log = originalLog;
+  }
+}
+

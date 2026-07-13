@@ -1,6 +1,6 @@
 {
   "name": "state-memory-mcp",
-  "version": "0.4.0",
+  "version": "0.4.3",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "type": "module",
   "main": "./dist/index.js",

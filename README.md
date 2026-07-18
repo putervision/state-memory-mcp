@@ -99,6 +99,8 @@ Nodes are linked together to represent workflow connections:
 * `updates` / `contradicts`: Traces the historical chain of decisions or flags conflicting requirements.
 * `part_of` / `child_of`: Establishes hierarchical groupings (e.g., tasks belonging to milestones, milestones in plans).
 * `implements` / `decided_in`: Links tasks/artifacts to their design decisions or plans.
+* `extends` / `modifies`: Git commit trace relationships.
+* `renders_state`: Visual memory verification relationship.
 
 *Note: Cycle detection is automatically enforced. If an agent tries to link nodes in a loop (e.g. Task A blocking Task B which depends on Task A), the server immediately rejects the edge creation.*
 
@@ -350,7 +352,7 @@ For maximum developer-agent alignment, seed your graph immediately after initial
   * Inputs: `id`, `project`, `include_edges`.
 * **`remove_node`**: Deletes a node and automatically cascades deletions to all connected edges.
   * Inputs: `id`, `project`.
-* **`add_edge`**: Links two nodes with a typed relationship (`depends_on`, `blocks`, `produces`, `references`, `decided_in`, `updates`, `contradicts`, `part_of`, `implements`, `child_of`). Cycles are rejected for directed dependency types.
+* **`add_edge`**: Links two nodes with a typed relationship (`depends_on`, `blocks`, `produces`, `references`, `decided_in`, `updates`, `contradicts`, `part_of`, `implements`, `child_of`, `extends`, `modifies`, `renders_state`). Cycles are rejected for directed dependency types.
   * Inputs: `source_id`, `target_id`, `type`, `project`, `properties`.
 * **`remove_edge`**: Deletes a specific relationship between two nodes.
   * Inputs: `source_id`, `target_id`, `type`, `project`.

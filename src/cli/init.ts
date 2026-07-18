@@ -435,4 +435,3 @@ export async function runAutoInit(root: string, projectSlug: string): Promise<vo
     console.log = originalLog;
   }
 }
-

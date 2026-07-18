@@ -181,7 +181,7 @@ Before doing any coding or investigation, you MUST run this sequence:
 #### Edge Relationships
 | Tool | Key Inputs | Description |
 |------|------------|-------------|
-| \`add_edge\` | \`source_id\`, \`target_id\`, \`type\` | Create a typed relationship between two nodes. Types: \`depends_on\`, \`blocks\`, \`produces\`, \`references\`, \`updates\`, \`contradicts\`, \`part_of\`, \`child_of\`, \`implements\`, \`decided_in\`, \`extends\`, \`modifies\`. |
+| \`add_edge\` | \`source_id\`, \`target_id\`, \`type\` | Create a typed relationship between two nodes. Types: \`depends_on\`, \`blocks\`, \`produces\`, \`references\`, \`updates\`, \`contradicts\`, \`part_of\`, \`child_of\`, \`implements\`, \`decided_in\`, \`extends\`, \`modifies\`, \`renders_state\`. |
 | \`remove_edge\` | \`id\` | Delete an edge by its ID. |
 
 #### Discovery & Search
@@ -270,6 +270,7 @@ Before doing any coding or investigation, you MUST run this sequence:
 - \`part_of\` / \`child_of\` — Hierarchical groupings (tasks in milestones, milestones in plans).
 - \`implements\` / \`decided_in\` — Links tasks/artifacts to design decisions or plans.
 - \`extends\` / \`modifies\` — Git commit trace relationships.
+- \`renders_state\` — Visual memory verification relationship.
 
 ### 4. Workflow Patterns
 

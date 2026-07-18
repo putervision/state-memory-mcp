@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5] - 2026-07-16
+
+### Added
+- Added `renders_state` edge type to support integration with visual memory.
+- Added `unverified_ui` validation check in `validate_graph` tool to verify that all completed UI tasks have associated visual verification metadata or `renders_state` edges.
+
+### Fixed
+- Hardened test suite global registry mocking to prevent JSON parse warning during test runs.
+- Resolved ESLint warnings (prefer-const, no-empty catch blocks, and unused import).
+
 ## [0.4.3] - 2026-07-13
 
 ### Fixed

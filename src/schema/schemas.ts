@@ -369,6 +369,7 @@ export const EdgeTypeSchema = z.enum([
   'child_of',
   'extends',
   'modifies',
+  'renders_state',
 ]);
 
 export const AddEdgeSchema = z.object({

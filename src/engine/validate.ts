@@ -7,7 +7,8 @@ export type ValidateCheck =
   | 'stale_in_progress'
   | 'missing_decisions'
   | 'dangling_edges'
-  | 'cycle_check';
+  | 'cycle_check'
+  | 'unverified_ui';
 
 export interface ValidateIssue {
   check: string;
@@ -34,6 +35,7 @@ export function validateGraph(
           'missing_decisions',
           'dangling_edges',
           'cycle_check',
+          'unverified_ui',
         ] as ValidateCheck[]);
 
   const issues: ValidateIssue[] = [];
@@ -271,6 +273,59 @@ export function validateGraph(
         `Circular dependencies detected in project graph`,
         Array.from(cycleNodes)
       );
+    }
+  }
+
+  // 8. unverified_ui
+  if (checksToRun.includes('unverified_ui')) {
+    const rows = db
+      .prepare(
+        `
+      SELECT id, title, metadata, tags
+      FROM nodes
+      WHERE project = ? AND type = 'task' AND status = 'done'
+    `
+      )
+      .all(params.project) as { id: string; title: string; metadata: string; tags: string }[];
+
+    for (const row of rows) {
+      try {
+        const tags: string[] = JSON.parse(row.tags || '[]');
+        const metadata = JSON.parse(row.metadata || '{}');
+        const isUiTask =
+          tags.some((tag) =>
+            ['ui', 'layout', 'frontend', 'visual', 'css', 'design'].includes(tag.toLowerCase())
+          ) || /\b(ui|layout|css|frontend|visual|styles|design)\b/i.test(row.title);
+
+        if (isUiTask) {
+          const hasRendersEdge = db
+            .prepare(
+              `
+            SELECT 1 FROM edges
+            WHERE project = ? AND type = 'renders_state' AND (source_id = ? OR target_id = ?)
+            LIMIT 1
+          `
+            )
+            .get(params.project, row.id, row.id);
+
+          const hasVisualMeta =
+            metadata.vision_state_id ||
+            metadata.visual_state_ids ||
+            metadata.screenshot ||
+            metadata.visual_snapshot_name;
+
+          if (!hasRendersEdge && !hasVisualMeta) {
+            addIssue(
+              'unverified_ui',
+              'warning',
+              `UI task "${row.title}" is completed but has no renders_state edge or visual state metadata associated.`,
+              [row.id]
+            );
+          }
+        }
+      } catch {
+        // Skip malformed JSON
+      }
     }
   }
 

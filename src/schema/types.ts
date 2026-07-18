@@ -44,7 +44,8 @@ export type EdgeType =
   | 'implements'
   | 'child_of'
   | 'extends'
-  | 'modifies';
+  | 'modifies'
+  | 'renders_state';
 
 export interface Edge {
   id: string; // ULID

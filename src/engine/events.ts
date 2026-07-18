@@ -84,7 +84,9 @@ export class EventEngine {
         const root = resolveProjectRoot(params.project);
         const config = loadProjectConfig(root);
         isStrictConfig = !!config.strictAudit;
-      } catch {}
+      } catch {
+        // Ignore errors reading config during logging callback
+      }
       if (isStrictEnv || isStrictConfig) {
         throw err;
       }
@@ -248,7 +250,9 @@ export class EventEngine {
       if (lastEvent.metadata) {
         try {
           metaObj = JSON.parse(lastEvent.metadata);
-        } catch {}
+        } catch {
+          // Fallback to empty object if metadata JSON is malformed
+        }
       }
       metaObj.undone = true;
       metaObj.undone_at = getCurrentIsoString();

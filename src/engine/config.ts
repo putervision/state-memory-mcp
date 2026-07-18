@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { z, Infer } from '../schema/schemas.js';
+import { z } from '../schema/schemas.js';
 import { logger } from '../utils/logger.js';
 import { validatePath, loadPathConfig } from '../utils/path-validator.js';
 

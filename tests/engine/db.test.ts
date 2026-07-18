@@ -33,7 +33,11 @@ describe('Database Project Resolution Tests', () => {
     const existsSpy = vi.mocked(fs.existsSync);
     existsSpy.mockImplementation((p) => {
       // Simulate .state-memory-mcp existing in the mock home directory
-      if (typeof p === 'string' && p.startsWith(path.join(mockHomedir, '.state-memory-mcp'))) {
+      if (
+        typeof p === 'string' &&
+        (p === path.join(mockHomedir, '.state-memory-mcp') ||
+          p.startsWith(path.join(mockHomedir, '.state-memory-mcp' + path.sep)))
+      ) {
         return true;
       }
       return false;

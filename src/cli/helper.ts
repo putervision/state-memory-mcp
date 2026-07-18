@@ -24,7 +24,7 @@ export class Table {
           lines.push(chunk.padEnd(colWidth));
           break;
         }
-        let spaceIdx = chunk.lastIndexOf(' ');
+        const spaceIdx = chunk.lastIndexOf(' ');
         if (spaceIdx > 0) {
           chunk = chunk.substring(0, spaceIdx);
           lines.push(chunk.padEnd(colWidth));

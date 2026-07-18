@@ -267,6 +267,66 @@ describe('v0.4.0 New Agent Tools Tests', () => {
       expect(res.issues[0].node_ids).toContain(t1.id);
       expect(res.issues[0].node_ids).toContain(t2.id);
     });
+
+    it('should check for unverified_ui issues', () => {
+      const db = getDb(project);
+      db.prepare('DELETE FROM edges').run();
+      db.prepare('DELETE FROM nodes').run();
+
+      // Create a done UI task
+      const uiTask = GraphEngine.addNode({
+        project,
+        type: 'task',
+        title: 'Align homepage logos',
+        status: 'done',
+        tags: ['ui'],
+      });
+
+      // Create a target artifact node (e.g. visual state)
+      const visualState = GraphEngine.addNode({
+        project,
+        type: 'artifact',
+        title: 'Visual State: Homepage mock',
+        status: 'current',
+      });
+
+      // Run validation (should issue warning for unverified UI)
+      let res = validateGraph(db, { project, checks: ['unverified_ui'] });
+      expect(res.passed).toBe(true); // Warnings don't cause validation to fail
+      let uiIssues = res.issues.filter((i) => i.check === 'unverified_ui');
+      expect(uiIssues.length).toBe(1);
+      expect(uiIssues[0].severity).toBe('warning');
+      expect(uiIssues[0].node_ids).toContain(uiTask.id);
+
+      // Connect to the visual state via renders_state edge
+      EdgeEngine.addEdge({
+        project,
+        source_id: uiTask.id,
+        target_id: visualState.id,
+        type: 'renders_state',
+      });
+
+      // Run validation again (should resolve warning)
+      res = validateGraph(db, { project, checks: ['unverified_ui'] });
+      uiIssues = res.issues.filter((i) => i.check === 'unverified_ui');
+      expect(uiIssues.length).toBe(0);
+
+      // Remove edge and use visual metadata instead
+      db.prepare('DELETE FROM edges').run();
+      res = validateGraph(db, { project, checks: ['unverified_ui'] });
+      uiIssues = res.issues.filter((i) => i.check === 'unverified_ui');
+      expect(uiIssues.length).toBe(1);
+
+      GraphEngine.updateNode({
+        id: uiTask.id,
+        project,
+        metadata: { vision_state_id: visualState.id },
+      });
+
+      res = validateGraph(db, { project, checks: ['unverified_ui'] });
+      uiIssues = res.issues.filter((i) => i.check === 'unverified_ui');
+      expect(uiIssues.length).toBe(0);
+    });
   });
 
   describe('pruneEvents', () => {

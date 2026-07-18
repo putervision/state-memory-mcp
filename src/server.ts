@@ -251,7 +251,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             type: {
               type: 'string',
-              enum: ['depends_on', 'blocks', 'produces', 'references', 'decided_in', 'updates', 'contradicts', 'part_of', 'implements', 'child_of', 'extends', 'modifies'],
+              enum: ['depends_on', 'blocks', 'produces', 'references', 'decided_in', 'updates', 'contradicts', 'part_of', 'implements', 'child_of', 'extends', 'modifies', 'renders_state'],
               description: 'The relationship type.',
             },
             properties: {

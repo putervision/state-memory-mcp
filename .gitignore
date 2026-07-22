@@ -13,3 +13,6 @@ planDocs
 *.tgz
 tmp/
 temp/
+# vision-memory-mcp local database
+.vision-memory-mcp/
+.env

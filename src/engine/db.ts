@@ -314,8 +314,9 @@ export function getDb(project?: string): Database.Database {
 
   const db = new Database(dbPath);
 
-  // WAL mode and busy timeout
+  // WAL mode, synchronous mode, and busy timeout
   db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
   db.pragma('busy_timeout = 5000');
   db.pragma('foreign_keys = ON');
 

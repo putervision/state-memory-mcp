@@ -244,6 +244,7 @@ export async function scanGit(
   const db = getDb(projectSlug);
 
   const ignorePatterns = loadIgnorePatterns(cwd);
+  const compiledIgnorePatterns = compileIgnorePatterns(ignorePatterns);
   const repoPaths = findGitRepos(cwd, 2);
   if (repoPaths.length === 0) {
     logger.info(`No git repositories found under path: ${cwd}`);
@@ -331,7 +332,7 @@ export async function scanGit(
         });
 
       // Filter out ignored files
-      commit.filesChanged = mappedFiles.filter((f) => !isIgnored(f, ignorePatterns));
+      commit.filesChanged = mappedFiles.filter((f) => !isIgnored(f, compiledIgnorePatterns));
     }
 
     // Sort merged commits by committedAt descending to ensure deterministic chronological order
@@ -501,42 +502,61 @@ export function loadIgnorePatterns(projectRoot: string): string[] {
 }
 
 /**
- * Checks if a given file path matches any of the specified ignore patterns.
+ * Compiles string ignore patterns into an array of RegExp instances.
+ *
+ * @param patterns - Array of ignore glob patterns.
+ * @returns Array of compiled RegExp objects.
+ */
+export function compileIgnorePatterns(patterns: string[]): RegExp[] {
+  return patterns
+    .map((pattern) => {
+      let cleanPattern = pattern.trim().replace(/\\/g, '/');
+      if (!cleanPattern) return null;
+
+      const isDirPattern = cleanPattern.endsWith('/');
+      if (isDirPattern) {
+        cleanPattern = cleanPattern.slice(0, -1);
+      }
+
+      let regexStr = cleanPattern
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*')
+        .replace(/\?/g, '.');
+
+      if (!cleanPattern.startsWith('/')) {
+        regexStr = '(^|.*/)' + regexStr;
+      } else {
+        regexStr = '^' + regexStr.slice(1);
+      }
+
+      if (isDirPattern) {
+        regexStr += '(/.*|$)';
+      } else {
+        regexStr += '($|/.*)';
+      }
+
+      return new RegExp(regexStr);
+    })
+    .filter((r): r is RegExp => r !== null);
+}
+
+/**
+ * Checks if a given file path matches any of the specified ignore patterns or compiled RegExps.
  *
  * @param filePath - The file path to test.
- * @param patterns - The ignore patterns to test against.
+ * @param patterns - The ignore patterns (as strings or compiled RegExps) to test against.
  * @returns True if the path matches an ignore pattern, false otherwise.
  */
-export function isIgnored(filePath: string, patterns: string[]): boolean {
+export function isIgnored(filePath: string, patterns: string[] | RegExp[]): boolean {
+  if (patterns.length === 0) return false;
   const normalizedPath = filePath.replace(/\\/g, '/');
 
-  for (const pattern of patterns) {
-    let cleanPattern = pattern.trim().replace(/\\/g, '/');
-    if (!cleanPattern) continue;
+  const compiled =
+    typeof patterns[0] === 'string'
+      ? compileIgnorePatterns(patterns as string[])
+      : (patterns as RegExp[]);
 
-    const isDirPattern = cleanPattern.endsWith('/');
-    if (isDirPattern) {
-      cleanPattern = cleanPattern.slice(0, -1);
-    }
-
-    let regexStr = cleanPattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.');
-
-    if (!cleanPattern.startsWith('/')) {
-      regexStr = '(^|.*/)' + regexStr;
-    } else {
-      regexStr = '^' + regexStr.slice(1);
-    }
-
-    if (isDirPattern) {
-      regexStr += '(/.*|$)';
-    } else {
-      regexStr += '($|/.*)';
-    }
-
-    const regex = new RegExp(regexStr);
+  for (const regex of compiled) {
     if (regex.test(normalizedPath)) {
       return true;
     }

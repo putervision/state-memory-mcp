@@ -5,6 +5,15 @@
       "args": [
         "run"
       ]
+    },
+    "vision-memory-mcp": {
+      "command": "vision-memory-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "LANCEDB_PATH": "./.vision-memory-mcp"
+      }
     }
   }
 }

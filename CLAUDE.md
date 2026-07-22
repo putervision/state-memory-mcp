@@ -34,3 +34,35 @@ If the project was just initialized or is missing high-level structure (Plans, M
 2. **Scaffold the Roadmap**: Create a `plan` node (e.g., "Project Roadmap") and add `milestone` nodes representing key target phases, connecting them using `part_of` edges.
 3. **Scaffold Architecture**: Create `decision` nodes representing core technical choices (e.g., choice of databases, frameworks) and link them to the milestones/tasks using `decided_in` edges.
 
+
+
+## Visual Memory (vision-memory-mcp)
+
+This project utilizes `vision-memory-mcp` to cache visual states, record layout transitions, and avoid repetitive LLM vision calls.
+
+### 1. Mandatory Workflow & Priority
+1. **Orient**: Call `get_session_context` to align your state context at the start of work.
+2. **Search**: Call `recall_memory` (text/image search) before recreating duplicate UI state paths.
+3. **Ingest/Verify**: ALWAYS call `analyze_screenshot` before querying any front-end vision models.
+   - **Cache Hit (`is_known: true`)**: Do NOT use vision models; read the returned `description` as context.
+   - **Cache Miss (`is_known: false`)**: Query your vision model, then run `analyze_screenshot` with both the image and description to seed the cache.
+4. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
+5. **Undo**: Call `undo_last_visual_mutation` to revert accidental state or edge ingestions.
+
+### 2. Tool Reference Summary
+* `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description.
+* `recall_memory`: Search visual memory by description query or base64 image query.
+* `record_outcome`: Save UI action execution outcomes and transitions between states.
+* `get_navigation_paths`: Find path between states using BFS navigation graph.
+* `compare_states`: Compare two visual states structurally and vector-semantically.
+* `get_session_context`: Fetch recent states, frequent states, and transitions.
+* `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
+* `undo_last_visual_mutation`: Revert the last visual mutation.
+
+#### 3. Agent Permissions & Auto-Run Configuration
+To allow cache query and ingestion commands to run automatically without prompting:
+* **Google Antigravity (`~/.gemini/config/config.json`)**: Add these rules to your `"globalPermissionGrants"` -> `"allow"` list:
+  * `"command(vision-memory-mcp)"` (Allow running the CLI without parameters prompts)
+  * `"read_file(.*\\.gemini/antigravity/brain/.*)"` (Allow reading captured screenshots)
+  * `"write_file(.*\\.gemini/antigravity/brain/.*)"` (Allow saving visual states)
+* **VS Code / Cursor IDE (`settings.json`)**: Ensure the agent has execution permissions for `command(vision-memory-mcp)` and read/write access to the workspace's local `.vision-memory-mcp/` cache directory.

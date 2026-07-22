@@ -1,13 +1,13 @@
-# state-memory-mcp
+# @putervision/state-memory-mcp
 
-[![npm version](https://img.shields.io/npm/v/state-memory-mcp.svg)](https://www.npmjs.com/package/state-memory-mcp)
-[![Build Status](https://github.com/LucasArmstrong/state-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasArmstrong/state-memory-mcp/actions/workflows/ci.yml)
-[![License](https://img.shields.io/npm/l/state-memory-mcp.svg)](https://github.com/LucasArmstrong/state-memory-mcp/blob/main/LICENSE)
-[![Node.js Version](https://img.shields.io/node/v/state-memory-mcp.svg)](https://nodejs.org)
+[![npm version](https://img.shields.io/npm/v/@putervision/state-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/state-memory-mcp)
+[![Build Status](https://github.com/putervision/state-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/putervision/state-memory-mcp/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/@putervision/state-memory-mcp.svg)](https://github.com/putervision/state-memory-mcp/blob/main/LICENSE)
+[![Node.js Version](https://img.shields.io/node/v/@putervision/state-memory-mcp.svg)](https://nodejs.org)
 
-`state-memory-mcp` is a zero-infrastructure, deterministic Model Context Protocol (MCP) server that provides AI agents with a structured, persistent graph for tracking workflow state—tasks, decisions, artifacts, plans, blockers, and their semantic relationships.
+`@putervision/state-memory-mcp` is a zero-infrastructure, deterministic Model Context Protocol (MCP) server that provides AI agents with a structured, persistent graph for tracking workflow state—tasks, decisions, artifacts, plans, blockers, and their semantic relationships.
 
-By using `state-memory-mcp`, your AI coding assistant (such as Cursor, Claude Code, Gemini, or Copilot) maintains long-term project coherence, manages complex dependencies, and audits architectural decisions across sessions.
+By using `@putervision/state-memory-mcp`, your AI coding assistant (such as Cursor, Claude Code, Gemini, or Copilot) maintains long-term project coherence, manages complex dependencies, and audits architectural decisions across sessions.
 
 ---
 
@@ -32,11 +32,11 @@ AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within stric
 
 * **🧠 Cognitive Externalization**: Grounded in Cognitive Load Theory, this offloads the agent's extraneous load ($CL_E$). By relocating state from the model's weights and active context window into SQLite, it converts complex recall tasks into simple recognition tasks. Only the active node's schema and target variables are paged into context, preserving attention budget.
 * **🚀 Faster Agent Executions**: Instead of running expensive, multi-step text search loops or file scans to figure out what to do next, agents can query `get_project_summary` or `find_blockers` in milliseconds. They immediately understand current blockers, goals, and outstanding tasks, reducing end-to-end execution latency by **67% to 74%** in multi-agent workflows.
-* **📉 Massive Token Savings**: Storing logs, decisions, and task statuses in chat prompts wastes tokens on every turn. With `state-memory-mcp`, agents keep this state offloaded in a local SQLite database, fetching only relevant subgraphs when needed. This reduces context bloat and reduces API costs by **128× to 462×** when utilizing compiled trajectory models.
+* **📉 Massive Token Savings**: Storing logs, decisions, and task statuses in chat prompts wastes tokens on every turn. With `state-memory-mcp`, agents keep this state offloaded in a local SQLite database, fetching only relevant subgraphs when needed. This reduces context bloat and API costs by **128× to 462×** when utilizing compiled trajectory models.
 * **🎯 Increased Quality of Responses**: Hallucinations and duplicate work happen when agents forget past context. A branch-aware state graph provides agents with a single, clear source of truth for all architectural decisions, milestones, and task requirements. Agents write better code because they always know *why* a decision was made.
 * **🔒 First-Hop Determinism**: Unlike probabilistic vector RAG (cosine similarity), `state-memory-mcp` graph queries use deterministic SQL/CTE traversals. This eliminates the "first-hop" retrieval error that propagates cascading hallucinations down multi-agent execution pipelines.
 * **🔗 Simplified Relationship Modeling**: Relationships are explicitly mapped with typed links (e.g. `blocks`, `produces`, `depends_on`). The server automatically validates dependencies and rejects circular reference loops, maintaining a clean, easily-navigable project structure.
-* **🤝 Supercharged Multi-Agent Collaboration**: When deploying parallel subagents (e.g., one writing code, one running tests, one scanning logs), they lack a shared memory pool. `state-memory-mcp` acts as a local blackboard (Shared Context Store) where all subagents publish decisions, tasks, and blocker updates, ensuring coordinate-level alignment without passing massive chat histories. This limits central LLM invocations to a constant $O(1)$ (Plan + Summarize) instead of scaling linearly $O(N)$ with task steps.
+* **🤝 Supercharged Multi-Agent Collaboration**: When deploying parallel subagents (e.g., one writing code, one running tests, one scanning logs), they lack a shared memory pool. `state-memory-mcp` acts as a local blackboard (Shared Context Store) where all subagents publish decisions, tasks, and blocker updates, ensuring coordination-level alignment without passing massive chat histories. This limits central LLM invocations to a constant $O(1)$ (Plan + Summarize) instead of scaling linearly $O(N)$ with task steps.
 * **📈 Compounding Memory Flywheel**: As you log more tasks, architectural decisions, and observations, the state memory transitions from a simple checklist into a rich repository of project intelligence. Future agents can trace the `decision_trail`, reuse established subgraphs, avoid repeating past failures (recorded as blockers/observations), and instantly query context snapshots to understand code rationale. The more context is recorded, the less onboarding/discovery overhead is required for new agents, creating a compounding productivity flywheel.
 
 ---
@@ -45,7 +45,7 @@ AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within stric
 
 ```bash
 # Install globally
-npm install -g state-memory-mcp
+npm install -g @putervision/state-memory-mcp
 
 # Navigate to your project
 cd your-project
@@ -63,13 +63,13 @@ state-memory-mcp init
 
 ```bash
 # Global install (recommended)
-npm install -g state-memory-mcp
+npm install -g @putervision/state-memory-mcp
 
 # Or use directly with npx (no install)
-npx state-memory-mcp
+npx @putervision/state-memory-mcp
 
 # Or install as a project dev dependency
-npm install --save-dev state-memory-mcp
+npm install --save-dev @putervision/state-memory-mcp
 ```
 
 
@@ -367,7 +367,7 @@ For maximum developer-agent alignment, seed your graph immediately after initial
 * **`query_graph`**: Executes safe, read-only SELECT SQL queries against the underlying database. Sanitized to block dangerous SQLite functions.
   * Inputs: `sql`, `params`, `project`.
 
-### 🧠 Advanced Analytics & Tracing (7 Tools)
+### 🧠 Advanced Analytics & Tracing (8 Tools)
 * **`trace_dependencies`**: Computes recursive upstream (requirements) or downstream (dependents) dependency chains.
   * Inputs: `node_id`, `direction`, `edge_types`, `max_depth`, `project`.
 * **`find_blockers`**: Lists active blocker nodes and the tasks/milestones they block.
@@ -518,11 +518,9 @@ The database schema migrations run **automatically** on first run after upgradin
 npm run test
 ```
 
----
+## License & Author
 
-## License & Disclaimer
-
-This project is licensed under the MIT License.
+Developed and maintained by [PuterVision LLC](https://putervision.com). Released under the [MIT License](LICENSE).
 
 ### Limitation of Liability
 

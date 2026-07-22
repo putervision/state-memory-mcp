@@ -37,8 +37,8 @@ export function hasCycle(
   const endId = edgeType === 'blocks' ? targetId : sourceId;
 
   const stmt = db.prepare(`
-    WITH RECURSIVE path(node_id, depth) AS (
-      SELECT ?, 0
+    WITH RECURSIVE path(node_id, depth, visited) AS (
+      SELECT ?, 0, ',' || ? || ','
       UNION
       SELECT 
         CASE 
@@ -46,19 +46,28 @@ export function hasCycle(
           WHEN e.type = 'child_of' AND e.source_id = p.node_id THEN e.target_id
           WHEN e.type = 'blocks' AND e.target_id = p.node_id THEN e.source_id
         END as next_node_id,
-        p.depth + 1
+        p.depth + 1,
+        p.visited || (CASE 
+          WHEN e.type = 'depends_on' AND e.source_id = p.node_id THEN e.target_id
+          WHEN e.type = 'child_of' AND e.source_id = p.node_id THEN e.target_id
+          WHEN e.type = 'blocks' AND e.target_id = p.node_id THEN e.source_id
+        END) || ','
       FROM path p
       JOIN edges e ON (
         (e.type = 'depends_on' AND e.source_id = p.node_id) OR
         (e.type = 'child_of' AND e.source_id = p.node_id) OR
         (e.type = 'blocks' AND e.target_id = p.node_id)
       )
-      WHERE p.depth < 1000
+      WHERE p.depth < 1000 AND instr(p.visited, ',' || (CASE 
+        WHEN e.type = 'depends_on' AND e.source_id = p.node_id THEN e.target_id
+        WHEN e.type = 'child_of' AND e.source_id = p.node_id THEN e.target_id
+        WHEN e.type = 'blocks' AND e.target_id = p.node_id THEN e.source_id
+      END) || ',') = 0
     )
     SELECT 1 FROM path WHERE node_id = ? LIMIT 1
   `);
 
-  const result = stmt.get(startId, endId);
+  const result = stmt.get(startId, startId, endId);
   return !!result;
 }
 

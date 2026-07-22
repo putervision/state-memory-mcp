@@ -13,6 +13,4 @@ The following versions of `state-memory-mcp` receive security updates:
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within this project, please do not report it via public GitHub issues. Instead, please report it by emailing the maintainers directly or opening a private draft security advisory in the repository.
-
-We will acknowledge your report within 48 hours and provide a detailed response including next steps within 5 business days.
+If you discover a security vulnerability within this project, please do not report it via public GitHub issues. Instead, please report it by emailing security@putervision.com directly or opening a private draft security advisory in the repository.

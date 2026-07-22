@@ -103,6 +103,12 @@ export const INSTRUCTION_TARGETS: InstructionTarget[] = [
   { path: '.windsurfrules', label: 'Windsurf', standalone: false },
 ];
 
+/**
+ * Generates the global AGENTS.md rules template content configured for a specific project.
+ *
+ * @param projectSlug - The project slug identifier.
+ * @returns The formatted AGENTS.md rule block.
+ */
 export function getGlobalRulesTemplate(projectSlug: string): string {
   return `
 <!-- state-memory-mcp:start -->

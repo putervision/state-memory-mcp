@@ -35,8 +35,11 @@ export function mergeProjectDb(params: {
     throw new Error(`Source database file not found: ${resolvedSourcePath}`);
   }
 
-  // 1. Verify structural soundness of source DB
-  let sourceDb: Database.Database;
+  // 1. Verify structural soundness of source DB and read data
+  let sourceNodes: NodeRow[];
+  let sourceEdges: EdgeRow[];
+  let sourceDb: Database.Database | undefined;
+
   try {
     sourceDb = new Database(resolvedSourcePath, { readonly: true });
     const check = sourceDb.pragma('integrity_check') as any[];
@@ -45,7 +48,6 @@ export function mergeProjectDb(params: {
       check.length === 1 &&
       (check[0] === 'ok' || check[0]?.integrity_check === 'ok');
     if (!isOk) {
-      sourceDb.close();
       throw new Error(`Source database integrity check failed: ${JSON.stringify(check)}`);
     }
 
@@ -54,17 +56,22 @@ export function mergeProjectDb(params: {
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('nodes', 'edges')")
       .all();
     if (tables.length < 2) {
-      sourceDb.close();
       throw new Error("Invalid source database: 'nodes' and 'edges' tables must exist.");
     }
+
+    sourceNodes = sourceDb.prepare('SELECT * FROM nodes').all() as NodeRow[];
+    sourceEdges = sourceDb.prepare('SELECT * FROM edges').all() as EdgeRow[];
   } catch (err: any) {
     throw new Error(`Invalid source sqlite database file: ${err.message}`);
+  } finally {
+    if (sourceDb) {
+      try {
+        sourceDb.close();
+      } catch {
+        // Ignore close error on cleanup
+      }
+    }
   }
-
-  // Read all source nodes and edges
-  const sourceNodes = sourceDb.prepare('SELECT * FROM nodes').all() as NodeRow[];
-  const sourceEdges = sourceDb.prepare('SELECT * FROM edges').all() as EdgeRow[];
-  sourceDb.close();
 
   const targetDb = getDb(params.project);
 

@@ -1,10 +1,49 @@
-# Contributing to `state-memory-mcp`
+# 🤝 Contributing to state-memory-mcp
 
-Thank you for your interest in contributing to `state-memory-mcp`! This document outlines the guidelines, codebase architecture, and workflow for developing features, fixing bugs, and improving documentation.
+Thank you for your interest in contributing to `state-memory-mcp`! We welcome bug reports, feature requests, documentation improvements, and code contributions. This document outlines the guidelines, codebase architecture, and workflow for developing features, fixing bugs, and improving documentation.
 
 ---
 
-## Codebase Architecture
+## 🛠️ Prerequisites
+
+Before you begin, ensure you have the following installed locally:
+
+- **Node.js**: `v18.0.0` or higher (`node -v`)
+- **npm**: `v9.0.0` or higher (`npm -v`)
+- **Git**
+
+---
+
+## 🚀 Getting Started
+
+1. **Fork & Clone the Repository**
+
+   ```bash
+   git clone https://github.com/putervision/state-memory-mcp.git
+   cd state-memory-mcp
+   ```
+
+2. **Install Dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Build the Project**
+
+   ```bash
+   npm run build
+   ```
+
+4. **Run Unit Tests**
+
+   ```bash
+   npm test
+   ```
+
+---
+
+## 🏗️ Codebase Architecture
 
 The project is structured with a single-responsibility architecture:
 
@@ -17,7 +56,7 @@ The project is structured with a single-responsibility architecture:
   - `src/handlers/graph.ts`: Handlers for subgraphing, backups, raw queries, template scaffolding, and graph validation.
   - `src/handlers/analytics.ts`: Handlers for tracing, blockers, summary, paths, metrics, and staleness detection.
   - `src/handlers/session.ts`: Handlers for session start/end, event logs, rollback, and event pruning.
-  - `src/handlers/snapshot.ts`: Handlers for snapshots save/list/diff and trajectory exports.
+  - `src/handlers/snapshot.ts`: Handlers for snapshot save/list/diff and trajectory exports.
   - `src/handlers/batch.ts`: Handlers for batch updates and adding observation notes.
   - `src/handlers/helper.ts`: Shared helper functions like schema arguments parsing.
   - `src/handlers/index.ts`: Aggregates and exports the unified `toolHandlers` dispatch map.
@@ -53,7 +92,43 @@ The project is structured with a single-responsibility architecture:
 
 ---
 
-## How to Add a New Tool
+## 🧪 Development Workflow & Quality Commands
+
+When making changes, always run the quality check commands before creating a pull request:
+
+| Command                | Action                                                               |
+| ---------------------- | -------------------------------------------------------------------- |
+| `npm run dev`          | Watch mode build with `tsup`                                         |
+| `npm run build`        | Bundle ESM output and generate `.d.ts` declaration files             |
+| `npm run typecheck`    | Strict TypeScript validation without emitting files (`tsc --noEmit`) |
+| `npm run lint`         | Run ESLint checks across TypeScript source files                     |
+| `npm test`             | Run the Vitest unit test suite                                       |
+| `npm run test:watch`   | Run Vitest unit tests in interactive watch mode                      |
+| `npm run test:coverage`| Run Vitest unit tests with coverage reporting                        |
+| `npm run format`       | Auto-format files using Prettier                                     |
+| `npm run format:check` | Check code formatting against Prettier rules                         |
+| `npm run ci`           | Run complete CI validation pipeline (format, lint, typecheck, tests) |
+
+---
+
+## 📝 Coding Standards
+
+- **TypeScript Strict Mode**: All code must pass `npm run typecheck` with strict mode enabled.
+- **Formatting**: Prettier is configured in `.prettierrc`. Always run `npm run format` prior to committing.
+- **Security**: Do not write raw SQLite queries using unescaped string inputs—always use parameterized queries (`?`).
+- **Async Handling**: Handle promise rejections gracefully and log errors through `logger`.
+
+---
+
+## 🧪 Writing Tests
+
+- Unit and integration test files are located in the `tests/` directory (`tests/engine/`, `tests/integration/`, `tests/security/`).
+- Run `npm test` or `npm run test:watch` while developing.
+- Ensure any new MCP tools or engine methods include unit tests verifying success and failure edge cases.
+
+---
+
+## 🛠️ How to Add a New Tool
 
 To introduce a new Model Context Protocol tool to `state-memory-mcp`, follow these steps:
 
@@ -83,10 +158,9 @@ export class GraphEngine {
 }
 ```
 
-### 3. Register the Tool in the MCP Server
-Open `src/server.ts` and perform two additions:
+### 3. Register Tool Schema and Handler
 
-1. **List the tool** in the `ListToolsRequestSchema` response array:
+1. **Declare the tool schema** in `src/server.ts` under the `ListToolsRequestSchema` response array:
 ```typescript
       {
         name: 'my_new_tool',
@@ -103,7 +177,7 @@ Open `src/server.ts` and perform two additions:
       },
 ```
 
-2. **Register the handler** in the `toolHandlers` mapping object:
+2. **Implement the tool handler** in the appropriate module under `src/handlers/` (e.g. `src/handlers/node.ts`, `src/handlers/graph.ts`, etc.) and ensure it is exported through `src/handlers/index.ts`:
 ```typescript
   my_new_tool: (args) => {
     const data = parseArgs(MyNewToolSchema, args);
@@ -115,21 +189,27 @@ Open `src/server.ts` and perform two additions:
 1. Write a new unit test file in `tests/engine/` or append tests to verify the tool's behavior.
 2. Verify that everything builds, lints, and compiles without warnings:
 ```bash
-npm run lint
-npx tsc --noEmit
-npm run build
-npm test
+npm run ci
 ```
 
 ---
 
-## Submission Guidelines
+## 📬 Submitting a Pull Request (PR)
 
-1. **Create a Branch**: Create a descriptive feature branch from the `main` branch.
+1. **Create a Branch**: Create a descriptive feature branch from the `main` branch:
    ```bash
-   git checkout -b feature/your-feature-name
+   git checkout -b feature/my-cool-feature
    ```
 2. **Commit Conventions**: We follow conventional commit styles (e.g. `feat: add my_new_tool`, `fix: handle empty backups`).
 3. **Write Tests**: Ensure any new features or bug fixes are covered by appropriate Vitest unit/integration tests in the `tests/` directory.
-4. **Build & Verify**: Confirm that the code builds and linting and formatting checks pass.
-5. **Open a Pull Request**: Submit your pull request to the `main` branch of the upstream repository.
+4. **Build & Verify**: Confirm that the code builds and automated checks pass:
+   ```bash
+   npm run ci
+   ```
+5. **Open a Pull Request**: Push your branch to GitHub and submit your pull request to the `main` branch.
+
+---
+
+## 📄 License
+
+By contributing, you agree that your contributions will be licensed under the project's [MIT License](LICENSE).

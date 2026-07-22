@@ -14,11 +14,16 @@
   --accent-indigo: #6366f1;
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+  --text-muted: #767d8a;
   --border-color: rgba(255, 255, 255, 0.08);
   --glass-bg: rgba(17, 24, 39, 0.7);
   --glass-border: rgba(255, 255, 255, 0.05);
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+a:focus-visible, button:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 3px;
 }
 
 body {
@@ -395,6 +400,15 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 1.2rem;
   font-weight: 700;
   margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feature-card h3 span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .feature-card p {
@@ -563,4 +577,27 @@ footer {
   border-radius: 4px;
   font-family: monospace;
   font-size: 0.8rem;
+}
+
+/* Mobile & Tablet Responsiveness */
+@media (max-width: 768px) {
+  header {
+    padding: 1.5rem 1.5rem;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .nav-links {
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .hero h1 {
+    font-size: 2.5rem;
+  }
+
+  .hero p {
+    font-size: 1.05rem;
+  }
 }

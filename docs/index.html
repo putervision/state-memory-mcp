@@ -1,48 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>state-memory-mcp — Developer Workflow State Memory MCP Server</title>
-  <meta name="description" content="Persistent state graph for LLM-driven software development. Track tasks, decisions, blockers, artifacts, and plans to prevent context-switching and token overhead.">
-  
+  <title>state-memory-mcp — Persistent Workflow State Memory MCP Server</title>
+  <meta name="description"
+    content="Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, and blockers.">
+  <meta name="keywords"
+    content="mcp, model context protocol, state memory, state-memory-mcp, ai agents, cursor, claude code, sqlite, workflow graph, dependency graph, context optimization">
+  <meta name="author" content="PuterVision LLC">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#0b0f19">
+
+  <!-- Canonical Link -->
+  <link rel="canonical" href="https://putervision.github.io/state-memory-mcp/">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+
+  <!-- Open Graph / Social Cards -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="state-memory-mcp">
+  <meta property="og:title" content="state-memory-mcp — Persistent Workflow State Memory MCP Server">
+  <meta property="og:description"
+    content="Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, and blockers.">
+  <meta property="og:url" content="https://putervision.github.io/state-memory-mcp/">
+  <meta property="og:image" content="https://putervision.github.io/state-memory-mcp/viewer-screenshot.png">
+
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="state-memory-mcp — Persistent Workflow State Memory MCP Server">
+  <meta name="twitter:description"
+    content="Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, and blockers.">
+  <meta name="twitter:image" content="https://putervision.github.io/state-memory-mcp/viewer-screenshot.png">
+
+  <!-- Structured Data / JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "@putervision/state-memory-mcp",
+    "operatingSystem": "Cross-platform (Node.js >= 18)",
+    "applicationCategory": "DeveloperApplication",
+    "description": "Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI agents with persistent workflow state memory in SQLite.",
+    "softwareVersion": "0.4.6",
+    "screenshot": "https://putervision.github.io/state-memory-mcp/viewer-screenshot.png",
+    "url": "https://github.com/putervision/state-memory-mcp",
+    "license": "https://opensource.org/licenses/MIT",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "PuterVision LLC",
+      "url": "https://putervision.com"
+    }
+  }
+  </script>
+
   <!-- Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-  
+
   <div class="glow-backdrop"></div>
   <div class="glow-backdrop-2"></div>
-  
+
   <header>
     <div class="logo">
       state-memory-mcp
     </div>
-    <ul class="nav-links">
-      <li><a href="#features">Features</a></li>
-      <li><a href="#calculator">ROI Calculator</a></li>
-      <li><a href="#spec">Spec Compliance</a></li>
-      <li><a href="#quickstart">Quickstart</a></li>
-    </ul>
-    <a href="https://github.com/LucasArmstrong/state-memory-mcp" class="btn-github" target="_blank" rel="noopener noreferrer">
+    <nav aria-label="Main Navigation">
+      <ul class="nav-links">
+        <li><a href="#why">Why State Memory</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#calculator">ROI Calculator</a></li>
+        <li><a href="#spec">Spec Compliance</a></li>
+        <li><a href="#quickstart">Quickstart</a></li>
+      </ul>
+    </nav>
+    <a href="https://github.com/putervision/state-memory-mcp" class="btn-github" target="_blank"
+      rel="noopener noreferrer">
       <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+        <path
+          d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z">
+        </path>
       </svg>
       GitHub
     </a>
   </header>
-  
+
   <main class="container">
-    
+
     <!-- Hero Section -->
     <section class="hero">
-      <span class="badge">Production Ready v0.3.3</span>
+      <span class="badge">Production Ready v0.4.6</span>
       <h1>State Memory MCP</h1>
-      <p>A deterministic, persistent workflow state graph server for AI agents. Track tasks, design decisions, and blockers locally to supercharge agent context and prevent session token memory bloat.</p>
+      <p>A deterministic, persistent workflow state graph server for AI agents. Track tasks, design decisions, and
+        blockers locally to supercharge agent context and prevent session token memory bloat.</p>
       <div class="cta-group">
         <a href="#quickstart" class="btn-primary">Get Started</a>
         <a href="#calculator" class="btn-secondary">Calculate ROI</a>
@@ -52,74 +115,94 @@
     <!-- Viewer Showcase Section -->
     <section class="viewer-showcase">
       <div class="viewer-preview-container">
-        <img src="viewer-screenshot.png" alt="State Memory MCP 3D Force-Directed Graph Viewer" class="viewer-preview-img">
+        <img src="viewer-screenshot.png"
+          alt="Interactive 3D Force-Directed Graph Visualizer for state-memory-mcp showing node dependencies and task state graph"
+          loading="eager" width="1000" height="562" class="viewer-preview-img">
         <div class="viewer-caption">
           <span>Interactive 3D Force-Directed Graph Visualizer</span>
           <code>state-memory-mcp view</code>
         </div>
       </div>
     </section>
-    
+
     <!-- Value Proposition Section -->
-    <section class="features-section" style="padding: 3rem 0;">
+    <section id="why" class="features-section" style="padding: 3rem 0;">
       <div class="section-title">
         <h2>💡 Why State Memory MCP?</h2>
-        <p>Offload your development state from the agent's chat history into a structured, high-performance local database.</p>
+        <p>Offload your development state from the agent's chat history into a structured, high-performance local
+          database.</p>
       </div>
       <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(16, 185, 129, 0.1); color: #34d399;">🧠</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Cognitive Externalization</h3>
-          <p style="font-size: 0.9rem;">Separates intrinsic task complexity from presentation clutter. Relocates state to SQLite, turning recall into simple recognition.</p>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🧠</span> Cognitive Externalization
+          </h3>
+          <p style="font-size: 0.9rem;">Separates intrinsic task complexity from presentation clutter. Relocates state
+            to SQLite, turning recall into simple recognition.</p>
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(16, 185, 129, 0.1); color: #34d399;">🚀</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Faster Agent Executions</h3>
-          <p style="font-size: 0.9rem;">Eliminates expensive search loops. Reduces end-to-end execution latency by **67% to 74%** in multi-agent workflows.</p>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🚀</span> Faster Agent Executions
+          </h3>
+          <p style="font-size: 0.9rem;">Eliminates expensive search loops. Reduces end-to-end execution latency by
+            <strong>67% to 74%</strong> in multi-agent workflows.</p>
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(6, 182, 212, 0.1); color: #22d3ee;">📉</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Massive Token Savings</h3>
-          <p style="font-size: 0.9rem;">Keeps history in SQLite. Reduces API usage costs by **128× to 462×** when utilizing compiled trajectory models.</p>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>📉</span> Massive Token Savings
+          </h3>
+          <p style="font-size: 0.9rem;">Keeps history in SQLite. Reduces API usage costs by <strong>128× to 462×</strong> when
+            utilizing compiled trajectory models.</p>
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(99, 102, 241, 0.1); color: #a5b4fc;">🎯</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Higher Response Quality</h3>
-          <p style="font-size: 0.9rem;">Provides a branch-aware, single source of truth for architectural decisions. Prevents agent hallucinations and redundant work.</p>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🎯</span> Higher Response Quality
+          </h3>
+          <p style="font-size: 0.9rem;">Provides a branch-aware, single source of truth for architectural decisions.
+            Prevents agent hallucinations and redundant work.</p>
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(99, 102, 241, 0.1); color: #a5b4fc;">🔒</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">First-Hop Determinism</h3>
-          <p style="font-size: 0.9rem;">Graph queries use deterministic SQL, not probabilistic vector search, avoiding cascading hallucination loops.</p>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🔒</span> First-Hop Determinism
+          </h3>
+          <p style="font-size: 0.9rem;">Graph queries use deterministic SQL, not probabilistic vector search, avoiding
+            cascading hallucination loops.</p>
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(236, 72, 153, 0.1); color: #f472b6;">🔗</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Simplified Relationships</h3>
-          <p style="font-size: 0.9rem;">Defines precise task, decision, and blocker relationships with automatic cycle rejection to guarantee a clean graph structure.</p>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🔗</span> Simplified Relationships
+          </h3>
+          <p style="font-size: 0.9rem;">Defines precise task, decision, and blocker relationships with automatic cycle
+            rejection to guarantee a clean graph structure.</p>
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(139, 92, 246, 0.1); color: #a78bfa;">🤝</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Multi-Agent Blackboard</h3>
-          <p style="font-size: 0.9rem;">Limits central LLM invocations to O(1) instead of O(N) by letting parallel subagents update and sync state directly on SQLite.</p>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🤝</span> Multi-Agent Blackboard
+          </h3>
+          <p style="font-size: 0.9rem;">Limits central LLM invocations to O(1) instead of O(N) by letting parallel
+            subagents update and sync state directly on SQLite.</p>
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(251, 191, 36, 0.1); color: #fbbf24;">📈</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Compounding Flywheel</h3>
-          <p style="font-size: 0.9rem;">Accumulating decisions and historical tasks builds deep project context. Future agents onboard faster and avoid repeating past design pitfalls.</p>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>📈</span> Compounding Flywheel
+          </h3>
+          <p style="font-size: 0.9rem;">Accumulating decisions and historical tasks builds deep project context. Future
+            agents onboard faster and avoid repeating past design pitfalls.</p>
         </div>
       </div>
     </section>
-    
+
     <!-- ROI Calculator Section -->
     <section id="calculator" class="calculator-section">
       <div class="section-title">
         <h2>📊 Workflow Value & ROI Estimator</h2>
-        <p>Lays out the ballpark value, tokens saved, and developer time recovered by persisting project workflow state graphs.</p>
+        <p>Lays out the ballpark value, tokens saved, and developer time recovered by persisting project workflow state
+          graphs.</p>
       </div>
-      
+
       <div class="card calc-grid">
         <div class="calc-inputs">
-          
+
           <div class="slider-group">
             <div class="slider-header">
               <span class="slider-label">Accepted Design Decisions (Avoided Context Switches)</span>
@@ -127,7 +210,7 @@
             </div>
             <input type="range" id="input-decisions" min="0" max="100" value="10">
           </div>
-          
+
           <div class="slider-group">
             <div class="slider-header">
               <span class="slider-label">Structural Dependencies Mapped (Avoided Manual Lookups)</span>
@@ -135,7 +218,7 @@
             </div>
             <input type="range" id="input-dependencies" min="0" max="250" value="25">
           </div>
-          
+
           <div class="slider-group">
             <div class="slider-header">
               <span class="slider-label">Blockers Logged & Resolved (Avoided Stall Times)</span>
@@ -143,7 +226,7 @@
             </div>
             <input type="range" id="input-blockers" min="0" max="50" value="5">
           </div>
-          
+
           <div class="slider-group">
             <div class="slider-header">
               <span class="slider-label">Average Graph Size (Captured Context Tokens)</span>
@@ -151,7 +234,7 @@
             </div>
             <input type="range" id="input-tokensize" min="500" max="20000" step="500" value="4000">
           </div>
-          
+
           <div class="slider-group">
             <div class="slider-header">
               <span class="slider-label">Development Sessions (Reused Context Across Sessions)</span>
@@ -163,7 +246,8 @@
             <div class="slider-header">
               <span class="slider-label">Target LLM Model (For Cost Savings)</span>
             </div>
-            <select id="select-model" style="width: 100%; padding: 0.6rem; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); font-family: var(--font-sans); outline: none;">
+            <select id="select-model"
+              style="width: 100%; padding: 0.6rem; border-radius: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); font-family: var(--font-sans); outline: none;">
               <option value="15.00">Claude 3 Opus / OpenAI o1 ($15.00 / M tokens)</option>
               <option value="10.00">Claude 3.5 / 4.6 Opus ($10.00 / M tokens)</option>
               <option value="3.00">Claude 3.5 Sonnet ($3.00 / M tokens)</option>
@@ -175,98 +259,113 @@
               <option value="0.075">Gemini 1.5 Flash ($0.075 / M tokens)</option>
             </select>
           </div>
-          
+
         </div>
-        
+
         <div class="results-card card">
           <div class="result-metric">
             <div class="metric-label">Estimated Developer Time Saved</div>
             <div class="metric-value" id="res-time">3.0 <span>hours</span></div>
           </div>
-          
+
           <div class="result-metric">
             <div class="metric-label">Estimated Session Tokens Saved</div>
             <div class="metric-value" id="res-tokens">32,000 <span>tokens</span></div>
           </div>
-          
+
           <div class="result-metric" style="margin-bottom: 1.5rem;">
             <div class="metric-label">Estimated API Cost Saved</div>
             <div class="metric-value" id="res-cost">$0.10</div>
           </div>
-          
+
           <div class="badge-roi" id="res-tier">
             Moderate ROI
           </div>
         </div>
       </div>
     </section>
-    
+
     <!-- State Memory Anatomy Section -->
     <section class="features-section" style="padding: 4rem 0;">
       <div class="section-title">
         <h2>🧱 Anatomy of the Workflow State Memory</h2>
         <p>A strongly-typed, SQLite-backed vocabulary designed to represent software development states.</p>
       </div>
-      
+
       <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);">📋</div>
-          <h3>Nodes (Entity Types)</h3>
-          <p style="margin-bottom: 1rem; color: var(--text-secondary);">The 7 nodes that structure your workspace context:</p>
+          <h3>
+            <span>📋</span> Nodes (Entity Types)
+          </h3>
+          <p style="margin-bottom: 1rem; color: var(--text-secondary);">The 7 nodes that structure your workspace
+            context:</p>
           <ul class="spec-list" style="text-align: left;">
             <li class="spec-item"><strong>Task</strong>: Active developer TODOs and checklist checkpoints.</li>
-            <li class="spec-item"><strong>Decision</strong>: Architectural choices, trade-offs, and design rationale.</li>
+            <li class="spec-item"><strong>Decision</strong>: Architectural choices, trade-offs, and design rationale.
+            </li>
             <li class="spec-item"><strong>Artifact</strong>: Output files, packages, database schemas, and configs.</li>
-            <li class="spec-item"><strong>Plan</strong>: Multi-phase roadmaps and feature implementation specifications.</li>
+            <li class="spec-item"><strong>Plan</strong>: Multi-phase roadmaps and feature implementation specifications.
+            </li>
             <li class="spec-item"><strong>Blocker</strong>: Active bugs or missing dependencies stalling progress.</li>
             <li class="spec-item"><strong>Milestone</strong>: Groups of related tasks representing progress stages.</li>
             <li class="spec-item"><strong>Observation</strong>: General discoveries, runtime behaviors, and notes.</li>
           </ul>
         </div>
-        
+
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
-          <div class="feature-icon" style="background: rgba(236, 72, 153, 0.1); color: #ec4899;">🔗</div>
-          <h3>Edges (Relationship Mappings)</h3>
-          <p style="margin-bottom: 1rem; color: var(--text-secondary);">Connects workflow nodes via explicit semantic relationships:</p>
+          <h3>
+            <span>🔗</span> Edges (Relationship Mappings)
+          </h3>
+          <p style="margin-bottom: 1rem; color: var(--text-secondary);">Connects workflow nodes via explicit semantic
+            relationships:</p>
           <ul class="spec-list" style="text-align: left;">
             <li class="spec-item"><strong>depends_on</strong>: Direct node-to-node dependency.</li>
             <li class="spec-item"><strong>blocks / produces</strong>: Declares blockers or generated files.</li>
             <li class="spec-item"><strong>references / updates</strong>: Relates code/docs or replaces decisions.</li>
             <li class="spec-item"><strong>contradicts</strong>: Flags conflicting decisions or code states.</li>
             <li class="spec-item"><strong>part_of / child_of</strong>: Hierarchical plan and milestone nesting.</li>
-            <li class="spec-item"><strong>implements / decided_in</strong>: Links tasks to specifications or decisions.</li>
+            <li class="spec-item"><strong>implements / decided_in</strong>: Links tasks to specifications or decisions.
+            </li>
           </ul>
         </div>
       </div>
     </section>
 
     <!-- Advanced Graph Capabilities Section -->
-    <section class="features-section" style="padding: 3rem 0; background: rgba(255, 255, 255, 0.01); border-radius: 20px; border: 1px solid var(--border-color);">
+    <section class="features-section">
       <div class="section-title">
         <h2>🧠 Advanced Graph Analytics</h2>
         <p>Empowers agents to perform complex, automated analysis over your workspace state.</p>
       </div>
-      
-      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); padding: 0 2rem 2rem;">
-        <div class="card feature-card" style="background: transparent; border: none; box-shadow: none;">
-          <div class="feature-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">🧭</div>
-          <h3>Critical Path Analysis</h3>
-          <p style="font-size: 0.9rem;">Finds the exact chain of uncompleted, blocking tasks delaying a milestone so agents can prioritize resolving them.</p>
+
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🧭</span> Critical Path Analysis
+          </h3>
+          <p style="font-size: 0.9rem;">Finds the exact chain of uncompleted, blocking tasks delaying a milestone so
+            agents can prioritize resolving them.</p>
         </div>
-        <div class="card feature-card" style="background: transparent; border: none; box-shadow: none;">
-          <div class="feature-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">💥</div>
-          <h3>Blast Radius Analysis</h3>
-          <p style="font-size: 0.9rem;">Calculates the downstream impact of changing an artifact, task, or architectural decision before editing code.</p>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>💥</span> Blast Radius Analysis
+          </h3>
+          <p style="font-size: 0.9rem;">Calculates the downstream impact of changing an artifact, task, or architectural
+            decision before editing code.</p>
         </div>
-        <div class="card feature-card" style="background: transparent; border: none; box-shadow: none;">
-          <div class="feature-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">🔍</div>
-          <h3>Contradiction Audits</h3>
-          <p style="font-size: 0.9rem;">Scans the database for anomalies, such as completed tasks with active blockers or contradicting accepted decisions.</p>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🔍</span> Contradiction Audits
+          </h3>
+          <p style="font-size: 0.9rem;">Scans the database for anomalies, such as completed tasks with active blockers
+            or contradicting accepted decisions.</p>
         </div>
-        <div class="card feature-card" style="background: transparent; border: none; box-shadow: none;">
-          <div class="feature-icon" style="background: rgba(99, 102, 241, 0.1); color: #818cf8;">🗺️</div>
-          <h3>Decision Trails</h3>
-          <p style="font-size: 0.9rem;">Traces the historical lineage of updates and contradictions to reconstruct the "why" behind old design choices.</p>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🗺️</span> Decision Trails
+          </h3>
+          <p style="font-size: 0.9rem;">Traces the historical lineage of updates and contradictions to reconstruct the
+            "why" behind old design choices.</p>
         </div>
       </div>
     </section>
@@ -275,24 +374,31 @@
     <section class="features-section" style="padding: 3rem 0;">
       <div class="section-title">
         <h2>⚡ Research-Backed Performance</h2>
-        <p>State-graph-driven Model Context Protocol architectures yield massive, measured improvements in production environments.</p>
+        <p>State-graph-driven Model Context Protocol architectures yield massive, measured improvements in production
+          environments.</p>
       </div>
-      
+
       <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
-        <div class="card feature-card" style="text-align: center; border-color: rgba(52, 211, 153, 0.2); background: rgba(52, 211, 153, 0.02);">
+        <div class="card feature-card"
+          style="text-align: center; border-color: rgba(52, 211, 153, 0.2); background: rgba(52, 211, 153, 0.02);">
           <div style="font-size: 3rem; font-weight: 800; color: #34d399; margin-bottom: 0.5rem;">67% - 74%</div>
           <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Latency Reduction</h3>
-          <p style="font-size: 0.9rem; color: var(--text-secondary);">Direct server-to-server updates bypass latency-inducing round-trips to the central model.</p>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">Direct server-to-server updates bypass
+            latency-inducing round-trips to the central model.</p>
         </div>
-        <div class="card feature-card" style="text-align: center; border-color: rgba(34, 211, 238, 0.2); background: rgba(34, 211, 238, 0.02);">
+        <div class="card feature-card"
+          style="text-align: center; border-color: rgba(34, 211, 238, 0.2); background: rgba(34, 211, 238, 0.02);">
           <div style="font-size: 3rem; font-weight: 800; color: #22d3ee; margin-bottom: 0.5rem;">128x - 462x</div>
           <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Cost Savings</h3>
-          <p style="font-size: 0.9rem; color: var(--text-secondary);">Using trajectory event logs to compile procedures into smaller, local models lowers API usage costs.</p>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">Using trajectory event logs to compile procedures
+            into smaller, local models lowers API usage costs.</p>
         </div>
-        <div class="card feature-card" style="text-align: center; border-color: rgba(167, 139, 250, 0.2); background: rgba(167, 139, 250, 0.02);">
+        <div class="card feature-card"
+          style="text-align: center; border-color: rgba(167, 139, 250, 0.2); background: rgba(167, 139, 250, 0.02);">
           <div style="font-size: 3rem; font-weight: 800; color: #a78bfa; margin-bottom: 0.5rem;">O(1)</div>
           <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Central Model Invocations</h3>
-          <p style="font-size: 0.9rem; color: var(--text-secondary);">Limits central planner calls to just start (Plan) and end (Summarize), preventing context decay.</p>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">Limits central planner calls to just start (Plan)
+            and end (Summarize), preventing context decay.</p>
         </div>
       </div>
       <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem;">
@@ -306,52 +412,65 @@
         <h2>🛠️ Core Features</h2>
         <p>A zero-infrastructure, deterministic framework built for AI coding assistants.</p>
       </div>
-      
-      <div class="features-grid">
-        <div class="card feature-card">
-          <div class="feature-icon">⛓️</div>
-          <h3>Deterministic Logic</h3>
-          <p>No LLM hallucination in data retrieval. Every node CRUD operation, cycle check, and lookup is written in plain SQL/JavaScript.</p>
+
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>⛓️</span> Deterministic Logic
+          </h3>
+          <p style="font-size: 0.9rem;">No LLM hallucination in data retrieval. Every node CRUD operation, cycle check,
+            and lookup is written in plain SQL/JavaScript.</p>
         </div>
-        <div class="card feature-card">
-          <div class="feature-icon">🛡️</div>
-          <h3>Path & SQL Sanitization</h3>
-          <p>Strict path resolve guards prevent file access escaping the workspace, and regex filters block administrative SQLite queries.</p>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🛡️</span> Path & SQL Sanitization
+          </h3>
+          <p style="font-size: 0.9rem;">Strict path resolve guards prevent file access escaping the workspace, and regex
+            filters block administrative SQLite queries.</p>
         </div>
-        <div class="card feature-card">
-          <div class="feature-icon">🌲</div>
-          <h3>Git Branch Awareness</h3>
-          <p>Dynamically isolates node tasks and planning logs depending on the checked out git branch, preventing main branch noise.</p>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🌲</span> Git Branch Awareness
+          </h3>
+          <p style="font-size: 0.9rem;">Dynamically isolates node tasks and planning logs depending on the checked out
+            git branch, preventing main branch noise.</p>
         </div>
-        <div class="card feature-card">
-          <div class="feature-icon">🕶️</div>
-          <h3>3D WebGL Visualization</h3>
-          <p>Instantly launch interactive 360-degree dark mode force-directed graphs in your default web browser to inspect node links visually.</p>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🕶️</span> 3D WebGL Visualization
+          </h3>
+          <p style="font-size: 0.9rem;">Instantly launch interactive 360-degree dark mode force-directed graphs in your
+            default web browser to inspect node links visually.</p>
         </div>
-        <div class="card feature-card">
-          <div class="feature-icon">📜</div>
-          <h3>Event Audit Trail</h3>
-          <p>Every node/edge change is logged to an append-only events table with before/after state snapshots and chronological node history.</p>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>📜</span> Event Audit Trail
+          </h3>
+          <p style="font-size: 0.9rem;">Every node/edge change is logged to an append-only events table with
+            before/after state snapshots and chronological node history.</p>
         </div>
-        <div class="card feature-card">
-          <div class="feature-icon">🔐</div>
-          <h3>Session Identity</h3>
-          <p>Track sessions with agent identity and custom metadata to verify provenance and see who performed what change when.</p>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🔐</span> Session Identity
+          </h3>
+          <p style="font-size: 0.9rem;">Track sessions with agent identity and custom metadata to verify provenance and
+            see who performed what change when.</p>
         </div>
       </div>
     </section>
-    
+
     <!-- Spec Compliance Section -->
     <section id="spec" class="spec-section">
       <div class="section-title">
         <h2>🔌 Full MCP Specification Compliance</h2>
         <p>Equipped with complete spec features including annotations, resources, and custom prompts.</p>
       </div>
-      
+
       <div class="spec-grid">
         <div class="card">
           <h3>📁 Exposed Graph Resources</h3>
-          <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Provides read-only contexts using RFC 6570 templates under the <code>state-memory:///</code> URI scheme:</p>
+          <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Provides read-only contexts using RFC 6570
+            templates under the <code>state-memory:///</code> URI scheme:</p>
           <ul class="spec-list">
             <li class="spec-item">
               <h4>state-memory:///{project}/summary</h4>
@@ -375,14 +494,16 @@
             </li>
           </ul>
         </div>
-        
+
         <div class="card">
           <h3>💬 Reusable Prompts</h3>
-          <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Template instructions that automatically fetch state data to bootstrap workflows:</p>
+          <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">Template instructions that automatically fetch
+            state data to bootstrap workflows:</p>
           <ul class="spec-list">
             <li class="spec-item">
               <h4>session-start</h4>
-              <p>Bootstraps your coding agent with current project summary, blockers list, and immediate pending tasks.</p>
+              <p>Bootstraps your coding agent with current project summary, blockers list, and immediate pending tasks.
+              </p>
             </li>
             <li class="spec-item">
               <h4>plan-feature</h4>
@@ -396,7 +517,7 @@
         </div>
       </div>
     </section>
-    
+
     <!-- Client Configuration Section -->
     <section id="config" class="spec-section" style="padding: 2rem 0;">
       <div class="section-title">
@@ -407,9 +528,11 @@
         <div class="card">
           <h3>👽 Google Antigravity</h3>
           <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1rem;">
-            Add to global <code>~/.gemini/antigravity/settings.json</code> or workspace <code>.agents/settings.json</code>:
+            Add to global <code>~/.gemini/antigravity/settings.json</code> or workspace
+            <code>.agents/settings.json</code>:
           </p>
-          <pre style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border-color); color: #10b981; overflow-x: auto; text-align: left;">{
+          <pre
+            style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border-color); color: #10b981; overflow-x: auto; text-align: left;">{
   "mcpServers": {
     "state-memory-mcp": {
       "command": "state-memory-mcp",
@@ -423,7 +546,8 @@
           <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1rem;">
             Add to your project-local <code>.cursor/mcp.json</code> or <code>.vscode/mcp.json</code>:
           </p>
-          <pre style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border-color); color: #818cf8; overflow-x: auto; text-align: left;">{
+          <pre
+            style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border-color); color: #818cf8; overflow-x: auto; text-align: left;">{
   "mcpServers": {
     "state-memory-mcp": {
       "command": "state-memory-mcp",
@@ -441,39 +565,43 @@
         <h2>🚀 Quickstart</h2>
         <p>Get state-memory-mcp configured globally in 10 seconds.</p>
       </div>
-      
+
       <div style="max-width: 600px; margin: 0 auto;">
-        
-        <h3>1. Install state-memory-mcp globally</h3>
+
+        <h3>1. Install @putervision/state-memory-mcp globally</h3>
         <div class="code-container">
-          <span class="code-text">npm install -g state-memory-mcp</span>
-          <button class="btn-copy" onclick="copyToClipboard('npm install -g state-memory-mcp')">Copy</button>
+          <span class="code-text">npm install -g @putervision/state-memory-mcp</span>
+          <button class="btn-copy" onclick="copyToClipboard('npm install -g @putervision/state-memory-mcp')">Copy</button>
         </div>
-        
+
         <h3>2. Initialize inside your project repository</h3>
         <div class="code-container">
           <span class="code-text">state-memory-mcp init</span>
           <button class="btn-copy" onclick="copyToClipboard('state-memory-mcp init')">Copy</button>
         </div>
-        
+
         <h3>3. Display value metrics from CLI</h3>
         <div class="code-container">
           <span class="code-text">state-memory-mcp metrics</span>
           <button class="btn-copy" onclick="copyToClipboard('state-memory-mcp metrics')">Copy</button>
         </div>
-        
+
       </div>
     </section>
-    
+
   </main>
-  
+
   <footer>
-    <p>&copy; 2026 state-memory-mcp. Released under the MIT License.</p>
-    <p style="font-size: 0.75rem; margin-top: 1rem; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.4; color: var(--text-muted);">
-      <strong>Disclaimer:</strong> This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall the authors or contributors be liable for any database corruption, Git history modification, data loss, or other issues resulting from execution. Always backup your database files before performing destructive operations.
+    <p>&copy; 2026 <a href="https://putervision.com" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: none;">PuterVision LLC</a>. Released under the MIT License.</p>
+    <p
+      style="font-size: 0.75rem; margin-top: 1rem; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.4; color: var(--text-muted);">
+      <strong>Disclaimer:</strong> This software is provided "as is", without warranty of any kind, express or implied.
+      Under no circumstances shall the authors or contributors be liable for any database corruption, Git history
+      modification, data loss, or other issues resulting from execution. Always backup your database files before
+      performing destructive operations.
     </p>
   </footer>
-  
+
   <!-- Interactive Calculator Script -->
   <script>
     // Copy function
@@ -482,30 +610,30 @@
         alert('Copied to clipboard!');
       });
     }
-    
+
     // Sliders
     const inputDecisions = document.getElementById('input-decisions');
     const inputDependencies = document.getElementById('input-dependencies');
     const inputBlockers = document.getElementById('input-blockers');
     const inputTokensize = document.getElementById('input-tokensize');
     const inputSessions = document.getElementById('input-sessions');
-    
+
     // Text labels
     const labelDecisions = document.getElementById('val-decisions');
     const labelDependencies = document.getElementById('val-dependencies');
     const labelBlockers = document.getElementById('val-blockers');
     const labelTokensize = document.getElementById('val-tokensize');
     const labelSessions = document.getElementById('val-sessions');
-    
+
     // Output fields
     const resTime = document.getElementById('res-time');
     const resTokens = document.getElementById('res-tokens');
     const resCost = document.getElementById('res-cost');
     const resTier = document.getElementById('res-tier');
-    
+
     // Model selector
     const selectModel = document.getElementById('select-model');
-    
+
     function updateCalculations() {
       const dec = parseInt(inputDecisions.value, 10);
       const dep = parseInt(inputDependencies.value, 10);
@@ -513,27 +641,27 @@
       const tSize = parseInt(inputTokensize.value, 10);
       const sess = parseInt(inputSessions.value, 10);
       const rate = parseFloat(selectModel.value);
-      
+
       // Update values labels
       labelDecisions.innerText = dec;
       labelDependencies.innerText = dep;
       labelBlockers.innerText = blk;
       labelTokensize.innerText = tSize.toLocaleString();
       labelSessions.innerText = sess;
-      
+
       // Math: Time saved (heuristics)
       const minutesSaved = (dec * 10) + (dep * 3) + (blk * 15);
       const hoursSaved = (minutesSaved / 60).toFixed(1);
       resTime.innerHTML = `${hoursSaved} <span>hours</span>`;
-      
+
       // Math: Tokens saved
       const tokensSaved = tSize * sess;
       resTokens.innerHTML = `${tokensSaved.toLocaleString()} <span>tokens</span>`;
-      
+
       // Math: Cost saved
       const costSaved = (tokensSaved / 1000000) * rate;
       resCost.innerHTML = `$${costSaved.toFixed(3)}`;
-      
+
       // Evaluate Tier
       let tier = 'Minimal ROI';
       if (hoursSaved >= 10 || tokensSaved >= 100000) {
@@ -553,7 +681,7 @@
       }
       resTier.innerText = tier;
     }
-    
+
     // Attach listeners
     inputDecisions.addEventListener('input', updateCalculations);
     inputDependencies.addEventListener('input', updateCalculations);
@@ -561,9 +689,10 @@
     inputTokensize.addEventListener('input', updateCalculations);
     inputSessions.addEventListener('input', updateCalculations);
     selectModel.addEventListener('change', updateCalculations);
-    
+
     // Initial calculation
     updateCalculations();
   </script>
 </body>
+
 </html>

@@ -129,6 +129,12 @@ describe('QueryEngine Operations', () => {
       expect(result.total_count).toBe(1);
       expect(result.nodes[0].title).toBe('API Authentication and JWT Routes');
     });
+
+    it('should safely handle queries with colons and special characters without crashing', () => {
+      const result = QueryEngine.searchNodes({ project, query: 'fix: authentication & jwt' });
+      expect(result).toBeDefined();
+      expect(Array.isArray(result.nodes)).toBe(true);
+    });
   });
 
   describe('getSubgraph', () => {

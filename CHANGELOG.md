@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.6] - 2026-07-21
+
+### Fixed & Improved
+- Published npm package under `@putervision` organization scope: `@putervision/state-memory-mcp`.
+- Updated project author to PuterVision LLC and set project homepage link to `https://putervision.com`.
+- Updated all repository, issues, homepage, and documentation links to point to `https://github.com/putervision/state-memory-mcp`.
+- Standardized installation instructions to `npm install -g @putervision/state-memory-mcp` across all documentation, website, and CLI templates.
+- Standardized website feature card layouts and icons with `<h3><span>icon</span> Title</h3>` structure and glassmorphism styling.
+- Enhanced website SEO with comprehensive meta tags, OpenGraph previews, Twitter cards, canonical URL link, SVG favicon, and Schema.org `SoftwareApplication` JSON-LD structured data.
+- Incremented package and website release versions to `v0.4.6`.
+
 ## [0.4.5] - 2026-07-16
 
 ### Added
@@ -14,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Hardened test suite global registry mocking to prevent JSON parse warning during test runs.
 - Resolved ESLint warnings (prefer-const, no-empty catch blocks, and unused import).
+
+## [0.4.4] - 2026-07-14
+
+### Fixed
+- Internal build stabilization and dependency updates.
 
 ## [0.4.3] - 2026-07-13
 

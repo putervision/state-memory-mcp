@@ -254,69 +254,71 @@ export class GraphEngine {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
-    const existingResult = GraphEngine.getNode({
-      project: projectSlug,
-      id: params.id,
-      include_edges: false,
-    });
-    if (!existingResult) {
-      return null;
-    }
-    const { node } = existingResult;
-
-    const edgeCountRow = db
-      .prepare(
-        `
-      SELECT COUNT(*) as count FROM edges WHERE source_id = ? OR target_id = ?
-    `
-      )
-      .get(params.id, params.id) as any;
-
-    const deletedEdgeCount = edgeCountRow ? edgeCountRow.count : 0;
-
-    const row = db.prepare('SELECT rowid FROM nodes WHERE id = ?').get(params.id) as
-      { rowid: number } | undefined;
-
-    const stmt = db.prepare(`
-      DELETE FROM nodes WHERE id = ?
-    `);
-    const result = stmt.run(params.id);
-
-    if (result.changes === 0) {
-      return null;
-    }
-
-    if (row) {
-      try {
-        db.prepare(
-          `
-          INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags)
-          VALUES ('delete', ?, ?, ?, ?)
-        `
-        ).run(row.rowid, node.title, JSON.stringify(node.metadata), JSON.stringify(node.tags));
-      } catch (err: any) {
-        logger.warn(
-          `Failed to remove full-text search index for deleted node ${params.id}: ${err.message}`
-        );
+    return db.transaction(() => {
+      const existingResult = GraphEngine.getNode({
+        project: projectSlug,
+        id: params.id,
+        include_edges: false,
+      });
+      if (!existingResult) {
+        return null;
       }
-    }
+      const { node } = existingResult;
 
-    logger.debug(
-      `Deleted node ${params.id} and ${deletedEdgeCount} edges in project ${projectSlug}`
-    );
+      const edgeCountRow = db
+        .prepare(
+          `
+        SELECT COUNT(*) as count FROM edges WHERE source_id = ? OR target_id = ?
+      `
+        )
+        .get(params.id, params.id) as any;
 
-    EventEngine.logEvent(db, {
-      session_id: params.session_id,
-      event_type: 'node_deleted',
-      entity_type: 'node',
-      entity_id: params.id,
-      before_state: node,
-      project: projectSlug,
-    });
+      const deletedEdgeCount = edgeCountRow ? edgeCountRow.count : 0;
 
-    return {
-      deleted_node_id: params.id,
-      deleted_edge_count: deletedEdgeCount,
-    };
+      const row = db.prepare('SELECT rowid FROM nodes WHERE id = ?').get(params.id) as
+        { rowid: number } | undefined;
+
+      const stmt = db.prepare(`
+        DELETE FROM nodes WHERE id = ?
+      `);
+      const result = stmt.run(params.id);
+
+      if (result.changes === 0) {
+        return null;
+      }
+
+      if (row) {
+        try {
+          db.prepare(
+            `
+            INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags)
+            VALUES ('delete', ?, ?, ?, ?)
+          `
+          ).run(row.rowid, node.title, JSON.stringify(node.metadata), JSON.stringify(node.tags));
+        } catch (err: any) {
+          logger.warn(
+            `Failed to remove full-text search index for deleted node ${params.id}: ${err.message}`
+          );
+        }
+      }
+
+      logger.debug(
+        `Deleted node ${params.id} and ${deletedEdgeCount} edges in project ${projectSlug}`
+      );
+
+      EventEngine.logEvent(db, {
+        session_id: params.session_id,
+        event_type: 'node_deleted',
+        entity_type: 'node',
+        entity_id: params.id,
+        before_state: node,
+        project: projectSlug,
+      });
+
+      return {
+        deleted_node_id: params.id,
+        deleted_edge_count: deletedEdgeCount,
+      };
+    })();
   }
 }

@@ -171,13 +171,23 @@ export class QueryEngine {
     }
 
     // SQLite FTS5 query matching n.rowid to f.rowid
+    const sanitizeFtsQuery = (q: string): string => {
+      const trimmed = q.trim();
+      if (!trimmed) return '""';
+      return trimmed
+        .split(/\s+/)
+        .map((token) => `"${token.replace(/"/g, '""')}"`)
+        .join(' ');
+    };
+
+    let ftsQuery = params.query;
     let sql = `
       SELECT n.* 
       FROM nodes n
       JOIN nodes_fts f ON n.rowid = f.rowid
       WHERE n.project = ? AND nodes_fts MATCH ?
     `;
-    const queryParams: any[] = [projectSlug, params.query];
+    let queryParams: any[] = [projectSlug, ftsQuery];
 
     // Branch filter: default to active branch, support '*' for all branches
     const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
@@ -196,20 +206,43 @@ export class QueryEngine {
       queryParams.push(params.status);
     }
 
-    const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
-    const countRow = db.prepare(countSql).get(...queryParams) as any;
-    const total_count = countRow ? countRow.total : 0;
-
-    sql += ' LIMIT ? OFFSET ?';
     const limit = params.limit !== undefined ? params.limit : 20;
     const offset = params.offset !== undefined ? params.offset : 0;
-    queryParams.push(limit, offset);
 
-    const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
+    try {
+      const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
+      const countRow = db.prepare(countSql).get(...queryParams) as any;
+      const total_count = countRow ? countRow.total : 0;
 
-    const nodes = rows.map(parseNodeRow);
+      const paginatedSql = sql + ' LIMIT ? OFFSET ?';
+      const rows = db.prepare(paginatedSql).all(...queryParams, limit, offset) as NodeRow[];
+      const nodes = rows.map(parseNodeRow);
 
-    return { nodes, total_count };
+      return { nodes, total_count };
+    } catch (err: any) {
+      logger.debug(
+        `FTS search failed for query "${params.query}", retrying with sanitized FTS terms: ${err.message}`
+      );
+      // Retry with sanitized terms
+      try {
+        const sanitizedQuery = sanitizeFtsQuery(params.query);
+        queryParams[1] = sanitizedQuery;
+        const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
+        const countRow = db.prepare(countSql).get(...queryParams) as any;
+        const total_count = countRow ? countRow.total : 0;
+
+        const paginatedSql = sql + ' LIMIT ? OFFSET ?';
+        const rows = db.prepare(paginatedSql).all(...queryParams, limit, offset) as NodeRow[];
+        const nodes = rows.map(parseNodeRow);
+
+        return { nodes, total_count };
+      } catch (retryErr: any) {
+        logger.warn(
+          `Sanitized FTS search failed, falling back to TF-IDF search: ${retryErr.message}`
+        );
+        return QueryEngine.searchNodes({ ...params, algorithm: 'tfidf' });
+      }
+    }
   }
 
   /**

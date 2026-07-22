@@ -154,8 +154,9 @@ export function restoreProjectDb(params: { backupPath: string; project?: string 
   }
 
   // 2. Verify structural soundness & schema of backup database
+  let tempDb: Database.Database | undefined;
   try {
-    const tempDb = new Database(resolvedBackupPath, { readonly: true });
+    tempDb = new Database(resolvedBackupPath, { readonly: true });
     const check = tempDb.pragma('integrity_check') as any[];
 
     const isOk =
@@ -163,7 +164,6 @@ export function restoreProjectDb(params: { backupPath: string; project?: string 
       check.length === 1 &&
       (check[0] === 'ok' || check[0]?.integrity_check === 'ok');
     if (!isOk) {
-      tempDb.close();
       throw new ValidationError(
         `Backup file SQLite integrity check failed: ${JSON.stringify(check)}`
       );
@@ -180,8 +180,6 @@ export function restoreProjectDb(params: { backupPath: string; project?: string 
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='edges'")
       .get();
 
-    tempDb.close();
-
     if (!schemaMetaExists || !nodesExists || !edgesExists) {
       throw new ValidationError(
         "Backup database is missing required state-memory-mcp tables ('schema_meta', 'nodes', or 'edges')."
@@ -190,6 +188,14 @@ export function restoreProjectDb(params: { backupPath: string; project?: string 
   } catch (err: any) {
     if (err instanceof ValidationError) throw err;
     throw new ValidationError(`Invalid state-memory-mcp backup database file: ${err.message}`);
+  } finally {
+    if (tempDb) {
+      try {
+        tempDb.close();
+      } catch {
+        // Ignore close error on cleanup
+      }
+    }
   }
 
   // 3. Close active connection before restoration to prevent write locks

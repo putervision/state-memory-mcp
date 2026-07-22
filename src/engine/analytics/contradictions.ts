@@ -1,6 +1,6 @@
 import { getDb, getProjectSlug } from '../db.js';
-import { BaseNode } from '../../schema/types.js';
-import { GraphEngine } from '../graph.js';
+import { BaseNode, NodeRow } from '../../schema/types.js';
+import { parseNodeRow } from '../row-mappers.js';
 
 export function detectContradictions(params: { project?: string }): {
   blocked_done_tasks: { task: BaseNode; blocker: BaseNode }[];
@@ -37,26 +37,6 @@ export function detectContradictions(params: { project?: string }): {
 
   const allBlockedDone = [...taskContradictions, ...depContradictions];
 
-  const blocked_done_tasks: { task: BaseNode; blocker: BaseNode }[] = [];
-  for (const r of allBlockedDone) {
-    const taskRes = GraphEngine.getNode({
-      project: projectSlug,
-      id: r.t_id,
-      include_edges: false,
-    });
-    const blockerRes = GraphEngine.getNode({
-      project: projectSlug,
-      id: r.b_id,
-      include_edges: false,
-    });
-    if (taskRes && blockerRes) {
-      blocked_done_tasks.push({
-        task: taskRes.node,
-        blocker: blockerRes.node,
-      });
-    }
-  }
-
   const decisionContradictions = db
     .prepare(
       `
@@ -71,15 +51,40 @@ export function detectContradictions(params: { project?: string }): {
     )
     .all(projectSlug) as any[];
 
+  // Collect all unique node IDs across both contradiction queries
+  const allNodeIds = Array.from(
+    new Set([
+      ...allBlockedDone.flatMap((r) => [r.t_id, r.b_id]),
+      ...decisionContradictions.flatMap((r) => [r.id1, r.id2]),
+    ])
+  );
+
+  const nodeMap = new Map<string, BaseNode>();
+  if (allNodeIds.length > 0) {
+    const placeholders = allNodeIds.map(() => '?').join(',');
+    const rows = db
+      .prepare(`SELECT * FROM nodes WHERE project = ? AND id IN (${placeholders})`)
+      .all(projectSlug, ...allNodeIds) as NodeRow[];
+    for (const row of rows) {
+      nodeMap.set(row.id, parseNodeRow(row));
+    }
+  }
+
+  const blocked_done_tasks: { task: BaseNode; blocker: BaseNode }[] = [];
+  for (const r of allBlockedDone) {
+    const task = nodeMap.get(r.t_id);
+    const blocker = nodeMap.get(r.b_id);
+    if (task && blocker) {
+      blocked_done_tasks.push({ task, blocker });
+    }
+  }
+
   const contradicting_decisions: { decision1: BaseNode; decision2: BaseNode }[] = [];
   for (const r of decisionContradictions) {
-    const d1Res = GraphEngine.getNode({ project: projectSlug, id: r.id1, include_edges: false });
-    const d2Res = GraphEngine.getNode({ project: projectSlug, id: r.id2, include_edges: false });
-    if (d1Res && d2Res) {
-      contradicting_decisions.push({
-        decision1: d1Res.node,
-        decision2: d2Res.node,
-      });
+    const d1 = nodeMap.get(r.id1);
+    const d2 = nodeMap.get(r.id2);
+    if (d1 && d2) {
+      contradicting_decisions.push({ decision1: d1, decision2: d2 });
     }
   }
 

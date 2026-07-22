@@ -107,6 +107,7 @@ export class EventEngine {
       until?: string;
       limit?: number;
       offset?: number;
+      order?: 'ASC' | 'DESC';
     }
   ): EventRecord[] {
     let query = 'SELECT * FROM events WHERE project = ?';
@@ -133,7 +134,8 @@ export class EventEngine {
       args.push(params.until);
     }
 
-    query += ' ORDER BY rowid DESC';
+    const sortOrder = params.order === 'ASC' ? 'ASC' : 'DESC';
+    query += ` ORDER BY rowid ${sortOrder}`;
 
     const limit = params.limit !== undefined ? params.limit : 50;
     const offset = params.offset !== undefined ? params.offset : 0;
@@ -243,6 +245,26 @@ export class EventEngine {
           before.created_at,
           before.updated_at
         );
+
+        const row = db.prepare('SELECT rowid FROM nodes WHERE id = ?').get(before.id) as
+          { rowid: number } | undefined;
+        if (row) {
+          try {
+            db.prepare(
+              `
+              INSERT INTO nodes_fts(rowid, title, metadata, tags)
+              VALUES (?, ?, ?, ?)
+            `
+            ).run(
+              row.rowid,
+              before.title,
+              JSON.stringify(before.metadata || {}),
+              JSON.stringify(before.tags || [])
+            );
+          } catch {
+            // Ignore FTS update error
+          }
+        }
       }
 
       // Instead of deleting, mark the event as undone in its metadata to prevent audit gaps
@@ -289,9 +311,9 @@ export class EventEngine {
     let sql = `
       SELECT id FROM events
       WHERE project = ? AND timestamp < ?
-        AND rowid NOT IN (SELECT MAX(rowid) FROM events GROUP BY entity_type, entity_id)
+        AND rowid NOT IN (SELECT MAX(rowid) FROM events WHERE project = ? GROUP BY entity_type, entity_id)
     `;
-    const queryParams: any[] = [params.project, thresholdTime];
+    const queryParams: any[] = [params.project, thresholdTime, params.project];
 
     if (params.preserve_types && params.preserve_types.length > 0) {
       const placeholders = params.preserve_types.map(() => '?').join(',');

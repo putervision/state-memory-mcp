@@ -150,4 +150,5 @@ state-memory-mcp export -p X -f [json|dot|mermaid|html]  # Export graph
 state-memory-mcp scan-git -p X # Incrementally scan git history
 state-memory-mcp backup -p X   # Back up the database
 state-memory-mcp audit -p X    # Run integrity checks
+state-memory-mcp doctor -p X   # Run environment & system health checks
 ```

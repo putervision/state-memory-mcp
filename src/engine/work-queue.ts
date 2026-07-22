@@ -22,12 +22,16 @@ export function getNextTasks(
   const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch() || '*';
   const limit = params.limit !== undefined ? params.limit : 5;
 
-  // 1. Fetch all nodes in the project
+  // 1. Fetch nodes in the project (filtering for tasks and potential blockers)
   let nodesSql = 'SELECT * FROM nodes WHERE project = ?';
   const nodesArgs: any[] = [params.project];
   if (branch !== '*') {
-    nodesSql += ' AND git_branch = ?';
-    nodesArgs.push(branch);
+    if (branch === null) {
+      nodesSql += ' AND (git_branch IS NULL OR git_branch = "main")';
+    } else {
+      nodesSql += ' AND (git_branch = ? OR git_branch IS NULL)';
+      nodesArgs.push(branch);
+    }
   }
   const nodeRows = db.prepare(nodesSql).all(...nodesArgs) as any[];
   const allNodes = nodeRows.map(parseNodeRow);
@@ -38,8 +42,10 @@ export function getNextTasks(
     nodesMap.set(node.id, node);
   }
 
-  // 2. Fetch all edges in the project
-  const edgeRows = db.prepare('SELECT * FROM edges WHERE project = ?').all(params.project) as any[];
+  // 2. Fetch dependency edges (depends_on and blocks) in the project
+  const edgeRows = db
+    .prepare("SELECT * FROM edges WHERE project = ? AND type IN ('depends_on', 'blocks')")
+    .all(params.project) as any[];
   const allEdges = edgeRows.map(parseEdgeRow);
 
   // Build dependency maps

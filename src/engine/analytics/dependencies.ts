@@ -40,8 +40,8 @@ export function traceDependencies(params: {
   let cteQuery = '';
   if (params.direction === 'upstream') {
     cteQuery = `
-      WITH RECURSIVE dependency_chain(node_id, depth, edge_type) AS (
-        SELECT ?, 0, 'root'
+      WITH RECURSIVE dependency_chain(node_id, depth, edge_type, path_str) AS (
+        SELECT ?, 0, 'root', ',' || ? || ','
         UNION
         SELECT 
           CASE 
@@ -50,7 +50,14 @@ export function traceDependencies(params: {
             WHEN e.type = 'blocks' AND e.target_id = dc.node_id THEN e.source_id
           END,
           dc.depth + 1,
-          e.type
+          e.type,
+          dc.path_str || (
+            CASE 
+              WHEN e.type = 'depends_on' AND e.source_id = dc.node_id THEN e.target_id
+              WHEN e.type = 'child_of' AND e.target_id = dc.node_id THEN e.source_id
+              WHEN e.type = 'blocks' AND e.target_id = dc.node_id THEN e.source_id
+            END
+          ) || ','
         FROM dependency_chain dc
         JOIN edges e ON (
           (e.type = 'depends_on' AND e.source_id = dc.node_id) OR
@@ -58,13 +65,20 @@ export function traceDependencies(params: {
           (e.type = 'blocks' AND e.target_id = dc.node_id)
         )
         WHERE dc.depth < ? AND e.type IN (${placeholders})
+          AND INSTR(dc.path_str, ',' || (
+            CASE 
+              WHEN e.type = 'depends_on' AND e.source_id = dc.node_id THEN e.target_id
+              WHEN e.type = 'child_of' AND e.target_id = dc.node_id THEN e.source_id
+              WHEN e.type = 'blocks' AND e.target_id = dc.node_id THEN e.source_id
+            END
+          ) || ',') = 0
       )
       SELECT * FROM dependency_chain WHERE depth > 0
     `;
   } else {
     cteQuery = `
-      WITH RECURSIVE dependency_chain(node_id, depth, edge_type) AS (
-        SELECT ?, 0, 'root'
+      WITH RECURSIVE dependency_chain(node_id, depth, edge_type, path_str) AS (
+        SELECT ?, 0, 'root', ',' || ? || ','
         UNION
         SELECT 
           CASE 
@@ -73,7 +87,14 @@ export function traceDependencies(params: {
             WHEN e.type = 'blocks' AND e.source_id = dc.node_id THEN e.target_id
           END,
           dc.depth + 1,
-          e.type
+          e.type,
+          dc.path_str || (
+            CASE 
+              WHEN e.type = 'depends_on' AND e.target_id = dc.node_id THEN e.source_id
+              WHEN e.type = 'child_of' AND e.source_id = dc.node_id THEN e.target_id
+              WHEN e.type = 'blocks' AND e.source_id = dc.node_id THEN e.target_id
+            END
+          ) || ','
         FROM dependency_chain dc
         JOIN edges e ON (
           (e.type = 'depends_on' AND e.target_id = dc.node_id) OR
@@ -81,12 +102,19 @@ export function traceDependencies(params: {
           (e.type = 'blocks' AND e.source_id = dc.node_id)
         )
         WHERE dc.depth < ? AND e.type IN (${placeholders})
+          AND INSTR(dc.path_str, ',' || (
+            CASE 
+              WHEN e.type = 'depends_on' AND e.target_id = dc.node_id THEN e.source_id
+              WHEN e.type = 'child_of' AND e.source_id = dc.node_id THEN e.target_id
+              WHEN e.type = 'blocks' AND e.source_id = dc.node_id THEN e.target_id
+            END
+          ) || ',') = 0
       )
       SELECT * FROM dependency_chain WHERE depth > 0
     `;
   }
 
-  const queryParams = [params.node_id, maxDepth, ...allowedEdgeTypes];
+  const queryParams = [params.node_id, params.node_id, maxDepth, ...allowedEdgeTypes];
   const rows = db.prepare(cteQuery).all(...queryParams) as any[];
 
   if (rows.length === 0) {
@@ -115,14 +143,54 @@ export function traceDependencies(params: {
     }))
     .filter((item) => item.node !== undefined);
 
-  const visited = new Set<string>();
+  // Check cycle by verifying if any node in chain has an edge pointing back to a prior ancestor in its path
   let has_cycle = false;
-  for (const item of chain) {
-    if (visited.has(item.node.id)) {
+  for (const r of rows) {
+    const pathNodes = r.path_str.split(',').filter(Boolean);
+    const priorNodes = pathNodes.slice(0, -1);
+    if (priorNodes.length === 0) continue;
+
+    let cycleQuery = '';
+    const priorPlaceholders = priorNodes.map(() => '?').join(',');
+
+    if (params.direction === 'upstream') {
+      cycleQuery = `
+        SELECT 1 FROM edges 
+        WHERE type IN (${placeholders}) 
+          AND (
+            (type = 'depends_on' AND source_id = ? AND target_id IN (${priorPlaceholders})) OR
+            (type = 'child_of' AND target_id = ? AND source_id IN (${priorPlaceholders})) OR
+            (type = 'blocks' AND target_id = ? AND source_id IN (${priorPlaceholders}))
+          )
+        LIMIT 1
+      `;
+    } else {
+      cycleQuery = `
+        SELECT 1 FROM edges 
+        WHERE type IN (${placeholders}) 
+          AND (
+            (type = 'depends_on' AND target_id = ? AND source_id IN (${priorPlaceholders})) OR
+            (type = 'child_of' AND source_id = ? AND target_id IN (${priorPlaceholders})) OR
+            (type = 'blocks' AND source_id = ? AND target_id IN (${priorPlaceholders}))
+          )
+        LIMIT 1
+      `;
+    }
+
+    const cycleEdge = db.prepare(cycleQuery).get(
+      ...allowedEdgeTypes,
+      r.node_id,
+      ...priorNodes,
+      r.node_id,
+      ...priorNodes,
+      r.node_id,
+      ...priorNodes
+    );
+
+    if (cycleEdge) {
       has_cycle = true;
       break;
     }
-    visited.add(item.node.id);
   }
 
   return { chain, has_cycle };
@@ -150,14 +218,18 @@ export function findBlockers(params: {
       (item) => item.node.type === 'blocker' && item.node.status === 'active'
     );
 
+    const targetRow = db.prepare('SELECT * FROM nodes WHERE id = ?').get(params.node_id) as NodeRow | undefined;
+    if (!targetRow) {
+      return [];
+    }
+    const targetNode = parseNodeRow(targetRow);
+
     const blockerSummaries: BlockerSummary[] = blockersInChain.map((item) => {
       return {
         blocker_node: item.node,
         blocked_nodes: [
           {
-            node: parseNodeRow(
-              db.prepare('SELECT * FROM nodes WHERE id = ?').get(params.node_id!) as NodeRow
-            ),
+            node: targetNode,
             depth: item.depth,
           },
         ],

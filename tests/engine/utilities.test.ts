@@ -140,8 +140,8 @@ describe('Utility Operations', () => {
       });
 
       expect(rows.length).toBe(2);
-      expect(rows[0].title).toBe('Task 1');
-      expect(rows[1].title).toBe('Task 2');
+      expect((rows as any[])[0].title).toBe('Task 1');
+      expect((rows as any[])[1].title).toBe('Task 2');
     });
 
     it('should reject non-reader queries (write attempts)', () => {

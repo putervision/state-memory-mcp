@@ -265,15 +265,23 @@ export class GraphEngine {
       }
       const { node } = existingResult;
 
-      const edgeCountRow = db
-        .prepare(
-          `
-        SELECT COUNT(*) as count FROM edges WHERE source_id = ? OR target_id = ?
-      `
-        )
-        .get(params.id, params.id) as any;
+      const connectedEdges = db
+        .prepare('SELECT * FROM edges WHERE source_id = ? OR target_id = ?')
+        .all(params.id, params.id) as any[];
 
-      const deletedEdgeCount = edgeCountRow ? edgeCountRow.count : 0;
+      for (const edgeRow of connectedEdges) {
+        const edge = parseEdgeRow(edgeRow);
+        EventEngine.logEvent(db, {
+          session_id: params.session_id,
+          event_type: 'edge_deleted',
+          entity_type: 'edge',
+          entity_id: edge.id,
+          before_state: edge,
+          project: projectSlug,
+        });
+      }
+
+      const deletedEdgeCount = connectedEdges.length;
 
       const row = db.prepare('SELECT rowid FROM nodes WHERE id = ?').get(params.id) as
         { rowid: number } | undefined;

@@ -4,11 +4,10 @@ import * as fs from 'fs';
 const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/cli.ts'],
+  entry: ['src/index.ts', 'src/cli.ts', 'src/lib.ts'],
   format: ['esm'],
   dts: true,
   clean: true,
-  shims: true,
   sourcemap: true,
   splitting: false,
   define: {

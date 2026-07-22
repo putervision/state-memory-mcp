@@ -15,6 +15,8 @@ import { logger } from '../utils/logger.js';
  * @param index - The chronological index of the commit (0 being the newest).
  * @returns True if a task should be created, false otherwise.
  */
+let defaultAvoidWordsRegexp: RegExp | null = null;
+
 export function shouldCreateTask(
   commit: GitCommit,
   index: number,
@@ -23,12 +25,20 @@ export function shouldCreateTask(
   const limit = options?.taskCommitLimit !== undefined ? options.taskCommitLimit : 5;
   if (index >= limit) return false;
 
-  const words = options?.taskAvoidWords || ['fix', 'complete', 'finish', 'done', 'close'];
-  if (words.length === 0) {
+  const words = options?.taskAvoidWords;
+  if (words && words.length === 0) {
     return true;
   }
-  const escapedWords = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  const avoidWords = new RegExp(`\\b(${escapedWords})\\b`, 'i');
+  let avoidWords: RegExp;
+  if (!words) {
+    if (!defaultAvoidWordsRegexp) {
+      defaultAvoidWordsRegexp = new RegExp(`\\b(fix|complete|finish|done|close)\\b`, 'i');
+    }
+    avoidWords = defaultAvoidWordsRegexp;
+  } else {
+    const escapedWords = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    avoidWords = new RegExp(`\\b(${escapedWords})\\b`, 'i');
+  }
   return !avoidWords.test(commit.message);
 }
 

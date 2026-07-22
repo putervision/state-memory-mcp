@@ -18,7 +18,7 @@ import { backupProjectDb, restoreProjectDb } from '../engine/backup.js';
 import { auditProjectDb } from '../engine/audit.js';
 import { mergeProjectDb } from '../engine/merge.js';
 import { scaffoldTemplate } from '../engine/scaffolder.js';
-import { validateGraph } from '../engine/validate.js';
+import { validateGraph, ValidateCheck } from '../engine/validate.js';
 import { getDb, getProjectSlug } from '../engine/db.js';
 import { parseArgs } from './helper.js';
 
@@ -68,7 +68,7 @@ export const graphHandlers = {
     const db = getDb(projectSlug);
     return validateGraph(db, {
       project: projectSlug,
-      checks: data.checks as any,
+      checks: data.checks as ValidateCheck[] | undefined,
     });
   },
 };

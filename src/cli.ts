@@ -4,6 +4,7 @@ import { resolveProjectRoot } from './engine/db.js';
 import { runInit } from './cli/init.js';
 import { VERSION } from './utils/version.js';
 import { inspectAction } from './cli/commands/inspect.js';
+import { doctorAction } from './cli/commands/doctor.js';
 import {
   scanGitAction,
   metricsAction,
@@ -453,5 +454,12 @@ program
   .option('--session <id>', 'Filter events by session ID')
   .option('-o, --out <file>', 'Output file path (prints to stdout if omitted)')
   .action(exportTrajectoriesAction);
+
+// Doctor command to run environment and health checks
+program
+  .command('doctor')
+  .description('Run environment health checks (Node, SQLite, FTS5, storage permissions, git, graph integrity)')
+  .option('-p, --project <name>', 'Project slug name')
+  .action(doctorAction);
 
 program.parse(process.argv);

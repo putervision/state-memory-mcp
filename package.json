@@ -1,6 +1,6 @@
 {
   "name": "@putervision/state-memory-mcp",
-  "version": "0.4.6",
+  "version": "0.5.0",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "keywords": [
     "mcp",
@@ -44,6 +44,21 @@
   "author": "PuterVision LLC",
   "type": "module",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./lib": {
+      "types": "./dist/lib.d.ts",
+      "import": "./dist/lib.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    }
+  },
   "bin": {
     "state-memory-mcp": "./dist/cli.js"
   },
@@ -53,9 +68,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/cli.ts --format esm --clean --dts",
+    "build": "tsup",
     "ci": "npm run format:check && npm run lint && npm run typecheck && npm run test",
-    "dev": "tsup src/index.ts src/cli.ts --format esm --watch --onSuccess 'node dist/index.js'",
+    "dev": "tsup --watch --onSuccess 'node dist/index.js'",
     "format": "prettier --write src/**/*.ts tests/**/*.ts",
     "format:check": "prettier --check src/**/*.ts tests/**/*.ts",
     "lint": "eslint src/**/*.ts",

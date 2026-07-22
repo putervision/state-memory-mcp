@@ -15,7 +15,7 @@ By using `@putervision/state-memory-mcp`, your AI coding assistant (such as Curs
 
 1. **Deterministic State Memory**: No LLM in the loop; all operations are structured, deterministic, and fast.
 2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-memory-mcp/`) or globally.
-3. **37 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, and state rollback/undo.
+3. **45 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, and state rollback/undo.
 4. **Interactive 3D HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed WebGL 3D Force-Directed Graph visualizer built with `3d-force-graph` / Three.js.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
@@ -42,6 +42,8 @@ AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within stric
 ---
 
 ## Quick Start
+
+> **Prerequisites**: Node.js **>= 18.0.0**
 
 ```bash
 # Install globally
@@ -72,22 +74,21 @@ npx @putervision/state-memory-mcp
 npm install --save-dev @putervision/state-memory-mcp
 ```
 
-
 ---
 
 ## State Memory Concepts
 
 `state-memory-mcp` models your development workspace as a directed acyclic graph (DAG) where nodes represent development objects and edges represent their semantic relationships.
 
-### 📋 Node Types (The Vocabulary)
+### 📋 Node Types & Valid Status Values
 
-1. **`task`**: Incremental items of work or coding TODOs (e.g. "Implement database mappers").
-2. **`decision`**: Architectural choices, pattern selections, and rationale (e.g. "Use isolated SQLite databases").
-3. **`artifact`**: Coding output, documentation, or schemas generated (e.g. `src/server.ts`, `docs/index.html`).
-4. **`plan`**: High-level development specifications and roadmaps containing milestones.
-5. **`milestone`**: Progress checkpoints representing a grouped set of related tasks.
-6. **`blocker`**: Impediments or bugs preventing tasks from being completed.
-7. **`observation`**: Contextual findings, codebase notes, or runtime constraints recorded by the agent.
+1. **`task`**: Incremental items of work or coding TODOs (Status: `pending`, `in_progress`, `done`, `blocked`, `cancelled`).
+2. **`decision`**: Architectural choices, pattern selections, and rationale (Status: `active`, `accepted`, `deprecated`, `rejected`).
+3. **`artifact`**: Coding output, documentation, or schemas generated (Status: `current`, `draft`, `deprecated`).
+4. **`plan`**: High-level development specifications and roadmaps containing milestones (Status: `active`, `draft`, `completed`, `archived`).
+5. **`milestone`**: Progress checkpoints representing a grouped set of related tasks (Status: `upcoming`, `in_progress`, `done`, `delayed`).
+6. **`blocker`**: Impediments or bugs preventing tasks from being completed (Status: `active`, `resolved`, `mitigated`).
+7. **`observation`**: Contextual findings, codebase notes, or runtime constraints recorded by the agent (Status: `active`, `archived`).
 
 ### 🔗 Edge Relationships
 
@@ -206,9 +207,26 @@ state-memory-mcp restore backup.db --project my-project
 # Audit the project database for integrity, cycle paths, and contradictions
 state-memory-mcp audit --project my-project
 
+# Run environment health checks (Node, SQLite, FTS5, storage permissions, git, graph integrity)
+state-memory-mcp doctor --project my-project
+
 # Merge an external SQLite database into the current project database
 state-memory-mcp merge other-project.db --project my-project [--force]
 ```
+
+---
+
+## Auto-Initialization & IDE Configuration Scaffolding
+
+When starting the server via `state-memory-mcp run` or starting the CLI via `state-memory-mcp init`, the engine executes **Auto-Initialization** (`runAutoInit()`):
+1. **Local Storage Setup**: Auto-creates `.state-memory-mcp/` directory, database storage, and `.gitignore` preventing database lock collisions.
+2. **IDE Configurations**: Scaffolds or updates MCP client configuration files for:
+   - **Google Antigravity**: `~/.gemini/antigravity/mcp/state-memory-mcp/`
+   - **Claude Code CLI & Desktop**: `.claude/mcp.json` / `claude_desktop_config.json`
+   - **Cursor**: `.cursor/mcp.json`
+   - **VS Code**: `.vscode/mcp.json`
+   - **Windsurf & Roo Code / Cline**: `.windsurf/mcp.json` / `.cline/mcp.json`
+3. **Agent Rules & Skills**: Scaffolds `.agents/AGENTS.md` rules and `.agents/skills/state-memory-mcp/SKILL.md` skill instructions so agents immediately know how to use the server.
 
 ---
 
@@ -217,6 +235,21 @@ state-memory-mcp merge other-project.db --project my-project [--force]
 Running `state-memory-mcp init` automatically creates these configuration files for you. If you prefer to configure manually:
 
 ### Cursor (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
+      "args": ["run"],
+      "env": {
+        "STATE_MEMORY_MCP_PROJECT": "your-project-slug"
+      }
+    }
+  }
+}
+```
+
+### Google Antigravity IDE (`~/.gemini/antigravity/mcp.json`)
 ```json
 {
   "mcpServers": {

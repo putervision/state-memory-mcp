@@ -46,7 +46,10 @@ export function getChanges(
 
   const nodesCreated = new Map<string, BaseNode>();
   const nodesUpdated = new Map<string, { before: BaseNode; after: BaseNode }>();
-  const nodesDeleted = new Map<string, { id: string; title: string; type: string }>();
+  const nodesDeleted = new Map<
+    string,
+    { id: string; title: string; type: string; git_branch: string }
+  >();
 
   const edgesCreated = new Map<string, Edge>();
   const edgesDeleted = new Map<string, Edge>();
@@ -119,7 +122,12 @@ export function getChanges(
         decisionsMadeMap.delete(id);
         blockersAddedMap.delete(id);
         blockersResolvedMap.delete(id);
-        nodesDeleted.set(id, { id, title: before.title || '', type: before.type || '' });
+        nodesDeleted.set(id, {
+          id,
+          title: before.title || '',
+          type: before.type || '',
+          git_branch: before.git_branch || 'main',
+        });
       }
     } else {
       const id = event.entity_id;
@@ -143,7 +151,9 @@ export function getChanges(
   const nodesUpdatedList = Array.from(nodesUpdated.values()).filter(
     (u) => !filterBranch || u.after.git_branch === filterBranch
   );
-  const nodesDeletedList = Array.from(nodesDeleted.values());
+  const nodesDeletedList = Array.from(nodesDeleted.values()).filter(
+    (n) => !filterBranch || n.git_branch === filterBranch
+  );
 
   const edgesCreatedList = Array.from(edgesCreated.values()).filter(
     (e) => !filterBranch || e.git_branch === filterBranch

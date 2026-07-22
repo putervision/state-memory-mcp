@@ -23,13 +23,16 @@ export function queryGraph(params: {
     cleanSql = cleanSql.slice(0, -1).trim();
   }
 
-  // Also reject embedded semicolons (multi-statement prevention)
-  if (cleanSql.includes(';')) {
+  // Ignore string literal contents (single and double quotes) when checking for prohibited semicolons
+  const sqlWithoutStrings = cleanSql
+    .replace(/'(?:''|[^'])*'/g, "''")
+    .replace(/"(?:""|[^"])*"/g, '""');
+  if (sqlWithoutStrings.includes(';')) {
     throw new ValidationError('Multi-statement queries are prohibited.');
   }
 
   // Pre-filter with regex and prefix check (defense-in-depth / test compatibility)
-  const cleanSqlUpper = cleanSql.toUpperCase();
+  const cleanSqlUpper = cleanSql.toUpperCase().trim();
   const startsWithSelect = cleanSqlUpper.startsWith('SELECT') || cleanSqlUpper.startsWith('WITH');
   if (!startsWithSelect) {
     throw new ValidationError(
@@ -46,7 +49,9 @@ export function queryGraph(params: {
 
   // Enforce a row limit at the SQLite engine level (default 500)
   const rowLimit = params.limit ?? 500;
-  const wrappedSql = `SELECT * FROM (${cleanSql}) LIMIT ?`;
+  const wrappedSql = cleanSqlUpper.startsWith('WITH')
+    ? `${cleanSql} LIMIT ?`
+    : `SELECT * FROM (${cleanSql}) LIMIT ?`;
   const sqlParams = [...(params.params || []), rowLimit];
 
   try {

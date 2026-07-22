@@ -4,12 +4,7 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { closeAllDbs, getDb } from '../../src/engine/db.js';
 import { GraphEngine } from '../../src/engine/graph.js';
-import {
-  scanGit,
-  commitAlreadyProcessed,
-  shouldCreateTask,
-  detectHotFiles,
-} from '../../src/engine/git-scanner.js';
+import { scanGit, shouldCreateTask, detectHotFiles } from '../../src/engine/git-scanner.js';
 import { GitCommit } from '../../src/schema/types.js';
 
 describe('Git Scanner Engine', () => {

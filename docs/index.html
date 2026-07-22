@@ -44,7 +44,7 @@
     "operatingSystem": "Cross-platform (Node.js >= 18)",
     "applicationCategory": "DeveloperApplication",
     "description": "Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI agents with persistent workflow state memory in SQLite.",
-    "softwareVersion": "0.4.6",
+    "softwareVersion": "0.5.0",
     "screenshot": "https://putervision.github.io/state-memory-mcp/viewer-screenshot.png",
     "url": "https://github.com/putervision/state-memory-mcp",
     "license": "https://opensource.org/licenses/MIT",
@@ -88,13 +88,19 @@
       </ul>
     </nav>
     <a href="https://github.com/putervision/state-memory-mcp" class="btn-github" target="_blank"
-      rel="noopener noreferrer">
-      <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor">
+      rel="noopener noreferrer" title="Star state-memory-mcp on GitHub">
+      <svg height="16" width="16" viewBox="0 0 16 16" fill="#fbbf24">
+        <path
+          d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25z">
+        </path>
+      </svg>
+      <span>Star on</span>
+      <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
         <path
           d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z">
         </path>
       </svg>
-      GitHub
+      <span>GitHub</span>
     </a>
   </header>
 
@@ -102,13 +108,14 @@
 
     <!-- Hero Section -->
     <section class="hero">
-      <span class="badge">Production Ready v0.4.6</span>
+      <span class="badge">Production Ready v0.5.0 • 45 Core MCP Tools</span>
       <h1>State Memory MCP</h1>
-      <p>A deterministic, persistent workflow state graph server for AI agents. Track tasks, design decisions, and
-        blockers locally to supercharge agent context and prevent session token memory bloat.</p>
+      <p>A zero-infrastructure, deterministic workflow state graph server for AI agents. Track tasks, design decisions,
+        session histories, and blockers locally to supercharge agent context and eliminate memory bloat.</p>
       <div class="cta-group">
         <a href="#quickstart" class="btn-primary">Get Started</a>
-        <a href="#calculator" class="btn-secondary">Calculate ROI</a>
+        <a href="#docs" class="btn-secondary">Explore Documentation</a>
+        <a href="#calculator" class="btn-secondary" style="border-color: rgba(99, 102, 241, 0.3);">Calculate ROI</a>
       </div>
     </section>
 
@@ -518,21 +525,75 @@
       </div>
     </section>
 
+    <!-- Documentation & Architecture References Section -->
+    <section id="docs" class="features-section" style="padding: 3rem 0;">
+      <div class="section-title">
+        <h2>📚 Architecture & Reference Documentation</h2>
+        <p>In-depth technical guides for database schemas, local storage layout, and programmatic library usage.</p>
+      </div>
+
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.2);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>🗄️</span> Database Schema Reference
+          </h3>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Complete SQL schema definitions for <code>nodes</code>, <code>edges</code>, <code>events</code>, <code>sessions</code>, <code>snapshots</code>, and FTS5 triggers.
+          </p>
+          <a href="database-schema.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Database Schema &rarr;</a>
+        </div>
+
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.2);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>📁</span> Local Storage Architecture
+          </h3>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Directory hierarchy for <code>.state-memory-mcp/</code>, global storage fallback, permissions (`0o700`/`0o600`), and path validation security.
+          </p>
+          <a href="storage-structure.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Storage Architecture &rarr;</a>
+        </div>
+
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.2);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>📦</span> Programmatic Library API
+          </h3>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Exported TypeScript library module (<code>@putervision/state-memory-mcp/lib</code>) for embedding engines directly in Node.js applications.
+          </p>
+          <a href="https://github.com/putervision/state-memory-mcp" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Library Exports &rarr;</a>
+        </div>
+      </div>
+    </section>
+
     <!-- Client Configuration Section -->
     <section id="config" class="spec-section" style="padding: 2rem 0;">
       <div class="section-title">
-        <h2>⚙️ Client Integrations</h2>
-        <p>Add state-memory-mcp to your favorite AI agent tools.</p>
+        <h2>⚙️ Client & IDE Integrations</h2>
+        <p>Zero manual effort: <code>state-memory-mcp init</code> automatically scaffolds config files for all supported IDEs.</p>
       </div>
-      <div class="spec-grid">
+
+      <!-- Auto-Scaffold Highlight Card -->
+      <div class="card" style="margin-bottom: 2rem; border-color: rgba(6, 182, 212, 0.3); background: rgba(6, 182, 212, 0.03);">
+        <h3 style="color: var(--accent-cyan); font-size: 1.15rem; margin-bottom: 0.5rem;">⚡ Recommended: 1-Step Auto-Scaffolding</h3>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1rem;">
+          Run <code>state-memory-mcp init</code> inside your repository. It automatically generates and updates configuration files across all your installed agent environments, including workspace agent rules (<code>.agents/AGENTS.md</code>) and skill documentation (<code>.agents/skills/state-memory-mcp/SKILL.md</code>).
+        </p>
+        <div class="code-container" style="max-width: 500px; margin: 0;">
+          <span class="code-text">state-memory-mcp init</span>
+          <button class="btn-copy" onclick="copyToClipboard('state-memory-mcp init')">Copy</button>
+        </div>
+      </div>
+
+      <div class="spec-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+        <!-- Antigravity Card -->
         <div class="card">
-          <h3>👽 Google Antigravity</h3>
-          <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1rem;">
-            Add to global <code>~/.gemini/antigravity/settings.json</code> or workspace
-            <code>.agents/settings.json</code>:
+          <h3 style="display: flex; align-items: center; gap: 0.5rem;">👽 Google Antigravity</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
+            Global: <code>~/.gemini/config/mcp_config.json</code><br>
+            Workspace: <code>.agents/settings.json</code>
           </p>
           <pre
-            style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border-color); color: #10b981; overflow-x: auto; text-align: left;">{
+            style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.82rem; border: 1px solid var(--border-color); color: #10b981; overflow-x: auto; text-align: left;">{
   "mcpServers": {
     "state-memory-mcp": {
       "command": "state-memory-mcp",
@@ -541,13 +602,55 @@
   }
 }</pre>
         </div>
+
+        <!-- Claude Code Card -->
         <div class="card">
-          <h3>🪄 Cursor & VS Code</h3>
-          <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1rem;">
-            Add to your project-local <code>.cursor/mcp.json</code> or <code>.vscode/mcp.json</code>:
+          <h3 style="display: flex; align-items: center; gap: 0.5rem;">🤖 Claude Code & Desktop</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
+            One-line CLI: <code>claude mcp add state-memory-mcp -- npx -y @putervision/state-memory-mcp run</code><br>
+            Desktop config: <code>claude_desktop_config.json</code>
           </p>
           <pre
-            style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.85rem; border: 1px solid var(--border-color); color: #818cf8; overflow-x: auto; text-align: left;">{
+            style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.82rem; border: 1px solid var(--border-color); color: #f59e0b; overflow-x: auto; text-align: left;">{
+  "mcpServers": {
+    "state-memory-mcp": {
+      "command": "npx",
+      "args": ["-y", "@putervision/state-memory-mcp", "run"]
+    }
+  }
+}</pre>
+        </div>
+
+        <!-- Cursor & VS Code Card -->
+        <div class="card">
+          <h3 style="display: flex; align-items: center; gap: 0.5rem;">🪄 Cursor & VS Code</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
+            Cursor: <code>.cursor/mcp.json</code><br>
+            VS Code: <code>.vscode/mcp.json</code>
+          </p>
+          <pre
+            style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.82rem; border: 1px solid var(--border-color); color: #818cf8; overflow-x: auto; text-align: left;">{
+  "mcpServers": {
+    "state-memory-mcp": {
+      "command": "state-memory-mcp",
+      "args": ["run"],
+      "env": {
+        "STATE_MEMORY_MCP_PROJECT": "my-project"
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <!-- Windsurf & Roo Code Card -->
+        <div class="card">
+          <h3 style="display: flex; align-items: center; gap: 0.5rem;">🌊 Windsurf & Roo / Cline</h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
+            Windsurf: <code>.windsurf/mcp.json</code> or <code>~/.codeium/windsurf/mcp_config.json</code><br>
+            Roo Code / Cline: <code>.cline/mcp.json</code>
+          </p>
+          <pre
+            style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.82rem; border: 1px solid var(--border-color); color: #06b6d4; overflow-x: auto; text-align: left;">{
   "mcpServers": {
     "state-memory-mcp": {
       "command": "state-memory-mcp",
@@ -584,6 +687,12 @@
         <div class="code-container">
           <span class="code-text">state-memory-mcp metrics</span>
           <button class="btn-copy" onclick="copyToClipboard('state-memory-mcp metrics')">Copy</button>
+        </div>
+
+        <h3>4. Run environment & system health check</h3>
+        <div class="code-container">
+          <span class="code-text">state-memory-mcp doctor</span>
+          <button class="btn-copy" onclick="copyToClipboard('state-memory-mcp doctor')">Copy</button>
         </div>
 
       </div>

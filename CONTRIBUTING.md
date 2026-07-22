@@ -1,215 +1,70 @@
-# 🤝 Contributing to state-memory-mcp
+# Contributing to State-Memory-MCP
 
-Thank you for your interest in contributing to `state-memory-mcp`! We welcome bug reports, feature requests, documentation improvements, and code contributions. This document outlines the guidelines, codebase architecture, and workflow for developing features, fixing bugs, and improving documentation.
-
----
-
-## 🛠️ Prerequisites
-
-Before you begin, ensure you have the following installed locally:
-
-- **Node.js**: `v18.0.0` or higher (`node -v`)
-- **npm**: `v9.0.0` or higher (`npm -v`)
-- **Git**
+Thank you for considering contributing to `state-memory-mcp`! We welcome bug fixes, documentation improvements, feature proposals, and unit tests.
 
 ---
 
-## 🚀 Getting Started
+## Development Setup
 
-1. **Fork & Clone the Repository**
+### 1. Prerequisites
+- Node.js **>= 18.0.0**
+- npm **>= 9.0.0**
+- git
 
-   ```bash
-   git clone https://github.com/putervision/state-memory-mcp.git
-   cd state-memory-mcp
-   ```
-
-2. **Install Dependencies**
-
-   ```bash
-   npm install
-   ```
-
-3. **Build the Project**
-
-   ```bash
-   npm run build
-   ```
-
-4. **Run Unit Tests**
-
-   ```bash
-   npm test
-   ```
-
----
-
-## 🏗️ Codebase Architecture
-
-The project is structured with a single-responsibility architecture:
-
-- **`src/schema/`**: Defines the data models, TypeScript types, and validation schemas:
-  - `src/schema/types.ts`: Domain models (`BaseNode`, `Edge`, `NodeType`, etc.) and database row interfaces (`NodeRow`, `EdgeRow`).
-  - `src/schema/schemas.ts`: Zod/custom schemas for validating tool parameters.
-- **`src/handlers/`**: Decomposed tool handlers and dispatcher:
-  - `src/handlers/node.ts`: Handlers for node CRUD, list, search, and history.
-  - `src/handlers/edge.ts`: Handlers for edge add and remove.
-  - `src/handlers/graph.ts`: Handlers for subgraphing, backups, raw queries, template scaffolding, and graph validation.
-  - `src/handlers/analytics.ts`: Handlers for tracing, blockers, summary, paths, metrics, and staleness detection.
-  - `src/handlers/session.ts`: Handlers for session start/end, event logs, rollback, and event pruning.
-  - `src/handlers/snapshot.ts`: Handlers for snapshot save/list/diff and trajectory exports.
-  - `src/handlers/batch.ts`: Handlers for batch updates and adding observation notes.
-  - `src/handlers/helper.ts`: Shared helper functions like schema arguments parsing.
-  - `src/handlers/index.ts`: Aggregates and exports the unified `toolHandlers` dispatch map.
-- **`src/engine/`**: The core domain engine:
-  - `src/engine/db.ts`: Manages project databases paths, connection caching, and path traversal validation.
-  - `src/engine/graph.ts`: Core CRUD operations for nodes.
-  - `src/engine/edges.ts`: CRUD operations for edges, including circular dependency detection.
-  - `src/engine/queries.ts`: Search, full-text indexing, and pagination.
-  - `src/engine/analytics/`: Decomposed topological sorting, path tracking, decision trails, critical paths, blast radius/impact, contradictions, value metrics, and transitively blocked task algorithms.
-  - `src/engine/row-mappers.ts`: Maps SQLite database rows to typed domain models securely.
-  - `src/engine/scaffolder.ts`: Automatically seeds workflows and handles static roadmap/tech-stack discovery.
-  - `src/engine/git-scanner.ts`: Incrementally scans git history to map observations, tasks, and file modifications.
-  - `src/engine/export.ts`: Serializes the graph to JSON, DOT, Mermaid, or interactive 3D WebGL HTML pages.
-  - `src/engine/import.ts`: Performs project bulk loads with verification flags.
-  - `src/engine/backup.ts`: Handles online database backup/restore operations and checksum verification.
-  - `src/engine/audit.ts`: Audits database structure, foreign key constraints, orphaned edges, cycles, and logical contradictions.
-  - `src/engine/merge.ts`: Performs two-database merges, conflict resolution, and dependency cycle validation.
-  - `src/engine/query-raw.ts`: Executes read-only SQL queries with syntax sanitization.
-  - `src/engine/batch.ts`: Core engine for atomic batch node updates.
-  - `src/engine/work-queue.ts`: Core engine for prioritizing runnable tasks.
-  - `src/engine/changeset.ts`: Core engine for diffing session changeset updates.
-  - `src/engine/staleness.ts`: Core engine for inactivity staleness detection.
-  - `src/engine/validate.ts`: Core engine for logical graph validation.
-- **`src/cli/`**: The Command Line Interface:
-  - `src/cli/init.ts`: Bootstraps project settings, Git configurations, instructions, and MCP settings.
-  - `src/cli/templates.ts`: Embedded rule instructions and template mappings.
-  - `src/cli/helper.ts`: Shared CLI utility classes (like Table formatting).
-  - `src/cli/commands/`: Decomposed CLI subcommands (inspect, scan-git, metrics, view, export, import, backup, restore, audit, merge, sessions, events, export-trajectories).
-- **`src/utils/`**: Shared helper functions (logger, versioning, id-generators, time-utilities).
-- **`src/server.ts`**: The Model Context Protocol (MCP) server definition. Imports decomposed tool handlers and registers prompt/resource endpoints.
-- **`src/index.ts`**: The main entry point starting the MCP server with graceful shutdown handlers.
-- **`src/cli.ts`**: The command-line parser entry point delegating to subcommand actions.
-
----
-
-## 🧪 Development Workflow & Quality Commands
-
-When making changes, always run the quality check commands before creating a pull request:
-
-| Command                | Action                                                               |
-| ---------------------- | -------------------------------------------------------------------- |
-| `npm run dev`          | Watch mode build with `tsup`                                         |
-| `npm run build`        | Bundle ESM output and generate `.d.ts` declaration files             |
-| `npm run typecheck`    | Strict TypeScript validation without emitting files (`tsc --noEmit`) |
-| `npm run lint`         | Run ESLint checks across TypeScript source files                     |
-| `npm test`             | Run the Vitest unit test suite                                       |
-| `npm run test:watch`   | Run Vitest unit tests in interactive watch mode                      |
-| `npm run test:coverage`| Run Vitest unit tests with coverage reporting                        |
-| `npm run format`       | Auto-format files using Prettier                                     |
-| `npm run format:check` | Check code formatting against Prettier rules                         |
-| `npm run ci`           | Run complete CI validation pipeline (format, lint, typecheck, tests) |
-
----
-
-## 📝 Coding Standards
-
-- **TypeScript Strict Mode**: All code must pass `npm run typecheck` with strict mode enabled.
-- **Formatting**: Prettier is configured in `.prettierrc`. Always run `npm run format` prior to committing.
-- **Security**: Do not write raw SQLite queries using unescaped string inputs—always use parameterized queries (`?`).
-- **Async Handling**: Handle promise rejections gracefully and log errors through `logger`.
-
----
-
-## 🧪 Writing Tests
-
-- Unit and integration test files are located in the `tests/` directory (`tests/engine/`, `tests/integration/`, `tests/security/`).
-- Run `npm test` or `npm run test:watch` while developing.
-- Ensure any new MCP tools or engine methods include unit tests verifying success and failure edge cases.
-
----
-
-## 🛠️ How to Add a New Tool
-
-To introduce a new Model Context Protocol tool to `state-memory-mcp`, follow these steps:
-
-### 1. Define the Parameter Type and Schema
-Open `src/schema/schemas.ts` and define the parameters validation schema:
-```typescript
-export const MyNewToolSchema = z.object({
-  project: z.string().optional(),
-  target_id: z.string(),
-  force: z.boolean().optional(),
-});
-
-export type MyNewToolParams = z.infer<typeof MyNewToolSchema>;
-```
-
-### 2. Implement the Engine Logic
-Create or add a static method under the appropriate class in `src/engine/`:
-```typescript
-// src/engine/graph.ts or new engine file
-export class GraphEngine {
-  static performMyAction(params: MyNewToolParams): MyActionResult {
-    const projectSlug = getProjectSlug(params.project);
-    const db = getDb(projectSlug);
-    // ... implement logic
-    return result;
-  }
-}
-```
-
-### 3. Register Tool Schema and Handler
-
-1. **Declare the tool schema** in `src/server.ts` under the `ListToolsRequestSchema` response array:
-```typescript
-      {
-        name: 'my_new_tool',
-        description: 'Perform my custom action in the graph.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            project: { type: 'string', description: 'Optional project identifier.' },
-            target_id: { type: 'string', description: 'The target node identifier.' },
-            force: { type: 'boolean', description: 'Force execution flag.' }
-          },
-          required: ['target_id'],
-        },
-      },
-```
-
-2. **Implement the tool handler** in the appropriate module under `src/handlers/` (e.g. `src/handlers/node.ts`, `src/handlers/graph.ts`, etc.) and ensure it is exported through `src/handlers/index.ts`:
-```typescript
-  my_new_tool: (args) => {
-    const data = parseArgs(MyNewToolSchema, args);
-    return GraphEngine.performMyAction(data);
-  },
-```
-
-### 4. Write Tests and Build
-1. Write a new unit test file in `tests/engine/` or append tests to verify the tool's behavior.
-2. Verify that everything builds, lints, and compiles without warnings:
+### 2. Fork & Clone
 ```bash
-npm run ci
+git clone https://github.com/your-username/state-memory-mcp.git
+cd state-memory-mcp
+npm install
 ```
 
 ---
 
-## 📬 Submitting a Pull Request (PR)
+## Development Commands
 
-1. **Create a Branch**: Create a descriptive feature branch from the `main` branch:
-   ```bash
-   git checkout -b feature/my-cool-feature
-   ```
-2. **Commit Conventions**: We follow conventional commit styles (e.g. `feat: add my_new_tool`, `fix: handle empty backups`).
-3. **Write Tests**: Ensure any new features or bug fixes are covered by appropriate Vitest unit/integration tests in the `tests/` directory.
-4. **Build & Verify**: Confirm that the code builds and automated checks pass:
-   ```bash
-   npm run ci
-   ```
-5. **Open a Pull Request**: Push your branch to GitHub and submit your pull request to the `main` branch.
+```bash
+# Start watch build mode
+npm run dev
+
+# Run unit tests
+npm run test
+
+# Run typechecking
+npm run typecheck
+
+# Check code formatting (Prettier)
+npm run format:check
+
+# Auto-format code
+npm run format
+
+# Run full CI suite (formatting + lint + typecheck + tests)
+npm run ci
+
+# Build production ESM bundle
+npm run build
+```
 
 ---
 
-## 📄 License
+## Code Quality Standards
 
-By contributing, you agree that your contributions will be licensed under the project's [MIT License](LICENSE).
+1. **TypeScript Strict Mode**: All code must compile cleanly under `tsc --noEmit` without explicit type suppression where avoidable.
+2. **Deterministic Graph Mutations**: Every database mutation must log an append-only event (`EventEngine.logEvent`) and enforce cycle checks where directional edges are added.
+3. **Security & Sanitization**: SQL parameters must be bound via `?` placeholders. File path access must be validated via `validatePath()` to prevent directory traversal.
+4. **Unit Tests Required**: New features or bug fixes must include unit tests under `tests/engine/` or `tests/integration/`.
+
+---
+
+## Submitting a Pull Request (PR)
+
+1. Create a feature branch: `git checkout -b feat/my-new-feature`.
+2. Ensure all tests pass: `npm run ci`.
+3. Commit your changes with descriptive messages: `git commit -m "feat: add support for custom edge properties"`.
+4. Push to your fork and submit a Pull Request to `main`.
+
+---
+
+## Disclaimer & Limitation of Liability
+
+This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall the authors or contributors be liable for any database corruption, Git repository modification, data loss, or other issues resulting from execution. Always backup your database files before performing destructive operations.

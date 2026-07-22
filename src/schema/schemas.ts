@@ -529,6 +529,12 @@ export const EndSessionSchema = z.object({
   session_id: z.string().min(1, 'Session ID is required'),
 });
 
+export const ListSessionsSchema = z.object({
+  project: z.string().optional(),
+  active_only: z.boolean().optional(),
+  limit: z.number().optional(),
+});
+
 export const GetEventLogSchema = z.object({
   project: z.string().optional(),
   entity_id: z.string().optional(),

@@ -1,6 +1,7 @@
 import {
   StartSessionSchema,
   EndSessionSchema,
+  ListSessionsSchema,
   GetEventLogSchema,
   UndoLastSchema,
   PruneEventsSchema,
@@ -28,6 +29,16 @@ export const sessionHandlers = {
     return SessionEngine.endSession(db, {
       project: projectSlug,
       session_id: data.session_id,
+    });
+  },
+  list_sessions: (args: any) => {
+    const data = parseArgs(ListSessionsSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return SessionEngine.listSessions(db, {
+      project: projectSlug,
+      active_only: data.active_only,
+      limit: data.limit,
     });
   },
   get_event_log: (args: any) => {

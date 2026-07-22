@@ -56,29 +56,34 @@ export function decisionTrail(params: { project?: string; node_id: string }): {
     return { decisions: [], contradictions: [] };
   }
 
-  const placeholders = uniqueIds.map(() => '?').join(',');
-  const decisionRows = db
-    .prepare(
-      `
-    SELECT * FROM nodes WHERE id IN (${placeholders}) AND type = 'decision'
-  `
-    )
-    .all(...uniqueIds) as NodeRow[];
+  let decisionRows: NodeRow[] = [];
+  let edgeRows: EdgeRow[] = [];
+  const chunkSize = 400;
+
+  for (let i = 0; i < uniqueIds.length; i += chunkSize) {
+    const chunk = uniqueIds.slice(i, i + chunkSize);
+    const placeholders = chunk.map(() => '?').join(',');
+
+    const dRows = db
+      .prepare(`SELECT * FROM nodes WHERE id IN (${placeholders}) AND type = 'decision'`)
+      .all(...chunk) as NodeRow[];
+    decisionRows.push(...dRows);
+
+    const eRows = db
+      .prepare(
+        `
+      SELECT * FROM edges 
+      WHERE project = ? 
+        AND type = 'contradicts' 
+        AND source_id IN (${placeholders}) 
+        AND target_id IN (${placeholders})
+    `
+      )
+      .all(projectSlug, ...chunk, ...chunk) as EdgeRow[];
+    edgeRows.push(...eRows);
+  }
 
   const decisions = decisionRows.map(parseNodeRow);
-
-  const edgeRows = db
-    .prepare(
-      `
-    SELECT * FROM edges 
-    WHERE project = ? 
-      AND type = 'contradicts' 
-      AND source_id IN (${placeholders}) 
-      AND target_id IN (${placeholders})
-  `
-    )
-    .all(projectSlug, ...uniqueIds, ...uniqueIds) as EdgeRow[];
-
   const contradictions = edgeRows.map(parseEdgeRow);
 
   return { decisions, contradictions };

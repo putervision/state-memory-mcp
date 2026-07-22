@@ -80,18 +80,7 @@ import { getStaleNodes } from './engine/staleness.js';
 import { validateGraph } from './engine/validate.js';
 import { logger } from './utils/logger.js';
 import { VERSION } from './utils/version.js';
-
-function parseArgs<T>(schema: { safeParse: (args: any) => ParseResult<T> }, args: any): T {
-  const parsed = schema.safeParse(args);
-  if (!parsed.success || !parsed.data) {
-    const errorMsg = parsed.error?.errors.map((e) => e.message).join(', ') || 'Unknown validation error';
-    throw new McpError(
-      ErrorCode.InvalidParams,
-      `Invalid parameters: ${errorMsg}`
-    );
-  }
-  return parsed.data;
-}
+import { parseArgs } from './handlers/helper.js';
 
 /**
  * The Model Context Protocol (MCP) server instance for the state-memory-mcp toolset.
@@ -800,6 +789,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: 'list_sessions',
+        description: 'List active and completed sessions for a project.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            active_only: {
+              type: 'boolean',
+              description: 'Optional filter to return only active (open) sessions.',
+            },
+            limit: {
+              type: 'number',
+              description: 'Optional maximum number of sessions to return (default 20).',
+            },
+          },
+        },
+      },
+      {
         name: 'get_event_log',
         description: 'Query the project event log with filters.',
         inputSchema: {
@@ -1098,7 +1108,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'array',
               items: {
                 type: 'string',
-                enum: ['blocked_done', 'orphan_nodes', 'empty_milestones', 'stale_in_progress', 'missing_decisions', 'dangling_edges', 'cycle_check'],
+                enum: ['blocked_done', 'orphan_nodes', 'empty_milestones', 'stale_in_progress', 'missing_decisions', 'dangling_edges', 'cycle_check', 'unverified_ui'],
               },
               description: 'Specific validation checks to run. Runs all by default.',
             },

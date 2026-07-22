@@ -39,9 +39,10 @@ describe('MCP Server Integration Tests', () => {
   it('should list available tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(44);
+    expect(tools.tools.length).toBe(45);
 
     const toolNames = tools.tools.map((t) => t.name);
+    expect(toolNames).toContain('list_sessions');
     expect(toolNames).toContain('value_metrics');
     expect(toolNames).toContain('scaffold_template');
     expect(toolNames).toContain('add_node');
@@ -92,7 +93,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const node1 = JSON.parse((addNodeResult.content[0] as any).text);
+    const node1 = JSON.parse((addNodeResult as any).content[0].text);
     expect(node1.id).toBeDefined();
     expect(node1.title).toBe('Initial Database Setup');
 
@@ -108,7 +109,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const blocker = JSON.parse((addBlockerResult.content[0] as any).text);
+    const blocker = JSON.parse((addBlockerResult as any).content[0].text);
     expect(blocker.id).toBeDefined();
 
     // 3. Update Task Node
@@ -122,7 +123,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const updatedNode = JSON.parse((updateNodeResult.content[0] as any).text);
+    const updatedNode = JSON.parse((updateNodeResult as any).content[0].text);
     expect(updatedNode.status).toBe('blocked');
     expect(updatedNode.metadata.priority).toBe('high'); // Kept original
     expect(updatedNode.metadata.estimate).toBe('2h'); // Merged new
@@ -138,7 +139,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const edge = JSON.parse((addEdgeResult.content[0] as any).text);
+    const edge = JSON.parse((addEdgeResult as any).content[0].text);
     expect(edge.source_id).toBe(blocker.id);
     expect(edge.target_id).toBe(node1.id);
     expect(edge.type).toBe('blocks');
@@ -152,7 +153,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const list = JSON.parse((listResult.content[0] as any).text);
+    const list = JSON.parse((listResult as any).content[0].text);
     expect(list.total_count).toBe(1);
     expect(list.nodes[0].id).toBe(node1.id);
 
@@ -165,7 +166,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const search = JSON.parse((searchResult.content[0] as any).text);
+    const search = JSON.parse((searchResult as any).content[0].text);
     expect(search.total_count).toBe(1);
     expect(search.nodes[0].title).toBe('Initial Database Setup');
 
@@ -178,7 +179,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const blockersList = JSON.parse((blockersResult.content[0] as any).text);
+    const blockersList = JSON.parse((blockersResult as any).content[0].text);
     expect(blockersList.length).toBe(1);
     expect(blockersList[0].blocker_node.id).toBe(blocker.id);
 
@@ -188,7 +189,7 @@ describe('MCP Server Integration Tests', () => {
       arguments: { project },
     });
 
-    const summary = JSON.parse((summaryResult.content[0] as any).text);
+    const summary = JSON.parse((summaryResult as any).content[0].text);
     expect(summary.node_counts.task).toBe(1);
     expect(summary.node_counts.blocker).toBe(1);
     expect(summary.active_blockers.length).toBe(1);
@@ -204,7 +205,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const removeEdgeResponse = JSON.parse((removeEdgeResult.content[0] as any).text);
+    const removeEdgeResponse = JSON.parse((removeEdgeResult as any).content[0].text);
     expect(removeEdgeResponse.removed).toBe(true);
 
     // 10. Remove Node
@@ -216,7 +217,7 @@ describe('MCP Server Integration Tests', () => {
       },
     });
 
-    const removeNodeResponse = JSON.parse((removeNodeResult.content[0] as any).text);
+    const removeNodeResponse = JSON.parse((removeNodeResult as any).content[0].text);
     expect(removeNodeResponse.deleted_node_id).toBe(node1.id);
   });
 

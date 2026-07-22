@@ -23,12 +23,10 @@ export class TrajectoryEngine {
       until: params.until,
       limit: params.limit !== undefined ? params.limit : 10000,
       offset: params.offset !== undefined ? params.offset : 0,
+      order: 'ASC',
     });
 
-    // Reverse chronological events list returned by getEventLog needs to be in chronological order for training!
-    const chronologicalEvents = [...events].reverse();
-
-    const lines = chronologicalEvents.map((event) => {
+    const lines = events.map((event) => {
       const entry = {
         event_type: event.event_type,
         entity_type: event.entity_type,

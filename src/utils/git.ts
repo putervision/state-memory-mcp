@@ -96,6 +96,7 @@ export function getFilesChanged(hash: string, cwd: string = process.cwd()): stri
         cwd,
         stdio: ['ignore', 'pipe', 'ignore'],
         encoding: 'utf-8',
+        maxBuffer: 10 * 1024 * 1024,
       }
     );
     return output
@@ -176,6 +177,7 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
             cwd,
             stdio: ['ignore', 'pipe', 'ignore'],
             encoding: 'utf-8',
+            maxBuffer: 10 * 1024 * 1024,
           }
         );
         return parseGitLogOutput(output);
@@ -199,6 +201,7 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
         cwd,
         stdio: ['ignore', 'pipe', 'ignore'],
         encoding: 'utf-8',
+        maxBuffer: 10 * 1024 * 1024,
       }
     );
     return parseGitLogOutput(output);

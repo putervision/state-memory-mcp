@@ -42,17 +42,23 @@ export function criticalPath(params: { project?: string; milestone_id: string })
     return { path: activeNodes, total_estimate_hours: 0 };
   }
 
-  const placeholders = activeNodeIds.map(() => '?').join(',');
-  const edgeRows = db
-    .prepare(
-      `
-    SELECT * FROM edges 
-    WHERE project = ? 
-      AND source_id IN (${placeholders}) 
-      AND target_id IN (${placeholders})
-  `
-    )
-    .all(projectSlug, ...activeNodeIds, ...activeNodeIds) as EdgeRow[];
+  let edgeRows: EdgeRow[] = [];
+  const chunkSize = 400;
+  for (let i = 0; i < activeNodeIds.length; i += chunkSize) {
+    const chunk = activeNodeIds.slice(i, i + chunkSize);
+    const placeholders = chunk.map(() => '?').join(',');
+    const rows = db
+      .prepare(
+        `
+      SELECT * FROM edges 
+      WHERE project = ? 
+        AND source_id IN (${placeholders}) 
+        AND target_id IN (${placeholders})
+    `
+      )
+      .all(projectSlug, ...chunk, ...chunk) as EdgeRow[];
+    edgeRows.push(...rows);
+  }
 
   const getWeight = (node: BaseNode): number => {
     const est = node.metadata.estimate;

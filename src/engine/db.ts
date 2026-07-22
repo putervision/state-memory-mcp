@@ -14,17 +14,20 @@ import { loadProjectConfig } from './config.js';
  * @returns The resolved absolute file path if safe.
  * @throws {ValidationError} If path traversal outside the project root is detected.
  */
+import { validatePath as validatePathCore, loadPathConfig } from '../utils/path-validator.js';
+
+/**
+ * Validates a file path to ensure it resolves within allowed directories, preventing path traversal.
+ *
+ * @param filePath - The file path to validate.
+ * @param project - Optional project identifier.
+ * @returns The resolved absolute file path if safe.
+ * @throws {ValidationError} If path traversal outside project root is detected.
+ */
 export function validatePath(filePath: string, project?: string): string {
   const projectRoot = resolveProjectRoot(project);
-  const resolvedPath = path.resolve(filePath);
-  const relative = path.relative(projectRoot, resolvedPath);
-  const isSafe = relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
-  if (!isSafe) {
-    throw new ValidationError(
-      `Path traversal detected: path "${filePath}" resolves outside project root "${projectRoot}"`
-    );
-  }
-  return resolvedPath;
+  const pathConfig = loadPathConfig(projectRoot);
+  return validatePathCore(filePath, pathConfig);
 }
 
 const REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp-registry.json');
@@ -41,12 +44,20 @@ function getRegistry(): Record<string, string> {
   try {
     if (fs.existsSync(REGISTRY_PATH)) {
       const raw = fs.readFileSync(REGISTRY_PATH, 'utf-8');
-      const registry = JSON.parse(raw) || {};
-      registryCache = { registry, timestamp: now };
-      return registry;
+      try {
+        const registry = JSON.parse(raw) || {};
+        registryCache = { registry, timestamp: now };
+        return registry;
+      } catch (parseErr) {
+        logger.error('Corrupt registry file detected at:', REGISTRY_PATH, parseErr);
+        throw new DatabaseError(
+          `Registry file exists at "${REGISTRY_PATH}" but contains invalid JSON. Fix or remove it manually to prevent overwriting registered projects.`
+        );
+      }
     }
   } catch (e) {
-    logger.warn('Failed to read or parse global registry:', e);
+    if (e instanceof DatabaseError) throw e;
+    logger.warn('Failed to read global registry:', e);
   }
   return {};
 }
@@ -306,13 +317,27 @@ export function getDb(project?: string): Database.Database {
 
   const projectDbDir = getProjectDbDir(project);
 
-  // Ensure directories exist
-  fs.mkdirSync(projectDbDir, { recursive: true });
+  // Ensure directories exist with restricted permissions
+  if (!fs.existsSync(projectDbDir)) {
+    fs.mkdirSync(projectDbDir, { recursive: true, mode: 0o700 });
+  }
+  try {
+    fs.chmodSync(projectDbDir, 0o700);
+  } catch {
+    // Ignore permissions errors on non-posix systems
+  }
 
   const dbPath = getDbPath(project);
   logger.info(`Connecting to database for project "${projectSlug}" at: ${dbPath}`);
 
   const db = new Database(dbPath);
+  try {
+    if (fs.existsSync(dbPath)) {
+      fs.chmodSync(dbPath, 0o600);
+    }
+  } catch {
+    // Ignore permissions errors on non-posix systems
+  }
 
   // WAL mode, synchronous mode, and busy timeout
   db.pragma('journal_mode = WAL');
@@ -372,6 +397,7 @@ export function getReadOnlyDb(project?: string): Database.Database {
 
   const db = new Database(dbPath, { readonly: true });
   db.pragma('busy_timeout = 5000');
+  db.pragma('foreign_keys = ON');
   db.pragma('enable_load_extension = 0');
 
   readOnlyDbCache.set(projectSlug, { db, lastUsed: Date.now() });

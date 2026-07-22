@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-22
+
+### Added & Improved
+- **Full Execution of PLAN_103**: Comprehensive delivery of all 8 Sprints spanning bug fixes, security, performance, developer experience, test coverage, and open source release tooling.
+- **MCP Tool Expansion**: Implemented and registered missing `list_sessions` MCP tool (raising total core tools to **45**).
+- **Security & Integrity Hardening**:
+  - Implemented `fs.realpathSync()` symlink canonicalization in `validatePath` to prevent path traversal vulnerabilities.
+  - Restricted database storage permissions to `0o700` (directories) and `0o600` (SQLite files).
+  - Handled corrupted registry JSON files safely in `db.getRegistry` to prevent overwriting project registries.
+  - Fixed cross-project event deletion bug in `pruneEvents` subquery.
+- **Data Integrity & Performance Optimizations**:
+  - Eliminated N+1 query overhead in `detectContradictions` using single batch SELECT queries.
+  - Deduplicated `parseArgs` across server handlers into `src/handlers/helper.ts`.
+  - Optimized SQL queries in `work-queue.ts` to filter node and edge types.
+  - Cached RegExp instances in `git-scanner.ts` to eliminate per-commit allocation overhead.
+  - Logged `edge_deleted` events in `removeNode` and synced `nodes_fts` virtual search table on `node_deleted` undo.
+  - Enabled `foreign_keys = ON` pragma on read-only database connections.
+  - Chunked SQL parameter arrays in batches of 400 in `critical-path.ts` and `decision-trail.ts` to prevent SQLite variable limit errors.
+  - Added 10MB `maxBuffer` to child process `execFileSync` calls in `git.ts`.
+- **Documentation & DX**:
+  - Created `.env.example`, `docs/database-schema.md`, and `docs/storage-structure.md`.
+  - Updated `README.md` with Node.js requirement (`>= 18.0.0`), node status values, auto-init workflow, and IDE config snippets.
+  - Created library barrel export `src/lib.ts` and added package exports mapping (`"."`, `"./lib"`, `"./cli"`).
+  - Removed `shims: true` from `tsup.config.ts` for clean ESM builds.
+- **Test Coverage Expansion**:
+  - Added unit test suites for `backup.test.ts`, `merge.test.ts`, `audit.test.ts`, and `query-raw.test.ts` (32 test files, 135 unit tests total).
+  - Created `src/utils/json-validator.ts` for safe JSON parsing and validation.
+- **Open Source Community Tooling**:
+  - Created `.github/workflows/ci.yml` matrix testing across Node.js 18, 20, and 22.
+  - Added GitHub issue templates for bug reports and feature requests.
+  - Created `CONTRIBUTING.md` developer guidelines and `SECURITY.md` vulnerability reporting policy.
+
 ## [0.4.6] - 2026-07-21
 
 ### Fixed & Improved

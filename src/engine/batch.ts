@@ -1,6 +1,9 @@
 import Database from 'better-sqlite3';
 import { parseNodeRow } from './row-mappers.js';
 import { EventEngine } from './events.js';
+import { GraphEngine } from './graph.js';
+import { EdgeEngine } from './edges.js';
+import { BatchCreateNodesParams, BatchAddEdgesParams, BaseNode, Edge } from '../schema/types.js';
 
 export function batchUpdate(
   db: Database.Database,
@@ -72,4 +75,57 @@ export function batchUpdate(
   })();
 
   return { updated, failed };
+}
+
+export function batchCreateNodes(
+  db: Database.Database,
+  params: BatchCreateNodesParams
+): { created_nodes: BaseNode[] } {
+  if (params.nodes.length > 100) {
+    throw new Error('Cannot create more than 100 nodes in a single batch call');
+  }
+
+  const created_nodes: BaseNode[] = [];
+
+  db.transaction(() => {
+    for (const nodeInput of params.nodes) {
+      const created = GraphEngine.addNode({
+        project: params.project,
+        type: nodeInput.type,
+        title: nodeInput.title,
+        status: nodeInput.status,
+        metadata: nodeInput.metadata,
+        tags: nodeInput.tags,
+      });
+      created_nodes.push(created);
+    }
+  })();
+
+  return { created_nodes };
+}
+
+export function batchAddEdges(
+  db: Database.Database,
+  params: BatchAddEdgesParams
+): { created_edges: Edge[] } {
+  if (params.edges.length > 100) {
+    throw new Error('Cannot add more than 100 edges in a single batch call');
+  }
+
+  const created_edges: Edge[] = [];
+
+  db.transaction(() => {
+    for (const edgeInput of params.edges) {
+      const created = EdgeEngine.addEdge({
+        project: params.project,
+        source_id: edgeInput.source_id,
+        target_id: edgeInput.target_id,
+        type: edgeInput.type,
+        properties: edgeInput.properties,
+      });
+      created_edges.push(created);
+    }
+  })();
+
+  return { created_edges };
 }

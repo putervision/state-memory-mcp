@@ -60,3 +60,26 @@ export function suggestLinks(projectSlug: string, node: any): void {
     // Ignore suggestion errors
   }
 }
+
+export function findFuzzyNodeSuggestions(projectSlug: string, invalidId: string): string {
+  try {
+    const db = getDb(projectSlug);
+    const recentNodes = db
+      .prepare(
+        `SELECT id, title, type, status FROM nodes WHERE project = ? ORDER BY updated_at DESC LIMIT 3`
+      )
+      .all(projectSlug) as any[];
+
+    if (recentNodes.length === 0) {
+      return `Node "${invalidId}" not found in project "${projectSlug}".`;
+    }
+
+    let msg = `Node "${invalidId}" not found in project "${projectSlug}".\nDid you mean one of these recent nodes?\n`;
+    for (const node of recentNodes) {
+      msg += `- "${node.title}" (ID: ${node.id}) [${node.type}: ${node.status}]\n`;
+    }
+    return msg.trim();
+  } catch {
+    return `Node "${invalidId}" not found in project "${projectSlug}".`;
+  }
+}

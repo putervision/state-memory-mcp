@@ -4,9 +4,9 @@ import path from 'path';
 import fs from 'fs';
 
 // Database paths
-const stateDbDir = path.resolve('/home/beast/Downloads/working/state-memory-mcp/.state-memory-mcp/test-synergy-project');
+const stateDbDir = path.resolve(process.cwd(), '.state-memory-mcp/test-synergy-project');
 const stateDbPath = path.join(stateDbDir, 'graph.db');
-const visionDbPath = path.resolve('/home/beast/Downloads/working/vision-memory-mcp/.vision-memory-mcp');
+const visionDbPath = path.resolve(process.cwd(), '../vision-memory-mcp/.vision-memory-mcp');
 
 async function testSynergy() {
   console.log("=== STARTING SYNERGY INTEGRATION TEST ===");
@@ -29,7 +29,7 @@ async function testSynergy() {
   console.log(`Created UI task: ${taskId} ("Align faction logos on homepage") marked as done.`);
 
   // 3. Run validation (Should fail/warn because it's a UI task marked done without visual verification)
-  const { validateGraph } = await import('/home/beast/Downloads/working/state-memory-mcp/dist/index.js');
+  const { validateGraph } = await import('./dist/index.js');
   let validation = validateGraph(db, { project: 'test-synergy-project' });
   console.log("Run validation (expected warning for unverified UI):");
   console.log(JSON.stringify(validation.issues.filter(i => i.check === 'unverified_ui'), null, 2));

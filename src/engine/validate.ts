@@ -15,6 +15,7 @@ export interface ValidateIssue {
   severity: 'error' | 'warning';
   message: string;
   node_ids: string[];
+  remediation?: string;
 }
 
 export function validateGraph(
@@ -22,8 +23,9 @@ export function validateGraph(
   params: {
     project: string;
     checks?: ValidateCheck[];
+    auto_fix?: boolean;
   }
-): { passed: boolean; issues: ValidateIssue[] } {
+): { passed: boolean; issues: ValidateIssue[]; fixed_count: number } {
   const checksToRun =
     params.checks && params.checks.length > 0
       ? params.checks
@@ -39,15 +41,17 @@ export function validateGraph(
         ] as ValidateCheck[]);
 
   const issues: ValidateIssue[] = [];
+  let fixedCount = 0;
 
   // Helper to add issue
   const addIssue = (
     check: string,
     severity: 'error' | 'warning',
     message: string,
-    nodeIds: string[]
+    nodeIds: string[],
+    remediation?: string
   ) => {
-    issues.push({ check, severity, message, node_ids: nodeIds });
+    issues.push({ check, severity, message, node_ids: nodeIds, remediation });
   };
 
   // 1. blocked_done
@@ -70,7 +74,8 @@ export function validateGraph(
         'blocked_done',
         'error',
         `Task "${row.title}" is marked done but has incomplete dependencies/blockers`,
-        [row.id]
+        [row.id],
+        `Consider running update_node(id: "${row.id}", status: "in_progress") or marking blocking dependencies as done.`
       );
     }
   }
@@ -94,7 +99,8 @@ export function validateGraph(
         'orphan_nodes',
         'warning',
         `Node "${row.title}" (${row.id}) is an orphan with no connecting relationships`,
-        [row.id]
+        [row.id],
+        `Use add_edge to link "${row.id}" to a parent plan/milestone or task, or remove_node if obsolete.`
       );
     }
   }
@@ -119,7 +125,8 @@ export function validateGraph(
         'empty_milestones',
         'warning',
         `Milestone "${row.title}" has no associated child tasks`,
-        [row.id]
+        [row.id],
+        `Use add_edge(source_id: "<task_id>", target_id: "${row.id}", type: "child_of") to assign tasks.`
       );
     }
   }
@@ -142,7 +149,8 @@ export function validateGraph(
         'stale_in_progress',
         'warning',
         `Task "${row.title}" has been "in_progress" with no updates for over 7 days`,
-        [row.id]
+        [row.id],
+        `Update task progress with update_node or add_note.`
       );
     }
   }
@@ -169,7 +177,8 @@ export function validateGraph(
         'missing_decisions',
         'warning',
         `Completed task "${row.title}" does not reference any design decisions`,
-        [row.id]
+        [row.id],
+        `Link relevant decision nodes using add_edge(type: "decided_in" or "references").`
       );
     }
   }
@@ -189,13 +198,23 @@ export function validateGraph(
       )
       .all(params.project) as { id: string; source_id: string; target_id: string; type: string }[];
 
-    for (const row of rows) {
-      addIssue(
-        'dangling_edges',
-        'error',
-        `Edge ${row.id} (${row.type}) references non-existent node(s): source ${row.source_id}, target ${row.target_id}`,
-        []
-      );
+    if (params.auto_fix && rows.length > 0) {
+      db.transaction(() => {
+        for (const row of rows) {
+          db.prepare('DELETE FROM edges WHERE id = ?').run(row.id);
+          fixedCount++;
+        }
+      })();
+    } else {
+      for (const row of rows) {
+        addIssue(
+          'dangling_edges',
+          'error',
+          `Edge ${row.id} (${row.type}) references non-existent node(s): source ${row.source_id}, target ${row.target_id}`,
+          [],
+          `Run validate_graph(auto_fix: true) to automatically remove dangling edges.`
+        );
+      }
     }
   }
 
@@ -271,7 +290,8 @@ export function validateGraph(
         'cycle_check',
         'error',
         `Circular dependencies detected in project graph`,
-        Array.from(cycleNodes)
+        Array.from(cycleNodes),
+        `Remove cyclic edges using remove_edge.`
       );
     }
   }
@@ -319,7 +339,8 @@ export function validateGraph(
               'unverified_ui',
               'warning',
               `UI task "${row.title}" is completed but has no renders_state edge or visual state metadata associated.`,
-              [row.id]
+              [row.id],
+              `Attach visual snapshot metadata or link renders_state edge using vision-memory-mcp.`
             );
           }
         }
@@ -334,5 +355,6 @@ export function validateGraph(
   return {
     passed,
     issues,
+    fixed_count: fixedCount,
   };
 }

@@ -158,10 +158,28 @@ export class EnumSchema<U extends string> extends Schema<U> {
 
 export class ArraySchema<I> extends Schema<I[]> {
   private itemSchema: Schema<I>;
+  private minLength?: number;
+  private minMessage?: string;
+  private maxLength?: number;
+  private maxMessage?: string;
 
   constructor(itemSchema: Schema<I>) {
     super();
     this.itemSchema = itemSchema;
+  }
+
+  min(length: number, message?: string): this {
+    const copy = this.clone();
+    copy.minLength = length;
+    copy.minMessage = message;
+    return copy;
+  }
+
+  max(length: number, message?: string): this {
+    const copy = this.clone();
+    copy.maxLength = length;
+    copy.maxMessage = message;
+    return copy;
   }
 
   parse(val: unknown, path = 'value'): I[] {
@@ -172,6 +190,12 @@ export class ArraySchema<I> extends Schema<I[]> {
     }
     if (!Array.isArray(val)) {
       throw new Error(`${path} must be an array`);
+    }
+    if (this.minLength !== undefined && val.length < this.minLength) {
+      throw new Error(this.minMessage || `${path} must contain at least ${this.minLength} items`);
+    }
+    if (this.maxLength !== undefined && val.length > this.maxLength) {
+      throw new Error(this.maxMessage || `${path} must contain at most ${this.maxLength} items`);
     }
     return val.map((item, idx) => this.itemSchema.parse(item, `${path}[${idx}]`));
   }
@@ -387,6 +411,19 @@ export const RemoveEdgeSchema = z.object({
   type: EdgeTypeSchema,
 });
 
+export const NodeFieldSchema = z.enum([
+  'id',
+  'type',
+  'title',
+  'status',
+  'project',
+  'git_branch',
+  'metadata',
+  'tags',
+  'created_at',
+  'updated_at',
+]);
+
 export const ListNodesSchema = z.object({
   project: z.string().optional(),
   type: NodeTypeSchema.optional(),
@@ -396,6 +433,8 @@ export const ListNodesSchema = z.object({
   offset: z.number().optional().default(0),
   compact: z.boolean().optional().default(false),
   git_branch: z.string().optional(),
+  fields: z.array(NodeFieldSchema).optional(),
+  pretty_print: z.boolean().optional().default(false),
 });
 
 export const SearchNodesSchema = z.object({
@@ -406,6 +445,8 @@ export const SearchNodesSchema = z.object({
   limit: z.number().optional().default(20),
   offset: z.number().optional().default(0),
   algorithm: z.enum(['fts', 'tfidf']).optional().default('fts'),
+  fields: z.array(NodeFieldSchema).optional(),
+  pretty_print: z.boolean().optional().default(false),
 });
 
 export const GetSubgraphSchema = z.object({
@@ -414,6 +455,8 @@ export const GetSubgraphSchema = z.object({
   depth: z.number().min(1).max(5).optional().default(2),
   edge_types: z.array(EdgeTypeSchema).optional(),
   node_types: z.array(NodeTypeSchema).optional(),
+  fields: z.array(NodeFieldSchema).optional(),
+  pretty_print: z.boolean().optional().default(false),
 });
 
 export const TraceDependenciesSchema = z.object({
@@ -595,6 +638,8 @@ export const NextTasksSchema = z.object({
   git_branch: z.string().optional(),
   limit: z.number().optional().default(5),
   include_context: z.boolean().optional().default(false),
+  fields: z.array(NodeFieldSchema).optional(),
+  pretty_print: z.boolean().optional().default(false),
 });
 
 export const WhatChangedSchema = z.object({
@@ -616,6 +661,7 @@ export const GetStaleNodesSchema = z.object({
 export const ValidateGraphSchema = z.object({
   project: z.string().optional(),
   checks: z.array(z.string()).optional(),
+  auto_fix: z.boolean().optional().default(false),
 });
 
 export const PruneEventsSchema = z.object({
@@ -633,4 +679,51 @@ export const AddNoteSchema = z.object({
     .max(10000, 'Note text cannot exceed 10000 characters'),
   attach_to: z.string().optional(),
   tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
+});
+
+export const BootstrapSessionSchema = z.object({
+  project: z.string().optional(),
+  agent_id: z.string().optional(),
+  metadata: MetadataSchema.optional(),
+  task_limit: z.number().optional().default(5),
+});
+
+export const CompleteTaskSchema = z.object({
+  project: z.string().optional(),
+  task_id: z.string().min(1, 'task_id is required'),
+  artifact_title: z.string().optional(),
+  artifact_metadata: MetadataSchema.optional(),
+  tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
+});
+
+export const BatchCreateNodesSchema = z.object({
+  project: z.string().optional(),
+  nodes: z
+    .array(
+      z.object({
+        type: NodeTypeSchema,
+        title: z
+          .string()
+          .min(1, 'Title cannot be empty')
+          .max(500, 'Title cannot exceed 500 characters'),
+        status: z.string().optional(),
+        metadata: MetadataSchema.optional(),
+        tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
+      })
+    )
+    .min(1, 'At least one node is required'),
+});
+
+export const BatchAddEdgesSchema = z.object({
+  project: z.string().optional(),
+  edges: z
+    .array(
+      z.object({
+        source_id: z.string().min(1, 'source_id is required'),
+        target_id: z.string().min(1, 'target_id is required'),
+        type: EdgeTypeSchema,
+        properties: PropertiesSchema.optional(),
+      })
+    )
+    .min(1, 'At least one edge is required'),
 });

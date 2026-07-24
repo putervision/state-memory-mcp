@@ -12,7 +12,7 @@ import { GraphEngine } from '../engine/graph.js';
 import { QueryEngine } from '../engine/queries.js';
 import { EventEngine } from '../engine/events.js';
 import { getDb, getProjectSlug } from '../engine/db.js';
-import { parseArgs, suggestLinks } from './helper.js';
+import { parseArgs, suggestLinks, findFuzzyNodeSuggestions } from './helper.js';
 
 export const nodeHandlers = {
   add_node: (args: any) => {
@@ -25,7 +25,9 @@ export const nodeHandlers = {
     const data = parseArgs(UpdateNodeSchema, args);
     const node = GraphEngine.updateNode(data);
     if (!node) {
-      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
+      const projectSlug = getProjectSlug(data.project);
+      const msg = findFuzzyNodeSuggestions(projectSlug, data.id);
+      throw new McpError(ErrorCode.InvalidRequest, msg);
     }
     suggestLinks(node.project, node);
     return node;
@@ -34,7 +36,9 @@ export const nodeHandlers = {
     const data = parseArgs(GetNodeSchema, args);
     const result = GraphEngine.getNode(data);
     if (!result) {
-      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
+      const projectSlug = getProjectSlug(data.project);
+      const msg = findFuzzyNodeSuggestions(projectSlug, data.id);
+      throw new McpError(ErrorCode.InvalidRequest, msg);
     }
     return result;
   },
@@ -42,10 +46,13 @@ export const nodeHandlers = {
     const data = parseArgs(RemoveNodeSchema, args);
     const result = GraphEngine.removeNode(data);
     if (!result) {
-      throw new McpError(ErrorCode.InvalidRequest, `Node not found: ${data.id}`);
+      const projectSlug = getProjectSlug(data.project);
+      const msg = findFuzzyNodeSuggestions(projectSlug, data.id);
+      throw new McpError(ErrorCode.InvalidRequest, msg);
     }
     return result;
   },
+
   list_nodes: (args: any) => {
     const data = parseArgs(ListNodesSchema, args);
     return QueryEngine.listNodes(data);

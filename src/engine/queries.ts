@@ -1,9 +1,20 @@
 import { getDb, getProjectSlug } from './db.js';
-import { BaseNode, Edge, NodeType, NodeRow, EdgeRow } from '../schema/types.js';
+import { BaseNode, Edge, NodeType, NodeRow, EdgeRow, NodeField } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { getCurrentBranch } from '../utils/git.js';
 import { searchTfidf } from './tfidf.js';
 import { logger } from '../utils/logger.js';
+
+export function projectNodeFields(node: BaseNode, fields?: NodeField[]): BaseNode {
+  if (!fields || fields.length === 0) return node;
+  const projected: any = {};
+  for (const field of fields) {
+    if (field in node) {
+      projected[field] = (node as any)[field];
+    }
+  }
+  return projected as BaseNode;
+}
 
 /**
  * Engine for querying nodes and subgraphs from the database.
@@ -21,6 +32,7 @@ export class QueryEngine {
    * @param params.offset - Optional offset for pagination.
    * @param params.compact - Optional. If true, metadata is excluded.
    * @param params.git_branch - Optional git branch filter.
+   * @param params.fields - Optional list of node fields to project.
    * @returns An object containing the list of matching nodes and the total count of matched nodes.
    */
   static listNodes(params: {
@@ -32,6 +44,7 @@ export class QueryEngine {
     offset?: number;
     compact?: boolean;
     git_branch?: string;
+    fields?: NodeField[];
   }): { nodes: BaseNode[]; total_count: number } {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
@@ -96,7 +109,7 @@ export class QueryEngine {
       total_count = offset + rows.length;
     }
 
-    const nodes = rows.map(parseNodeRow);
+    const nodes = rows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields));
 
     return { nodes, total_count };
   }
@@ -112,6 +125,7 @@ export class QueryEngine {
    * @param params.limit - Optional maximum number of results to return.
    * @param params.git_branch - Optional git branch filter.
    * @param params.algorithm - The search algorithm to use ('fts' or 'tfidf').
+   * @param params.fields - Optional list of node fields to project.
    * @returns An object containing matching nodes and the total count.
    */
   static searchNodes(params: {
@@ -123,6 +137,7 @@ export class QueryEngine {
     offset?: number;
     git_branch?: string;
     algorithm?: 'fts' | 'tfidf';
+    fields?: NodeField[];
   }): { nodes: BaseNode[]; total_count: number } {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
@@ -165,7 +180,9 @@ export class QueryEngine {
 
       // Get all matches from TF-IDF first, then paginate
       const matched = searchTfidf(candidates, params.query, candidates.length);
-      const paginated = matched.slice(offset, offset + limit);
+      const paginated = matched
+        .slice(offset, offset + limit)
+        .map((n) => projectNodeFields(n, params.fields));
 
       return { nodes: paginated, total_count: matched.length };
     }
@@ -216,7 +233,7 @@ export class QueryEngine {
 
       const paginatedSql = sql + ' LIMIT ? OFFSET ?';
       const rows = db.prepare(paginatedSql).all(...queryParams, limit, offset) as NodeRow[];
-      const nodes = rows.map(parseNodeRow);
+      const nodes = rows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields));
 
       return { nodes, total_count };
     } catch (err: any) {
@@ -233,7 +250,7 @@ export class QueryEngine {
 
         const paginatedSql = sql + ' LIMIT ? OFFSET ?';
         const rows = db.prepare(paginatedSql).all(...queryParams, limit, offset) as NodeRow[];
-        const nodes = rows.map(parseNodeRow);
+        const nodes = rows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields));
 
         return { nodes, total_count };
       } catch (retryErr: any) {
@@ -254,6 +271,7 @@ export class QueryEngine {
    * @param params.depth - The traversal depth limit.
    * @param params.edge_types - Optional array of edge types to follow.
    * @param params.node_types - Optional array of node types to include in results.
+   * @param params.fields - Optional list of node fields to project.
    * @returns An object containing nodes and edges within the subgraph.
    */
   static getSubgraph(params: {
@@ -262,6 +280,7 @@ export class QueryEngine {
     depth?: number;
     edge_types?: string[];
     node_types?: string[];
+    fields?: NodeField[];
   }): { nodes: BaseNode[]; edges: Edge[] } {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
@@ -320,10 +339,10 @@ export class QueryEngine {
     }
 
     const nodeRows = db.prepare(nodeSql).all(...nodeQueryParams) as NodeRow[];
-    const nodes = nodeRows.map(parseNodeRow);
+    const nodes = nodeRows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields));
 
     // Filter nodeIds to those that were actually returned (matching node_types)
-    const returnedNodeIds = nodes.map((n) => n.id);
+    const returnedNodeIds = nodeRows.map(parseNodeRow).map((n) => n.id);
 
     if (returnedNodeIds.length === 0) {
       return { nodes: [], edges: [] };

@@ -1,6 +1,16 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { BatchUpdateSchema, WhatChangedSchema, AddNoteSchema } from '../schema/schemas.js';
-import { batchUpdate } from '../engine/batch.js';
+import {
+  BatchUpdateSchema,
+  WhatChangedSchema,
+  AddNoteSchema,
+  BootstrapSessionSchema,
+  CompleteTaskSchema,
+  BatchCreateNodesSchema,
+  BatchAddEdgesSchema,
+} from '../schema/schemas.js';
+import { batchUpdate, batchCreateNodes, batchAddEdges } from '../engine/batch.js';
+import { bootstrapSession } from '../engine/bootstrap.js';
+import { completeTask } from '../engine/complete-task.js';
 import { getChanges } from '../engine/changeset.js';
 import { GraphEngine } from '../engine/graph.js';
 import { EdgeEngine } from '../engine/edges.js';
@@ -18,6 +28,32 @@ export const batchHandlers = {
       status: data.status,
       metadata: data.metadata,
       tags: data.tags,
+    });
+  },
+  bootstrap_session: (args: any) => {
+    const data = parseArgs(BootstrapSessionSchema, args);
+    return bootstrapSession(data);
+  },
+  complete_task: (args: any) => {
+    const data = parseArgs(CompleteTaskSchema, args);
+    return completeTask(data);
+  },
+  batch_create_nodes: (args: any) => {
+    const data = parseArgs(BatchCreateNodesSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return batchCreateNodes(db, {
+      project: projectSlug,
+      nodes: data.nodes,
+    });
+  },
+  batch_add_edges: (args: any) => {
+    const data = parseArgs(BatchAddEdgesSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return batchAddEdges(db, {
+      project: projectSlug,
+      edges: data.edges,
     });
   },
   what_changed: (args: any) => {

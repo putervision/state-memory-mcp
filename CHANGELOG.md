@@ -5,7 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-07-23
+
+### Added & Improved
+- **Dependency Harmonization**: Aligned shared devDependency versions (`@types/node` ^20.14.9, `prettier` ^3.9.6, `tsup` ^8.1.0, `typescript` ^5.5.2) with `vision-memory-mcp`.
+- **Branding & Navigation**: Added interactive PuterVision brand badge link in the top navigation header of documentation site (`docs/index.html`).
+
+## [0.6.0] - 2026-07-23
+
+### Added & Improved
+- **Full Execution of PLAN_104 Capabilities & Performance Blueprint**: Complete delivery of state memory optimization features raising total core MCP tools to **49**.
+- **Token Reduction & Payload Compression**:
+  - Unindented JSON Response Serialization: Changed default tool result formatting from 2-space indented JSON to unindented JSON stringification, cutting response token overhead by 30–50%.
+  - Supported optional `pretty_print: true` argument for human-readable output formatting.
+  - Selective Field Projections (`fields`): Added `fields?: NodeField[]` parameter across `list_nodes`, `search_nodes`, `get_subgraph`, and `next_tasks` allowing agents to retrieve only required node fields.
+- **High-Level Compound Workflow Tools**:
+  - Added `bootstrap_session`: Single-turn session initialization combining session tracking (`start_session`), context snapshot generation (`getContextSnapshot`), and unblocked task retrieval (`getNextTasks`).
+  - Added `complete_task`: Single-turn task completion that atomically updates task status to `'done'`, creates a produced `'artifact'` node, and links them via a `'produces'` edge.
+  - Added `batch_create_nodes`: Atomic multi-node creation in a single SQLite transaction with FTS5 search index synchronization.
+  - Added `batch_add_edges`: Atomic multi-edge relationship creation with cycle detection (`hasCycle`) and transaction rollback on error.
+- **Self-Healing Graph Repair & Fuzzy Recovery**:
+  - Auto-Healing Graph Validation (`validate_graph(auto_fix: true)`): Automatically cleans up dangling edges referencing deleted or non-existent nodes and returns `fixed_count` alongside actionable `remediation` notes.
+  - Fuzzy Node ID Suggestions: Implemented `findFuzzyNodeSuggestions` on missing node lookups (`get_node`, `update_node`, `remove_node`) returning recent candidate nodes to aid LLM self-recovery.
+- **Expanded MCP Protocol Integration**:
+  - Dynamic Resources & Templates: Added `state-memory:///{project}/tasks/next`, `state-memory:///{project}/metrics`, and `state-memory:///{project}/node/{id}` URIs.
+  - Resource Subscriptions: Enabled `subscribe: true` and `listChanged: true` capabilities.
+  - MCP Prompt Templates: Registered `handover-summary`, `task-decomposition`, and `post-mortem` prompt templates.
+- **Validator & Test Suite Extensions**:
+  - Extended `ArraySchema` in `schemas.ts` to support `.min()` and `.max()` array length validations.
+  - Added unit test suites for compound tools, field projections, unindented JSON formatting, fuzzy error recovery, and auto-fix graph validation (38 test files, 147 tests total).
+
 ## [0.5.0] - 2026-07-22
+
 
 ### Added & Improved
 - **Full Execution of PLAN_103**: Comprehensive delivery of all 8 Sprints spanning bug fixes, security, performance, developer experience, test coverage, and open source release tooling.

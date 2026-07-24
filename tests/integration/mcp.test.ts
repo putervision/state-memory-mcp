@@ -39,13 +39,18 @@ describe('MCP Server Integration Tests', () => {
   it('should list available tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(45);
+    expect(tools.tools.length).toBe(49);
 
     const toolNames = tools.tools.map((t) => t.name);
+    expect(toolNames).toContain('bootstrap_session');
+    expect(toolNames).toContain('complete_task');
+    expect(toolNames).toContain('batch_create_nodes');
+    expect(toolNames).toContain('batch_add_edges');
     expect(toolNames).toContain('list_sessions');
     expect(toolNames).toContain('value_metrics');
     expect(toolNames).toContain('scaffold_template');
     expect(toolNames).toContain('add_node');
+
     expect(toolNames).toContain('update_node');
     expect(toolNames).toContain('get_node');
     expect(toolNames).toContain('remove_node');

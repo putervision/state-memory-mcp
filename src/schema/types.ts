@@ -114,3 +114,55 @@ export interface EdgeRow {
   git_branch?: string;
   created_at: string;
 }
+
+export type NodeField =
+  | 'id'
+  | 'type'
+  | 'title'
+  | 'status'
+  | 'project'
+  | 'git_branch'
+  | 'metadata'
+  | 'tags'
+  | 'created_at'
+  | 'updated_at';
+
+export interface BootstrapSessionParams {
+  project?: string;
+  agent_id?: string;
+  metadata?: Record<string, unknown>;
+  task_limit?: number;
+}
+
+export interface CompleteTaskParams {
+  project?: string;
+  task_id: string;
+  artifact_title?: string;
+  artifact_metadata?: Record<string, unknown>;
+  tags?: string[];
+}
+
+export interface BatchNodeInput {
+  type: NodeType;
+  title: string;
+  status?: string;
+  metadata?: Record<string, unknown>;
+  tags?: string[];
+}
+
+export interface BatchCreateNodesParams {
+  project?: string;
+  nodes: BatchNodeInput[];
+}
+
+export interface BatchEdgeInput {
+  source_id: string;
+  target_id: string;
+  type: EdgeType;
+  properties?: Record<string, unknown>;
+}
+
+export interface BatchAddEdgesParams {
+  project?: string;
+  edges: BatchEdgeInput[];
+}

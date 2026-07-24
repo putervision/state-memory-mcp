@@ -2,7 +2,7 @@
   "servers": {
     "codebase-memory-mcp": {
       "type": "stdio",
-      "command": "/home/beast/.local/bin/codebase-memory-mcp"
+      "command": "codebase-memory-mcp"
     },
     "state-memory-mcp": {
       "command": "state-memory-mcp",

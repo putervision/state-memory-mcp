@@ -15,7 +15,7 @@ By using `@putervision/state-memory-mcp`, your AI coding assistant (such as Curs
 
 1. **Deterministic State Memory**: No LLM in the loop; all operations are structured, deterministic, and fast.
 2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-memory-mcp/`) or globally.
-3. **45 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, and state rollback/undo.
+3. **49 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, state rollback/undo, compound workflow tools (`bootstrap_session`, `complete_task`, `batch_create_nodes`, `batch_add_edges`), selective field projections (`fields`), self-healing graph repair (`auto_fix`), dynamic resources, and workflow prompts.
 4. **Interactive 3D HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed WebGL 3D Force-Directed Graph visualizer built with `3d-force-graph` / Three.js.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
@@ -374,7 +374,17 @@ For maximum developer-agent alignment, seed your graph immediately after initial
 
 ---
 
-## Tool Reference (44 Tools)
+## Tool Reference (49 Tools)
+
+### 🚀 High-Level Compound Workflow Tools (4 Tools)
+* **`bootstrap_session`**: Single-turn session initialization combining session tracking (`start_session`), context snapshot generation, and top unblocked tasks retrieval.
+  * Inputs: `project`, `agent_id`, `metadata`, `task_limit`.
+* **`complete_task`**: Single-turn task completion that updates task status to `'done'`, optionally creates a produced `'artifact'` node, and links them via a `'produces'` relationship.
+  * Inputs: `task_id`, `artifact_title`, `artifact_metadata`, `tags`, `project`.
+* **`batch_create_nodes`**: Atomically creates multiple nodes in a single transaction with SQLite FTS5 search index synchronization.
+  * Inputs: `nodes`, `project`.
+* **`batch_add_edges`**: Atomically creates multiple edge relationships with DAG cycle checks (`hasCycle`) and transaction rollback on failure.
+  * Inputs: `edges`, `project`.
 
 ### 🟢 Node & Relationship Management (6 Tools)
 * **`add_node`**: Creates a node (`task`, `decision`, `artifact`, `plan`, `observation`, `blocker`, `milestone`).
@@ -391,12 +401,12 @@ For maximum developer-agent alignment, seed your graph immediately after initial
   * Inputs: `source_id`, `target_id`, `type`, `project`.
 
 ### 🔍 Search & Querying (4 Tools)
-* **`list_nodes`**: Returns lists of nodes matching filters with support for compact mode, pagination, tags, and branch tracking.
-  * Inputs: `type`, `status`, `tags`, `project`, `limit`, `offset`, `compact`, `git_branch`.
-* **`search_nodes`**: Performs fast full-text search (FTS5) across title, metadata, and tags.
-  * Inputs: `query`, `type`, `status`, `limit`, `project`.
-* **`get_subgraph`**: Extracts a node and its N-hop neighbor nodes and connecting relationships.
-  * Inputs: `root_id`, `depth`, `edge_types`, `node_types`, `project`.
+* **`list_nodes`**: Returns lists of nodes matching filters with support for selective field projection (`fields`), compact mode, pagination, tags, and branch tracking.
+  * Inputs: `type`, `status`, `tags`, `project`, `limit`, `offset`, `compact`, `git_branch`, `fields`, `pretty_print`.
+* **`search_nodes`**: Performs fast full-text search (FTS5) or TF-IDF cosine similarity search across title, metadata, and tags with field projection (`fields`).
+  * Inputs: `query`, `type`, `status`, `limit`, `algorithm`, `fields`, `pretty_print`, `project`.
+* **`get_subgraph`**: Extracts a node and its N-hop neighbor nodes and connecting relationships with field projection (`fields`).
+  * Inputs: `root_id`, `depth`, `edge_types`, `node_types`, `fields`, `pretty_print`, `project`.
 * **`query_graph`**: Executes safe, read-only SELECT SQL queries against the underlying database. Sanitized to block dangerous SQLite functions.
   * Inputs: `sql`, `params`, `project`.
 
@@ -462,17 +472,17 @@ For maximum developer-agent alignment, seed your graph immediately after initial
 * **`export_trajectories`**: Exports trajectories in JSONL format for agent training.
   * Inputs: `session_id`, `since`, `until`, `limit`, `offset`, `project`.
 
-### ⚡ Batch & Staleness Utilities (7 Tools)
+### ⚡ Batch & Staleness Utilities (8 Tools)
 * **`batch_update`**: Executes atomic batch node updates (status, metadata, tags).
   * Inputs: `ids`, `status`, `metadata`, `tags`, `project`.
-* **`next_tasks`**: Suggests next runnable tasks based on priority, blocker status, and branch.
-  * Inputs: `git_branch`, `limit`, `include_context`, `project`.
+* **`next_tasks`**: Suggests next runnable tasks based on priority, blocker status, branch, and field projection (`fields`).
+  * Inputs: `git_branch`, `limit`, `include_context`, `fields`, `pretty_print`, `project`.
 * **`what_changed`**: Reports graph changeset diffs since a session start or timestamp.
   * Inputs: `since`, `since_session`, `git_branch`, `project`.
 * **`get_stale_nodes`**: Identifies nodes that have been inactive/untouched for longer than a given threshold.
   * Inputs: `older_than`, `status`, `type`, `git_branch`, `limit`, `project`.
-* **`validate_graph`**: Validates the graph for structural anomalies (cycles, orphans, stale WIP).
-  * Inputs: `checks`, `project`.
+* **`validate_graph`**: Validates the graph for structural anomalies with self-healing auto-fix option (`auto_fix: true`).
+  * Inputs: `checks`, `auto_fix`, `project`.
 * **`prune_events`**: Prunes event logs older than a threshold while preserving entity states.
   * Inputs: `older_than`, `dry_run`, `preserve_types`, `project`.
 * **`add_note`**: Atomically creates an observation note and references an existing node.
@@ -482,14 +492,17 @@ For maximum developer-agent alignment, seed your graph immediately after initial
 
 ## MCP Resources & Prompts
 
-`state-memory-mcp` is fully compliant with the latest Model Context Protocol specification, exposing read-only data resources and reusable prompt templates to client applications.
+`state-memory-mcp` is fully compliant with the latest Model Context Protocol specification, exposing read-only data resources, dynamic URI templates, and reusable prompt templates to client applications.
 
-### 📁 Resources
+### 📁 Resources & Templates
 
-Resources provide read-only context to LLMs. `state-memory-mcp` registers the following resources under the `state-memory:///` URI scheme:
+Resources provide direct read-only context to LLMs. `state-memory-mcp` registers the following resources under the `state-memory:///` URI scheme:
 
 * **`state-memory:///{project}/summary`**: Returns the structured project summary (counts, task progress, recent decisions).
 * **`state-memory:///{project}/blockers`**: Returns the list of all active blockers and their affected nodes.
+* **`state-memory:///{project}/tasks/next`**: Returns top unblocked runnable tasks.
+* **`state-memory:///{project}/node/{id}`**: Returns individual node details and connected relationships.
+* **`state-memory:///{project}/metrics`**: Returns project velocity and value creation metrics.
 * **`state-memory:///{project}/decisions`**: Returns the log of recent accepted decisions.
 * **`state-memory:///{project}/graph.json`**: Returns a full node/edge database export as raw JSON.
 
@@ -499,12 +512,19 @@ Prompts are reusable workflow templates that streamline agent interactions:
 
 * **`session-start`**: Generates a startup workspace overview, outlining the project summary, active blockers, and immediate pending tasks.
   * Arguments: `project` (optional).
-* **`plan-feature`**: Prompts the agent to plan out a new feature, guiding the milestone creation, task decomposition, dependency mapping, and design decisions.
+* **`handover-summary`**: Generates context summary for agent-to-agent session handoffs and recent event logs.
+  * Arguments: `project` (optional).
+* **`task-decomposition`**: Guides model through decomposing a milestone into a task DAG with dependency links.
+  * Arguments: `milestone_title` (required), `project` (optional).
+* **`post-mortem`**: Prompts post-mortem analysis of stale/cancelled tasks and decision record updates.
+  * Arguments: `project` (optional).
+* **`plan-feature`**: Prompts the agent to plan out a new feature, guiding milestone creation, task decomposition, dependency mapping, and design decisions.
   * Arguments: `feature_name` (required), `project` (optional).
 * **`review-decisions`**: Prompts the agent to review the decision log and logical contradictions audit, recommending improvements or fixes.
   * Arguments: `project` (optional).
 * **`triage-blockers`**: Triages active blockers, helping to analyze the critical path and devise mitigation strategies.
   * Arguments: `project` (optional).
+
 
 ---
 

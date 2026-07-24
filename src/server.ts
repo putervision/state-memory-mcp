@@ -94,7 +94,7 @@ export const server = new Server(
   {
     capabilities: {
       tools: {},
-      resources: { subscribe: false, listChanged: false },
+      resources: { subscribe: true, listChanged: true },
       prompts: { listChanged: false },
     },
     instructions: `This server provides a workflow state graph to track tasks, decisions, blockers, artifacts, plans, and milestones.
@@ -1169,6 +1169,85 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['text'],
         },
       },
+      {
+        name: 'bootstrap_session',
+        description: 'Single-turn session initialization combining start_session, context snapshot, and next unblocked tasks.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+            agent_id: { type: 'string', description: 'Optional agent ID identifier.' },
+            metadata: { type: 'object', description: 'Optional session metadata.' },
+            task_limit: { type: 'number', description: 'Maximum number of next tasks to fetch (default: 5).' },
+          },
+        },
+      },
+      {
+        name: 'complete_task',
+        description: 'Single-turn task completion: updates task status to done, optionally creates an artifact node, and links them via a produces relationship.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+            task_id: { type: 'string', description: 'Task node ID to complete.' },
+            artifact_title: { type: 'string', description: 'Optional title for produced artifact.' },
+            artifact_metadata: { type: 'object', description: 'Optional metadata for produced artifact.' },
+            tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags for artifact.' },
+          },
+          required: ['task_id'],
+        },
+      },
+      {
+        name: 'batch_create_nodes',
+        description: 'Atomically create multiple nodes in a single transaction with FTS5 search index synchronization.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+            nodes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  type: { type: 'string', description: 'Node type (task, decision, artifact, etc.).' },
+                  title: { type: 'string', description: 'Node title.' },
+                  status: { type: 'string', description: 'Optional node status.' },
+                  metadata: { type: 'object', description: 'Optional metadata object.' },
+                  tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags.' },
+                },
+                required: ['type', 'title'],
+              },
+              description: 'Array of nodes to create.',
+            },
+          },
+          required: ['nodes'],
+        },
+      },
+      {
+        name: 'batch_add_edges',
+        description: 'Atomically add multiple edges with cycle detection and complete transaction rollback on failure.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+            edges: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  source_id: { type: 'string', description: 'Source node ID.' },
+                  target_id: { type: 'string', description: 'Target node ID.' },
+                  type: { type: 'string', description: 'Edge relationship type.' },
+                  properties: { type: 'object', description: 'Optional edge properties.' },
+                },
+                required: ['source_id', 'target_id', 'type'],
+              },
+              description: 'Array of edges to create.',
+            },
+          },
+          required: ['edges'],
+        },
+      },
     ];
 
     return {
@@ -1213,7 +1292,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (result && typeof result === 'object' && 'content' in result) {
       return result;
     }
-    const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+    const pretty = (args as any)?.pretty_print === true;
+    const text = typeof result === 'string' ? result : JSON.stringify(result, null, pretty ? 2 : undefined);
     
     return {
       content: [{ type: 'text', text }],
@@ -1229,6 +1309,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     );
   }
 });
+
 
 // Register Resource handlers
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
@@ -1246,6 +1327,18 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         name: `${projectSlug} Active Blockers`,
         mimeType: 'application/json',
         description: 'Currently active blocker nodes'
+      },
+      {
+        uri: `state-memory:///${projectSlug}/tasks/next`,
+        name: `${projectSlug} Next Tasks`,
+        mimeType: 'application/json',
+        description: 'Next unblocked runnable tasks'
+      },
+      {
+        uri: `state-memory:///${projectSlug}/metrics`,
+        name: `${projectSlug} Value Metrics`,
+        mimeType: 'application/json',
+        description: 'Project velocity and value creation metrics'
       },
       {
         uri: `state-memory:///${projectSlug}/decisions`,
@@ -1289,6 +1382,21 @@ server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
         description: 'URI template for currently active blocker nodes'
       },
       {
+        uriTemplate: 'state-memory:///{project}/tasks/next',
+        name: 'Project Next Tasks Template',
+        description: 'URI template for top unblocked runnable tasks'
+      },
+      {
+        uriTemplate: 'state-memory:///{project}/node/{id}',
+        name: 'Project Node Details Template',
+        description: 'URI template for individual node details and connected edges'
+      },
+      {
+        uriTemplate: 'state-memory:///{project}/metrics',
+        name: 'Project Metrics Template',
+        description: 'URI template for value metrics and project velocity'
+      },
+      {
         uriTemplate: 'state-memory:///{project}/decisions',
         name: 'Project Decision Log Template',
         description: 'URI template for recent accepted decisions'
@@ -1314,7 +1422,7 @@ server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
 
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
-  const match = uri.match(/^state-memory:\/\/\/([a-zA-Z0-9-_]+)\/(summary|blockers|decisions|graph\.json|events|sessions)$/);
+  const match = uri.match(/^state-memory:\/\/\/([a-zA-Z0-9-_]+)\/(summary|blockers|tasks\/next|metrics|decisions|graph\.json|events|sessions|node\/[a-zA-Z0-9-_]+)$/);
   if (!match) {
     throw new McpError(ErrorCode.InvalidRequest, `Invalid resource URI: ${uri}`);
   }
@@ -1325,24 +1433,35 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   let text = '';
   if (resourceType === 'summary') {
     const data = AnalyticsEngine.getProjectSummary({ project: projectSlug });
-    text = JSON.stringify(data, null, 2);
+    text = JSON.stringify(data);
   } else if (resourceType === 'blockers') {
     const data = AnalyticsEngine.findBlockers({ project: projectSlug });
-    text = JSON.stringify(data, null, 2);
+    text = JSON.stringify(data);
+  } else if (resourceType === 'tasks/next') {
+    const db = getDb(projectSlug);
+    const data = getNextTasks(db, { project: projectSlug, limit: 10 });
+    text = JSON.stringify(data);
+  } else if (resourceType === 'metrics') {
+    const data = AnalyticsEngine.valueMetrics({ project: projectSlug });
+    text = JSON.stringify(data);
+  } else if (resourceType.startsWith('node/')) {
+    const nodeId = resourceType.replace('node/', '');
+    const data = GraphEngine.getNode({ project: projectSlug, id: nodeId });
+    text = JSON.stringify(data);
   } else if (resourceType === 'decisions') {
     const data = QueryEngine.listNodes({ project: projectSlug, type: 'decision', status: 'accepted' });
-    text = JSON.stringify(data.nodes, null, 2);
+    text = JSON.stringify(data.nodes);
   } else if (resourceType === 'graph.json') {
     const data = exportGraph({ project: projectSlug, format: 'json' });
-    text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    text = typeof data === 'string' ? data : JSON.stringify(data);
   } else if (resourceType === 'events') {
     const db = getDb(projectSlug);
     const data = EventEngine.getEventLog(db, { project: projectSlug, limit: 50 });
-    text = JSON.stringify(data, null, 2);
+    text = JSON.stringify(data);
   } else if (resourceType === 'sessions') {
     const db = getDb(projectSlug);
     const data = SessionEngine.listSessions(db, { project: projectSlug, limit: 20 });
-    text = JSON.stringify(data, null, 2);
+    text = JSON.stringify(data);
   }
 
   return {
@@ -1363,6 +1482,44 @@ server.setRequestHandler(ListPromptsRequestSchema, async () => {
       {
         name: 'session-start',
         description: 'Generate session startup context: summary + blockers + pending tasks',
+        arguments: [
+          {
+            name: 'project',
+            description: 'Optional project identifier',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'handover-summary',
+        description: 'Generates context summary for agent-to-agent session handoffs',
+        arguments: [
+          {
+            name: 'project',
+            description: 'Optional project identifier',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'task-decomposition',
+        description: 'Guides breaking down a milestone into a task DAG with dependency links',
+        arguments: [
+          {
+            name: 'milestone_title',
+            description: 'The title of the milestone to decompose',
+            required: true
+          },
+          {
+            name: 'project',
+            description: 'Optional project identifier',
+            required: false
+          }
+        ]
+      },
+      {
+        name: 'post-mortem',
+        description: 'Prompts analysis of cancelled or failed tasks and decision record updates',
         arguments: [
           {
             name: 'project',
@@ -1433,6 +1590,58 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     };
   }
 
+  if (name === 'handover-summary') {
+    const snapshot = AnalyticsEngine.getContextSnapshot({ project: projectSlug });
+    const db = getDb(projectSlug);
+    const recentEvents = EventEngine.getEventLog(db, { project: projectSlug, limit: 10 });
+
+    return {
+      description: 'Agent session handover summary',
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Agent Handover Summary for project "${projectSlug}":\n\n${snapshot.formatted_summary}\n\nRecent Activity Log:\n${JSON.stringify(recentEvents)}\n\nPlease pick up execution from the remaining unblocked tasks.`
+          }
+        }
+      ]
+    };
+  }
+
+  if (name === 'task-decomposition') {
+    const milestoneTitle = args?.milestone_title || 'New Milestone';
+    return {
+      description: `Task decomposition prompt for milestone: ${milestoneTitle}`,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Decompose the milestone "${milestoneTitle}" into actionable tasks for project "${projectSlug}".\n\n1. Use batch_create_nodes to create task nodes.\n2. Use batch_add_edges to link tasks using depends_on or child_of relationships.\n3. Validate the DAG using validate_graph.`
+          }
+        }
+      ]
+    };
+  }
+
+  if (name === 'post-mortem') {
+    const db = getDb(projectSlug);
+    const staleTasks = getStaleNodes(db, { project: projectSlug, status: 'in_progress', older_than: '1d' });
+    return {
+      description: 'Post-mortem analysis for project',
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Conduct a post-mortem review for project "${projectSlug}".\n\nStale / In-Progress Tasks:\n${JSON.stringify(staleTasks)}\n\nAnalyze root causes, update decision records, and clean up abandoned task nodes.`
+          }
+        }
+      ]
+    };
+  }
+
   if (name === 'plan-feature') {
     const featureName = args?.feature_name;
     if (!featureName) {
@@ -1471,7 +1680,7 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
           role: 'user',
           content: {
             type: 'text',
-            text: `Please review the decision log for project "${projectSlug}".\n\nAccepted Decisions:\n${JSON.stringify(summary.recent_decisions, null, 2)}\n\nLogical Contradictions:\n${contradictionsText}\n\nSuggest any updates or corrections needed.`
+            text: `Please review the decision log for project "${projectSlug}".\n\nAccepted Decisions:\n${JSON.stringify(summary.recent_decisions)}\n\nLogical Contradictions:\n${contradictionsText}\n\nSuggest any updates or corrections needed.`
           }
         }
       ]
@@ -1500,3 +1709,4 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
 
   throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${name}`);
 });
+

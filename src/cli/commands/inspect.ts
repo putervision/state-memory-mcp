@@ -9,7 +9,7 @@ export async function inspectAction(options: { project?: string; limit?: string 
 
   try {
     const limitCount = parsePositiveInt(options.limit || '50', '--limit', 50);
-    const list = QueryEngine.listNodes({ project: projectSlug, git_branch: '*', limit: limitCount });
+    const list = await QueryEngine.listNodes({ project: projectSlug, git_branch: '*', limit: limitCount });
     
     console.log('\n======================================');
     console.log(` PROJECT STATE SUMMARY: ${projectSlug.toUpperCase()}`);

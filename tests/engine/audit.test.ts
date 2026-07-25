@@ -34,15 +34,15 @@ describe('Audit Engine', () => {
     closeAllDbs();
   });
 
-  it('should audit database integrity without errors on a clean graph', () => {
-    const report = auditProjectDb({ project });
+  it('should audit database integrity without errors on a clean graph', async () => {
+    const report = await auditProjectDb({ project });
     expect(report.project).toBe('audit-test-project');
     expect(report.sqlite_integrity).toContain('ok');
     expect(report.orphaned_edges_count).toBe(0);
     expect(report.cycles).toHaveLength(0);
   });
 
-  it('should detect cycles using Tarjan DFS in findCycles helper', () => {
+  it('should detect cycles using Tarjan DFS in findCycles helper', async () => {
     const nodes = [
       {
         id: 'A',

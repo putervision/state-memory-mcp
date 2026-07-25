@@ -8,7 +8,10 @@ export type ValidateCheck =
   | 'missing_decisions'
   | 'dangling_edges'
   | 'cycle_check'
-  | 'unverified_ui';
+  | 'unverified_ui'
+  | 'unfulfilled_specs'
+  | 'unverified_requirements'
+  | 'spec_drift';
 
 export interface ValidateIssue {
   check: string;
@@ -38,6 +41,9 @@ export function validateGraph(
           'dangling_edges',
           'cycle_check',
           'unverified_ui',
+          'unfulfilled_specs',
+          'unverified_requirements',
+          'spec_drift',
         ] as ValidateCheck[]);
 
   const issues: ValidateIssue[] = [];
@@ -350,6 +356,88 @@ export function validateGraph(
     }
   }
 
+  // 9. unfulfilled_specs
+  if (checksToRun.includes('unfulfilled_specs')) {
+    const reqRows = db
+      .prepare(
+        "SELECT id, title FROM nodes WHERE project = ? AND type = 'requirement' AND status = 'accepted'"
+      )
+      .all(params.project) as { id: string; title: string }[];
+
+    for (const req of reqRows) {
+      const hasSatisfyingTask = db
+        .prepare(
+          `
+        SELECT 1 FROM edges e
+        JOIN nodes n ON (e.source_id = n.id OR e.target_id = n.id)
+        WHERE e.project = ? AND (
+          (e.target_id = ? AND e.type = 'satisfies' AND n.status = 'done') OR
+          (e.target_id = ? AND e.type = 'implements') OR
+          (e.source_id = ? AND e.type = 'satisfies' AND n.status = 'done')
+        )
+        LIMIT 1
+      `
+        )
+        .get(params.project, req.id, req.id, req.id);
+
+      if (!hasSatisfyingTask) {
+        addIssue(
+          'unfulfilled_specs',
+          'warning',
+          `Requirement "${req.title}" is accepted but has no completed task or code artifact linked.`,
+          [req.id],
+          `Create a task that satisfies this requirement or link an implementing artifact.`
+        );
+      }
+    }
+  }
+
+  // 10. unverified_requirements
+  if (checksToRun.includes('unverified_requirements')) {
+    const critRows = db
+      .prepare(
+        "SELECT id, title FROM nodes WHERE project = ? AND type = 'acceptance_criterion' AND status = 'unverified'"
+      )
+      .all(params.project) as { id: string; title: string }[];
+
+    for (const crit of critRows) {
+      const isVerifiedByEdge = db
+        .prepare(
+          "SELECT 1 FROM edges WHERE project = ? AND target_id = ? AND type = 'verifies' LIMIT 1"
+        )
+        .get(params.project, crit.id);
+
+      if (!isVerifiedByEdge) {
+        addIssue(
+          'unverified_requirements',
+          'warning',
+          `Acceptance criterion "${crit.title}" is unverified.`,
+          [crit.id],
+          `Run automated tests or visual checks and call verify_requirement.`
+        );
+      }
+    }
+  }
+
+  // 11. spec_drift
+  if (checksToRun.includes('spec_drift')) {
+    const staleSpecs = db
+      .prepare(
+        "SELECT id, title FROM nodes WHERE project = ? AND type = 'spec' AND status = 'stale'"
+      )
+      .all(params.project) as { id: string; title: string }[];
+
+    for (const spec of staleSpecs) {
+      addIssue(
+        'spec_drift',
+        'warning',
+        `Spec "${spec.title}" source file was modified in Git; graph spec state is stale.`,
+        [spec.id],
+        `Re-ingest specification using ingest_spec to sync latest requirements.`
+      );
+    }
+  }
+
   const passed = !issues.some((issue) => issue.severity === 'error');
 
   return {
@@ -358,3 +446,4 @@ export function validateGraph(
     fixed_count: fixedCount,
   };
 }
+

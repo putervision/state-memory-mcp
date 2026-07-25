@@ -17,7 +17,7 @@ describe('Field Projections Test Suite', () => {
     closeAllDbs();
   });
 
-  it('listNodes should project only requested fields', () => {
+  it('listNodes should project only requested fields', async () => {
     GraphEngine.addNode({
       project,
       type: 'task',
@@ -27,7 +27,7 @@ describe('Field Projections Test Suite', () => {
       tags: ['t1'],
     });
 
-    const res = QueryEngine.listNodes({
+    const res = await QueryEngine.listNodes({
       project,
       fields: ['id', 'title', 'status'],
     });
@@ -42,7 +42,7 @@ describe('Field Projections Test Suite', () => {
     expect(n.created_at).toBeUndefined();
   });
 
-  it('searchNodes should project fields when algorithm is fts', () => {
+  it('searchNodes should project fields when algorithm is fts', async () => {
     GraphEngine.addNode({
       project,
       type: 'task',
@@ -51,7 +51,7 @@ describe('Field Projections Test Suite', () => {
       metadata: { desc: 'some info' },
     });
 
-    const res = QueryEngine.searchNodes({
+    const res = await QueryEngine.searchNodes({
       project,
       query: 'Searchable',
       fields: ['id', 'title'],
@@ -65,7 +65,7 @@ describe('Field Projections Test Suite', () => {
     expect(n.metadata).toBeUndefined();
   });
 
-  it('getSubgraph should project node fields', () => {
+  it('getSubgraph should project node fields', async () => {
     const root = GraphEngine.addNode({
       project,
       type: 'task',

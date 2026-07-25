@@ -1,9 +1,11 @@
-import { getDb, getProjectSlug } from './db.js';
+import Database from 'better-sqlite3';
+import { getDb, getProjectSlug, resolveProjectRoot } from './db.js';
 import { BaseNode, Edge, NodeType, NodeRow, EdgeRow, NodeField } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { getCurrentBranch } from '../utils/git.js';
 import { searchTfidf } from './tfidf.js';
 import { logger } from '../utils/logger.js';
+import { findSubdirectoryMemoryDbs } from './subdirectory-scanner.js';
 
 export function projectNodeFields(node: BaseNode, fields?: NodeField[]): BaseNode {
   if (!fields || fields.length === 0) return node;
@@ -35,8 +37,9 @@ export class QueryEngine {
    * @param params.fields - Optional list of node fields to project.
    * @returns An object containing the list of matching nodes and the total count of matched nodes.
    */
-  static listNodes(params: {
+  static async listNodes(params: {
     project?: string;
+    subproject?: string;
     type?: NodeType;
     status?: string;
     tags?: string[];
@@ -45,7 +48,8 @@ export class QueryEngine {
     compact?: boolean;
     git_branch?: string;
     fields?: NodeField[];
-  }): { nodes: BaseNode[]; total_count: number } {
+    include_subdirectories?: boolean;
+  }): Promise<{ nodes: BaseNode[]; total_count: number }> {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
@@ -53,97 +57,17 @@ export class QueryEngine {
       ? 'id, type, title, status, project, git_branch, tags, created_at, updated_at'
       : '*';
 
-    let sql = `SELECT ${columns} FROM nodes WHERE project = ?`;
-    const queryParams: any[] = [projectSlug];
-
-    // Branch filter: default to active branch, support '*' for all branches
-    const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
-    if (branch !== '*') {
-      sql += ' AND git_branch = ?';
-      queryParams.push(branch);
-    }
-
-    if (params.type) {
-      sql += ' AND type = ?';
-      queryParams.push(params.type);
-    }
-
-    if (params.status) {
-      sql += ' AND status = ?';
-      queryParams.push(params.status);
-    }
-
-    // Tag filtering: match all provided tags (AND query) using json_each
-    if (params.tags && params.tags.length > 0) {
-      for (const tag of params.tags) {
-        sql += ` AND EXISTS (
-          SELECT 1 FROM json_each(nodes.tags) WHERE value = ?
-        )`;
-        queryParams.push(tag);
-      }
-    }
-
+    const skipRoot = params.subproject && params.subproject !== 'root' && params.subproject !== projectSlug;
+    
     const limit = params.limit !== undefined ? params.limit : 50;
     const offset = params.offset !== undefined ? params.offset : 0;
+    const perDbLimit = limit + offset;
 
-    // Apply pagination with limit + 1 to determine if there are more results
-    const paginatedSql = sql + ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    const paginatedParams = [...queryParams, limit + 1, offset];
-
-    const rows = db.prepare(paginatedSql).all(...paginatedParams) as NodeRow[];
-
+    let allNodes: BaseNode[] = [];
     let total_count = 0;
-    let hasMore = false;
 
-    if (rows.length > limit) {
-      hasMore = true;
-      rows.pop(); // Remove the extra row
-    }
-
-    if (hasMore) {
-      // Run count query only when there are more results than the limit
-      const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
-      const countRow = db.prepare(countSql).get(...queryParams) as any;
-      total_count = countRow ? countRow.total : 0;
-    } else {
-      total_count = offset + rows.length;
-    }
-
-    const nodes = rows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields));
-
-    return { nodes, total_count };
-  }
-
-  /**
-   * Search nodes using FTS5 virtual table or TF-IDF cosine similarity.
-   *
-   * @param params - The search parameters.
-   * @param params.project - Optional project identifier.
-   * @param params.query - The search query term.
-   * @param params.type - Optional node type to filter results.
-   * @param params.status - Optional status to filter results.
-   * @param params.limit - Optional maximum number of results to return.
-   * @param params.git_branch - Optional git branch filter.
-   * @param params.algorithm - The search algorithm to use ('fts' or 'tfidf').
-   * @param params.fields - Optional list of node fields to project.
-   * @returns An object containing matching nodes and the total count.
-   */
-  static searchNodes(params: {
-    project?: string;
-    query: string;
-    type?: NodeType;
-    status?: string;
-    limit?: number;
-    offset?: number;
-    git_branch?: string;
-    algorithm?: 'fts' | 'tfidf';
-    fields?: NodeField[];
-  }): { nodes: BaseNode[]; total_count: number } {
-    const projectSlug = getProjectSlug(params.project);
-    const db = getDb(projectSlug);
-
-    if (params.algorithm === 'tfidf') {
-      let sql = 'SELECT * FROM nodes WHERE project = ?';
+    if (!skipRoot) {
+      let sql = `SELECT ${columns} FROM nodes WHERE project = ?`;
       const queryParams: any[] = [projectSlug];
 
       const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
@@ -162,24 +86,176 @@ export class QueryEngine {
         queryParams.push(params.status);
       }
 
-      const MAX_TFIDF_CANDIDATES = 1000;
-      sql += ` LIMIT ${MAX_TFIDF_CANDIDATES + 1}`;
-
-      const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
-      if (rows.length > MAX_TFIDF_CANDIDATES) {
-        logger.warn(
-          `TF-IDF search candidate list truncated to ${MAX_TFIDF_CANDIDATES} nodes to prevent memory pressure.`
-        );
-        rows.pop();
+      if (params.tags && params.tags.length > 0) {
+        for (const tag of params.tags) {
+          sql += ` AND EXISTS (
+            SELECT 1 FROM json_each(nodes.tags) WHERE value = ?
+          )`;
+          queryParams.push(tag);
+        }
       }
 
-      const candidates = rows.map(parseNodeRow);
+      const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
+      const countRow = db.prepare(countSql).get(...queryParams) as any;
+      total_count += countRow ? countRow.total : 0;
 
-      const limit = params.limit !== undefined ? params.limit : 20;
-      const offset = params.offset !== undefined ? params.offset : 0;
+      const paginatedSql = sql + ' ORDER BY created_at DESC LIMIT ?';
+      const rows = db.prepare(paginatedSql).all(...queryParams, perDbLimit) as NodeRow[];
+      allNodes.push(...rows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields)));
+    }
 
-      // Get all matches from TF-IDF first, then paginate
-      const matched = searchTfidf(candidates, params.query, candidates.length);
+    if (params.include_subdirectories && params.subproject !== 'root') {
+      try {
+        const rootDir = resolveProjectRoot(params.project);
+        let subDbs = await findSubdirectoryMemoryDbs(rootDir);
+        if (params.subproject) {
+          const target = params.subproject.toLowerCase();
+          subDbs = subDbs.filter(
+            (d) => d.projectSlug.toLowerCase() === target || d.relPath.toLowerCase() === target
+          );
+        }
+
+        for (const subDb of subDbs) {
+          try {
+            const subConn = new Database(subDb.dbPath, { readonly: true });
+            let subSql = `SELECT ${columns} FROM nodes WHERE 1=1`;
+            const subParams: any[] = [];
+            if (params.type) {
+              subSql += ' AND type = ?';
+              subParams.push(params.type);
+            }
+            if (params.status) {
+              subSql += ' AND status = ?';
+              subParams.push(params.status);
+            }
+            
+            const subCountRow = subConn.prepare(`SELECT COUNT(*) as total FROM (${subSql})`).get(...subParams) as any;
+            total_count += subCountRow ? subCountRow.total : 0;
+            
+            subSql += ' ORDER BY created_at DESC LIMIT ?';
+            const subRows = subConn.prepare(subSql).all(...subParams, perDbLimit) as NodeRow[];
+            for (const r of subRows) {
+              const subNode = parseNodeRow(r);
+              subNode.metadata = {
+                ...subNode.metadata,
+                subproject: subDb.projectSlug,
+                subproject_path: subDb.relPath,
+              };
+              if (!subNode.tags.includes(`subproject:${subDb.projectSlug}`)) {
+                subNode.tags.push(`subproject:${subDb.projectSlug}`);
+              }
+              allNodes.push(projectNodeFields(subNode, params.fields));
+            }
+            subConn.close();
+          } catch {}
+        }
+      } catch {}
+    }
+
+    // Global sort by created_at DESC across all databases
+    allNodes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    // Apply final offset and limit globally
+    const paginatedNodes = allNodes.slice(offset, offset + limit);
+
+    return { nodes: paginatedNodes, total_count };
+  }
+
+  static async searchNodes(params: {
+    project?: string;
+    subproject?: string;
+    query: string;
+    type?: NodeType;
+    status?: string;
+    limit?: number;
+    offset?: number;
+    git_branch?: string;
+    algorithm?: 'fts' | 'tfidf';
+    fields?: NodeField[];
+    include_subdirectories?: boolean;
+  }): Promise<{ nodes: BaseNode[]; total_count: number }> {
+    const projectSlug = getProjectSlug(params.project);
+    const db = getDb(projectSlug);
+
+    const skipRoot = params.subproject && params.subproject !== 'root' && params.subproject !== projectSlug;
+    const limit = params.limit !== undefined ? params.limit : 20;
+    const offset = params.offset !== undefined ? params.offset : 0;
+    const perDbLimit = limit + offset;
+
+    let subDbs: SubdirectoryMemoryDb[] = [];
+    if (params.include_subdirectories && params.subproject !== 'root') {
+      try {
+        const rootDir = resolveProjectRoot(params.project);
+        subDbs = await findSubdirectoryMemoryDbs(rootDir);
+        if (params.subproject) {
+          const target = params.subproject.toLowerCase();
+          subDbs = subDbs.filter(d => d.projectSlug.toLowerCase() === target || d.relPath.toLowerCase() === target);
+        }
+      } catch {}
+    }
+
+    if (params.algorithm === 'tfidf') {
+      const MAX_TFIDF_CANDIDATES = 1000;
+      let allCandidates: BaseNode[] = [];
+
+      if (!skipRoot) {
+        let sql = 'SELECT * FROM nodes WHERE project = ?';
+        const queryParams: any[] = [projectSlug];
+
+        const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
+        if (branch !== '*') {
+          sql += ' AND git_branch = ?';
+          queryParams.push(branch);
+        }
+        if (params.type) {
+          sql += ' AND type = ?';
+          queryParams.push(params.type);
+        }
+        if (params.status) {
+          sql += ' AND status = ?';
+          queryParams.push(params.status);
+        }
+
+        sql += ` LIMIT ${MAX_TFIDF_CANDIDATES + 1}`;
+        const rows = db.prepare(sql).all(...queryParams) as NodeRow[];
+        if (rows.length > MAX_TFIDF_CANDIDATES) rows.pop();
+        allCandidates.push(...rows.map(parseNodeRow));
+      }
+
+      for (const subDb of subDbs) {
+        try {
+          const subConn = new Database(subDb.dbPath, { readonly: true });
+          let sql = 'SELECT * FROM nodes WHERE 1=1';
+          const queryParams: any[] = [];
+          if (params.type) {
+            sql += ' AND type = ?';
+            queryParams.push(params.type);
+          }
+          if (params.status) {
+            sql += ' AND status = ?';
+            queryParams.push(params.status);
+          }
+          sql += ` LIMIT ${MAX_TFIDF_CANDIDATES + 1}`;
+          const subRows = subConn.prepare(sql).all(...queryParams) as NodeRow[];
+          if (subRows.length > MAX_TFIDF_CANDIDATES) subRows.pop();
+
+          for (const r of subRows) {
+            const subNode = parseNodeRow(r);
+            subNode.metadata = {
+              ...subNode.metadata,
+              subproject: subDb.projectSlug,
+              subproject_path: subDb.relPath,
+            };
+            if (!subNode.tags.includes(`subproject:${subDb.projectSlug}`)) {
+              subNode.tags.push(`subproject:${subDb.projectSlug}`);
+            }
+            allCandidates.push(subNode);
+          }
+          subConn.close();
+        } catch {}
+      }
+
+      const matched = searchTfidf(allCandidates, params.query, allCandidates.length);
       const paginated = matched
         .slice(offset, offset + limit)
         .map((n) => projectNodeFields(n, params.fields));
@@ -187,7 +263,7 @@ export class QueryEngine {
       return { nodes: paginated, total_count: matched.length };
     }
 
-    // SQLite FTS5 query matching n.rowid to f.rowid
+    // FTS algorithm
     const sanitizeFtsQuery = (q: string): string => {
       const trimmed = q.trim();
       if (!trimmed) return '""';
@@ -198,68 +274,102 @@ export class QueryEngine {
     };
 
     let ftsQuery = params.query;
-    let sql = `
-      SELECT n.* 
-      FROM nodes n
-      JOIN nodes_fts f ON n.rowid = f.rowid
-      WHERE n.project = ? AND nodes_fts MATCH ?
-    `;
-    let queryParams: any[] = [projectSlug, ftsQuery];
+    let allFtsNodes: (BaseNode & { _rank: number })[] = [];
+    let total_count = 0;
 
-    // Branch filter: default to active branch, support '*' for all branches
-    const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
-    if (branch !== '*') {
-      sql += ' AND n.git_branch = ?';
-      queryParams.push(branch);
-    }
+    const executeFtsOnDb = (conn: Database.Database, isRoot: boolean, subDb?: SubdirectoryMemoryDb) => {
+      let sql = `
+        SELECT n.*, nodes_fts.rank as _rank
+        FROM nodes n
+        JOIN nodes_fts ON n.rowid = nodes_fts.rowid
+        WHERE nodes_fts MATCH ?
+      `;
+      let queryParams: any[] = [ftsQuery];
 
-    if (params.type) {
-      sql += ' AND n.type = ?';
-      queryParams.push(params.type);
-    }
+      if (isRoot) {
+        sql += ' AND n.project = ?';
+        queryParams.push(projectSlug);
+        
+        const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
+        if (branch !== '*') {
+          sql += ' AND n.git_branch = ?';
+          queryParams.push(branch);
+        }
+      }
 
-    if (params.status) {
-      sql += ' AND n.status = ?';
-      queryParams.push(params.status);
-    }
+      if (params.type) {
+        sql += ' AND n.type = ?';
+        queryParams.push(params.type);
+      }
+      if (params.status) {
+        sql += ' AND n.status = ?';
+        queryParams.push(params.status);
+      }
 
-    const limit = params.limit !== undefined ? params.limit : 20;
-    const offset = params.offset !== undefined ? params.offset : 0;
+      const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
+      const countRow = conn.prepare(countSql).get(...queryParams) as any;
+      total_count += countRow ? countRow.total : 0;
+
+      const paginatedSql = sql + ' ORDER BY _rank ASC LIMIT ?';
+      const rows = conn.prepare(paginatedSql).all(...queryParams, perDbLimit) as any[];
+
+      for (const r of rows) {
+        const node = parseNodeRow(r);
+        if (!isRoot && subDb) {
+          node.metadata = {
+            ...node.metadata,
+            subproject: subDb.projectSlug,
+            subproject_path: subDb.relPath,
+          };
+          if (!node.tags.includes(`subproject:${subDb.projectSlug}`)) {
+            node.tags.push(`subproject:${subDb.projectSlug}`);
+          }
+        }
+        allFtsNodes.push({ ...node, _rank: r._rank });
+      }
+    };
 
     try {
-      const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
-      const countRow = db.prepare(countSql).get(...queryParams) as any;
-      const total_count = countRow ? countRow.total : 0;
-
-      const paginatedSql = sql + ' LIMIT ? OFFSET ?';
-      const rows = db.prepare(paginatedSql).all(...queryParams, limit, offset) as NodeRow[];
-      const nodes = rows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields));
-
-      return { nodes, total_count };
+      if (!skipRoot) {
+        executeFtsOnDb(db, true);
+      }
+      for (const subDb of subDbs) {
+        try {
+          const subConn = new Database(subDb.dbPath, { readonly: true });
+          executeFtsOnDb(subConn, false, subDb);
+          subConn.close();
+        } catch {}
+      }
     } catch (err: any) {
-      logger.debug(
-        `FTS search failed for query "${params.query}", retrying with sanitized FTS terms: ${err.message}`
-      );
-      // Retry with sanitized terms
+      logger.debug(`FTS search failed, retrying with sanitized FTS terms: ${err.message}`);
+      ftsQuery = sanitizeFtsQuery(params.query);
+      allFtsNodes = [];
+      total_count = 0;
       try {
-        const sanitizedQuery = sanitizeFtsQuery(params.query);
-        queryParams[1] = sanitizedQuery;
-        const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
-        const countRow = db.prepare(countSql).get(...queryParams) as any;
-        const total_count = countRow ? countRow.total : 0;
-
-        const paginatedSql = sql + ' LIMIT ? OFFSET ?';
-        const rows = db.prepare(paginatedSql).all(...queryParams, limit, offset) as NodeRow[];
-        const nodes = rows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields));
-
-        return { nodes, total_count };
+        if (!skipRoot) executeFtsOnDb(db, true);
+        for (const subDb of subDbs) {
+          try {
+            const subConn = new Database(subDb.dbPath, { readonly: true });
+            executeFtsOnDb(subConn, false, subDb);
+            subConn.close();
+          } catch {}
+        }
       } catch (retryErr: any) {
-        logger.warn(
-          `Sanitized FTS search failed, falling back to TF-IDF search: ${retryErr.message}`
-        );
+        logger.warn(`Sanitized FTS search failed, falling back to TF-IDF search: ${retryErr.message}`);
         return QueryEngine.searchNodes({ ...params, algorithm: 'tfidf' });
       }
     }
+
+    allFtsNodes.sort((a, b) => a._rank - b._rank);
+    
+    const paginatedNodes = allFtsNodes
+      .slice(offset, offset + limit)
+      .map((n) => {
+        const { _rank, ...cleanNode } = n;
+        return projectNodeFields(cleanNode, params.fields);
+      });
+
+    return { nodes: paginatedNodes, total_count };
   }
 
   /**

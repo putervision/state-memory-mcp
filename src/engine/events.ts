@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import crypto from 'node:crypto';
 import { generateId } from '../utils/id.js';
 import { getCurrentIsoString } from '../utils/time.js';
 import { logger } from '../utils/logger.js';
@@ -18,13 +19,15 @@ export interface EventRecord {
   project: string;
   timestamp: string;
   metadata: string;
+  hash?: string | null;
+  prev_hash?: string | null;
 }
 
 export class EventEngine {
   static droppedEventCount = 0;
 
   /**
-   * Log a state transition event to the database
+   * Log a state transition event to the database with cryptographic SHA-256 hash chaining (Armstrong 2026)
    */
   static logEvent(
     db: Database.Database,
@@ -56,23 +59,62 @@ export class EventEngine {
 
       const metaStr = JSON.stringify(params.metadata || {});
 
-      db.prepare(
+      // Retrieve last event hash for cryptographic chaining H_n = SHA-256(H_{n-1} || event_n)
+      let prevHash = '0000000000000000000000000000000000000000000000000000000000000000';
+      try {
+        const lastEv = db
+          .prepare('SELECT hash FROM events WHERE project = ? ORDER BY rowid DESC LIMIT 1')
+          .get(params.project) as { hash?: string } | undefined;
+        if (lastEv?.hash) {
+          prevHash = lastEv.hash;
+        }
+      } catch {
+        // Table may not have hash column yet on legacy DBs
+      }
+
+      const payload = `${prevHash}|${id}|${params.event_type}|${params.entity_id}|${afterStr || ''}|${timestamp}`;
+      const hash = crypto.createHash('sha256').update(payload).digest('hex');
+
+      try {
+        db.prepare(
+          `
+          INSERT INTO events (id, session_id, event_type, entity_type, entity_id, before_state, after_state, project, timestamp, metadata, hash, prev_hash)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
-        INSERT INTO events (id, session_id, event_type, entity_type, entity_id, before_state, after_state, project, timestamp, metadata)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `
-      ).run(
-        id,
-        session_id,
-        params.event_type,
-        params.entity_type,
-        params.entity_id,
-        beforeStr,
-        afterStr,
-        params.project,
-        timestamp,
-        metaStr
-      );
+        ).run(
+          id,
+          session_id,
+          params.event_type,
+          params.entity_type,
+          params.entity_id,
+          beforeStr,
+          afterStr,
+          params.project,
+          timestamp,
+          metaStr,
+          hash,
+          prevHash
+        );
+      } catch {
+        // Fallback for legacy DBs prior to migration v8
+        db.prepare(
+          `
+          INSERT INTO events (id, session_id, event_type, entity_type, entity_id, before_state, after_state, project, timestamp, metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+        ).run(
+          id,
+          session_id,
+          params.event_type,
+          params.entity_type,
+          params.entity_id,
+          beforeStr,
+          afterStr,
+          params.project,
+          timestamp,
+          metaStr
+        );
+      }
     } catch (err: any) {
       EventEngine.droppedEventCount++;
       logger.warn(
@@ -352,5 +394,62 @@ export class EventEngine {
       deleted,
       preserved: totalAfter,
     };
+  }
+
+  /**
+   * Verify the cryptographic SHA-256 audit chain for a project
+   */
+  static verifyAuditChain(
+    db: Database.Database,
+    project: string
+  ): { valid: boolean; total_events: number; corrupt_event_id?: string; message: string } {
+    try {
+      const events = db
+        .prepare('SELECT * FROM events WHERE project = ? ORDER BY rowid ASC')
+        .all(project) as (EventRecord & { hash?: string; prev_hash?: string })[];
+
+      if (events.length === 0) {
+        return { valid: true, total_events: 0, message: 'No events logged for project.' };
+      }
+
+      let expectedPrevHash = '0000000000000000000000000000000000000000000000000000000000000000';
+      let verifiedCount = 0;
+
+      for (const ev of events) {
+        if (!ev.hash) continue; // Skip legacy unhashed records
+
+        if (ev.prev_hash && ev.prev_hash !== expectedPrevHash) {
+          return {
+            valid: false,
+            total_events: events.length,
+            corrupt_event_id: ev.id,
+            message: `Audit chain break detected at event ${ev.id}: prev_hash mismatch.`,
+          };
+        }
+
+        const payload = `${ev.prev_hash || expectedPrevHash}|${ev.id}|${ev.event_type}|${ev.entity_id}|${ev.after_state || ''}|${ev.timestamp}`;
+        const calculatedHash = crypto.createHash('sha256').update(payload).digest('hex');
+
+        if (calculatedHash !== ev.hash) {
+          return {
+            valid: false,
+            total_events: events.length,
+            corrupt_event_id: ev.id,
+            message: `Cryptographic SHA-256 hash mismatch at event ${ev.id}. Event data may have been tampered with.`,
+          };
+        }
+
+        expectedPrevHash = ev.hash;
+        verifiedCount++;
+      }
+
+      return {
+        valid: true,
+        total_events: events.length,
+        message: `Cryptographic audit chain verified: ${verifiedCount} hashed events intact.`,
+      };
+    } catch (err: any) {
+      return { valid: false, total_events: 0, message: `Verification failed: ${err.message}` };
+    }
   }
 }

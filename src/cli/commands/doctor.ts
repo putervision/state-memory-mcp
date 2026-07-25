@@ -4,6 +4,7 @@ import os from 'os';
 import { execSync } from 'child_process';
 import { resolveProjectRoot, getProjectSlug, getDbPath, getDb } from '../../engine/db.js';
 import { auditProjectDb } from '../../engine/audit.js';
+import { getWorkspaceGitRepos, findSubdirectoryMemoryDbs } from '../../engine/subdirectory-scanner.js';
 import { VERSION } from '../../utils/version.js';
 
 export async function doctorAction(options: { project?: string }): Promise<void> {
@@ -92,25 +93,35 @@ export async function doctorAction(options: { project?: string }): Promise<void>
     );
   }
 
-  // 4. Git Repository & Branch Integration
-  let gitOk = false;
-  let activeBranch = 'main';
+  // 4. Git Repository & Sub-Directory Integration
   try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString()
-      .trim();
-    if (branch) {
-      gitOk = true;
-      activeBranch = branch;
+    const projectRoot = resolveProjectRoot();
+    const repoInfos = await getWorkspaceGitRepos(projectRoot, 4);
+    if (repoInfos.length > 0) {
+      const mainRepo = repoInfos.find((r) => r.relPath === '.') || repoInfos[0];
+      const subRepos = repoInfos.filter((r) => r.relPath !== '.');
+
+      let details = `Detected active root repository (branch: ${mainRepo.branch || 'unknown'})`;
+      if (subRepos.length > 0) {
+        details += ` + ${subRepos.length} sub-directory git repo(s):\n` +
+          subRepos.map((r) => `       • [${r.relPath}] -> branch: ${r.branch || 'detached'} (${r.isClean ? 'clean' : 'modified'})`).join('\n');
+      }
+
+      reportCheck('Git Repository Integration', true, details);
+    } else {
+      reportCheck(
+        'Git Repository Integration',
+        false,
+        'Git repository not detected (will fallback to default project branch)'
+      );
     }
   } catch {
-    gitOk = false;
+    reportCheck(
+      'Git Repository Integration',
+      false,
+      'Git repository check failed'
+    );
   }
-  reportCheck(
-    'Git Repository Integration',
-    gitOk,
-    gitOk ? `Detected active repository (branch: ${activeBranch})` : 'Git repository not detected (will fallback to default project branch)'
-  );
 
   // 5. MCP Client Config & Customization Scaffolding
   let configCount = 0;
@@ -138,17 +149,26 @@ export async function doctorAction(options: { project?: string }): Promise<void>
     configCount > 0 ? `Detected ${configCount} scaffolded MCP client config(s) or agent skill rule(s)` : 'No MCP configs or agent rules detected (run "state-memory-mcp init" to scaffold)'
   );
 
-  // 6. Project Graph Integrity & Cycle Audit
+  // 6. Project Graph Integrity & Sub-Directory Cycle Audit
   try {
+    const projectRoot = resolveProjectRoot();
     const projectSlug = options.project || getProjectSlug();
     const db = getDb(projectSlug);
     if (db) {
-      const audit = auditProjectDb({ project: projectSlug });
+      const audit = await auditProjectDb({ project: projectSlug, includeSubdirectories: true });
       const isClean = audit.cycles.length === 0;
+      const subDbs = await findSubdirectoryMemoryDbs(projectRoot);
+
+      let subDbMsg = '';
+      if (subDbs.length > 0) {
+        subDbMsg = ` + ${subDbs.length} sub-directory memory DB(s) audited:\n` +
+          subDbs.map((d) => `       • [${d.relPath}] -> slug: "${d.projectSlug}"`).join('\n');
+      }
+
       reportCheck(
         'Database Integrity & Graph Cycles',
         isClean,
-        isClean ? `Clean graph integrity for project "${projectSlug}" (0 circular dependencies)` : `Detected ${audit.cycles.length} circular dependency cycle(s) in project "${projectSlug}"`
+        isClean ? `Clean graph integrity for project "${projectSlug}"${subDbMsg} (0 circular dependencies)` : `Detected ${audit.cycles.length} circular dependency cycle(s) in project "${projectSlug}"`
       );
     }
   } catch (err: any) {

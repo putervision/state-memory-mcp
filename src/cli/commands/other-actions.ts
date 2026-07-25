@@ -169,7 +169,7 @@ export async function auditAction(options: { project?: string }) {
   logger.info(`Auditing project: ${projectSlug}`);
 
   try {
-    const report = auditProjectDb({ project: options.project });
+    const report = await auditProjectDb({ project: options.project });
     
     console.log('\n======================================');
     console.log(` DATABASE AUDIT REPORT: ${projectSlug.toUpperCase()}`);

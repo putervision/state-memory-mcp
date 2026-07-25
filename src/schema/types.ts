@@ -1,5 +1,15 @@
 export type NodeType =
-  'task' | 'decision' | 'artifact' | 'plan' | 'observation' | 'blocker' | 'milestone';
+  | 'task'
+  | 'decision'
+  | 'artifact'
+  | 'plan'
+  | 'observation'
+  | 'blocker'
+  | 'milestone'
+  | 'spec'
+  | 'requirement'
+  | 'acceptance_criterion'
+  | 'contract';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'blocked' | 'cancelled';
 export type DecisionStatus = 'proposed' | 'accepted' | 'rejected' | 'superseded';
@@ -8,6 +18,15 @@ export type PlanStatus = 'draft' | 'active' | 'completed' | 'abandoned';
 export type ObservationStatus = 'active' | 'resolved' | 'invalidated';
 export type BlockerStatus = 'active' | 'mitigated' | 'resolved';
 export type MilestoneStatus = 'upcoming' | 'in_progress' | 'reached' | 'missed';
+export type SpecStatus = 'draft' | 'approved' | 'in_progress' | 'verified' | 'deprecated' | 'stale';
+export type RequirementStatus =
+  | 'proposed'
+  | 'accepted'
+  | 'implemented'
+  | 'verified'
+  | 'rejected'
+  | 'needs_review';
+export type AcceptanceCriterionStatus = 'unverified' | 'verified' | 'failing' | 'skipped';
 
 export type NodeStatus =
   | TaskStatus
@@ -16,7 +35,19 @@ export type NodeStatus =
   | PlanStatus
   | ObservationStatus
   | BlockerStatus
-  | MilestoneStatus;
+  | MilestoneStatus
+  | SpecStatus
+  | RequirementStatus
+  | AcceptanceCriterionStatus;
+
+export type StatePillar =
+  | 'case_state'
+  | 'regulatory_obligation'
+  | 'evidence_state'
+  | 'model_version'
+  | 'consent_state'
+  | 'risk_state'
+  | 'audit_log';
 
 export interface BaseNode {
   id: string; // ULID (sortable, unique)
@@ -28,6 +59,7 @@ export interface BaseNode {
   metadata: Record<string, unknown>; // Extensible JSON blob
   tags: string[]; // Freeform tags for filtering
   project: string; // Project scope
+  pillar?: StatePillar; // Seven Pillars of Compliant Agent State (Armstrong 2026)
   git_branch?: string; // Optional branch name for context isolation
   commit_hash?: string; // Optional commit hash for Git observations/tasks
 }
@@ -45,7 +77,13 @@ export type EdgeType =
   | 'child_of'
   | 'extends'
   | 'modifies'
-  | 'renders_state';
+  | 'renders_state'
+  | 'satisfies'
+  | 'verifies'
+  | 'specifies'
+  | 'violates'
+  | 'drifts_from'
+  | 'visualizes_spec';
 
 export interface Edge {
   id: string; // ULID

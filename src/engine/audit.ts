@@ -1,7 +1,9 @@
-import { getDb, getProjectSlug } from './db.js';
+import Database from 'better-sqlite3';
+import { getDb, getProjectSlug, resolveProjectRoot } from './db.js';
 import { BaseNode, Edge, NodeRow, EdgeRow } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { AnalyticsEngine } from './analytics.js';
+import { findSubdirectoryMemoryDbs, SubdirectoryMemoryDb } from './subdirectory-scanner.js';
 
 export interface AuditReport {
   project: string;
@@ -16,6 +18,7 @@ export interface AuditReport {
   };
   node_count: number;
   edge_count: number;
+  subdirectory_databases_audited?: number;
   warnings: string[];
 }
 
@@ -80,7 +83,7 @@ export function findCycles(nodes: BaseNode[], edges: Edge[]): string[][] {
 /**
  * Audit project database for integrity and logical problems
  */
-export function auditProjectDb(params: { project?: string }): AuditReport {
+export async function auditProjectDb(params: { project?: string; includeSubdirectories?: boolean }): Promise<AuditReport> {
   const projectSlug = getProjectSlug(params.project);
   const db = getDb(projectSlug);
 
@@ -97,6 +100,7 @@ export function auditProjectDb(params: { project?: string }): AuditReport {
     },
     node_count: 0,
     edge_count: 0,
+    subdirectory_databases_audited: 0,
     warnings: [],
   };
 
@@ -165,5 +169,47 @@ export function auditProjectDb(params: { project?: string }): AuditReport {
     report.warnings.push(`Detected ${totalContradictions} logical contradictions.`);
   }
 
+  // 6. Subdirectory Databases Audit
+  if (params.includeSubdirectories) {
+    try {
+      const projectRoot = resolveProjectRoot(params.project);
+      const subDbs = await findSubdirectoryMemoryDbs(projectRoot);
+      report.subdirectory_databases_audited = subDbs.length;
+
+      for (const subDb of subDbs) {
+        try {
+          const subConn = new Database(subDb.dbPath, { readonly: true });
+          const subIntegrity = subConn.pragma('integrity_check') as any[];
+          const subIntegrityStrings = subIntegrity.map((row) =>
+            typeof row === 'string' ? row : row?.integrity_check
+          );
+          if (!subIntegrityStrings.includes('ok')) {
+            report.warnings.push(
+              `Physical database integrity check failed for sub-directory DB at "${subDb.relPath}".`
+            );
+          }
+
+          const subNodeRows = subConn.prepare('SELECT * FROM nodes').all() as NodeRow[];
+          const subEdgeRows = subConn.prepare('SELECT * FROM edges').all() as EdgeRow[];
+          const subNodes = subNodeRows.map(parseNodeRow);
+          const subEdges = subEdgeRows.map(parseEdgeRow);
+          const subCycles = findCycles(subNodes, subEdges);
+
+          if (subCycles.length > 0) {
+            report.warnings.push(
+              `Detected ${subCycles.length} circular dependencies in sub-directory DB at "${subDb.relPath}".`
+            );
+          }
+          subConn.close();
+        } catch (err: any) {
+          report.warnings.push(
+            `Failed to audit sub-directory database at "${subDb.relPath}": ${err.message}`
+          );
+        }
+      }
+    } catch {}
+  }
+
   return report;
 }
+

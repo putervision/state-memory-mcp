@@ -2,10 +2,11 @@
 
 [![npm version](https://img.shields.io/npm/v/@putervision/state-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/state-memory-mcp)
 [![Build Status](https://github.com/putervision/state-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/putervision/state-memory-mcp/actions/workflows/ci.yml)
+[![Website](https://img.shields.io/badge/Website-statememorymcp.com-6366f1.svg)](https://statememorymcp.com)
 [![License](https://img.shields.io/npm/l/@putervision/state-memory-mcp.svg)](https://github.com/putervision/state-memory-mcp/blob/main/LICENSE)
 [![Node.js Version](https://img.shields.io/node/v/@putervision/state-memory-mcp.svg)](https://nodejs.org)
 
-`@putervision/state-memory-mcp` is a zero-infrastructure, deterministic Model Context Protocol (MCP) server that provides AI agents with a structured, persistent graph for tracking workflow state—tasks, decisions, artifacts, plans, blockers, and their semantic relationships.
+`@putervision/state-memory-mcp` is a zero-infrastructure, deterministic Model Context Protocol (MCP) server that provides AI agents with a structured, persistent graph for tracking workflow state—tasks, decisions, artifacts, plans, blockers, and their semantic relationships. Official Documentation & Interactive Demos: [statememorymcp.com](https://statememorymcp.com)
 
 By using `@putervision/state-memory-mcp`, your AI coding assistant (such as Cursor, Claude Code, Gemini, or Copilot) maintains long-term project coherence, manages complex dependencies, and audits architectural decisions across sessions.
 
@@ -15,7 +16,7 @@ By using `@putervision/state-memory-mcp`, your AI coding assistant (such as Curs
 
 1. **Deterministic State Memory**: No LLM in the loop; all operations are structured, deterministic, and fast.
 2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-memory-mcp/`) or globally.
-3. **49 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, state rollback/undo, compound workflow tools (`bootstrap_session`, `complete_task`, `batch_create_nodes`, `batch_add_edges`), selective field projections (`fields`), self-healing graph repair (`auto_fix`), dynamic resources, and workflow prompts.
+3. **58 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, cryptographic SHA-256 session audit verification (`verify_audit_chain`), state rollback/undo, compound workflow tools (`bootstrap_session`, `complete_task`, `batch_create_nodes`, `batch_add_edges`), selective field projections (`fields`), self-healing graph repair (`auto_fix`), dynamic resources, and workflow prompts.
 4. **Interactive 3D HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed WebGL 3D Force-Directed Graph visualizer built with `3d-force-graph` / Three.js.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
@@ -165,6 +166,19 @@ All mutations to nodes and edges are recorded in an append-only `events` ledger.
 ### 📈 Trajectory Export for Model Training
 * `export_trajectories`: Export the chronological transition log of a project in JSONL format, providing clean training data to fine-tune smaller local models on standard operating procedures.
 
+### 📂 Sub-Directory & Mono-Repo Support (v0.6.2)
+* **Multi-Repo Git Health Accounting**: `state-memory-mcp doctor` discovers and checks root and nested Git repositories across sub-directories up to depth 4, reporting active branches and clean/dirty state.
+* **Sub-Directory Memory Observation**: Memory query tools (`list_nodes`, `search_nodes`) and health auditing (`audit`, `audit_project_db`, `doctor`) observe and audit nested `.state-memory-mcp` databases in sub-directories (`include_subdirectories: true`), annotating nodes with sub-project origin tags (`subproject: <slug>`).
+
+### 📑 Spec-Driven Development (SDD) & Ingestion (v0.6.3)
+* **Graph-Native Specifications**: Dedicated node types (`spec`, `requirement`, `acceptance_criterion`, `contract`) and SDD edge relationships (`satisfies`, `verifies`, `specifies`, `violates`, `drifts_from`).
+* `ingest_spec` / `state-memory-mcp spec:ingest <file>`: Parse and ingest Markdown PRDs, OpenSpec files, or Gherkin (`.feature`) BDD files directly into memory graph nodes.
+* `export_spec` / `state-memory-mcp spec:export <specId>`: Export graph-managed specs and child requirements back out to Markdown or Gherkin text.
+* `get_spec_compliance` / `state-memory-mcp spec:matrix`: Calculate real-time Spec Compliance matrix and requirement coverage ratio.
+* `scaffold_spec`: Scaffold standard feature specification templates in `.specs/`.
+* `verify_requirement`: Mark acceptance criteria as verified, failing, or skipped, optionally linking test observations.
+* **Git Spec Staleness**: Automatically detects modifications to `.specs/` or `docs/specs/` files in Git commits and flags graph spec nodes as `stale`.
+
 ---
 
 ## CLI Usage
@@ -204,11 +218,14 @@ state-memory-mcp backup --project my-project --out backup.db
 # Restore the project database from a SQLite backup file (destructively overwrites)
 state-memory-mcp restore backup.db --project my-project
 
-# Audit the project database for integrity, cycle paths, and contradictions
+# Audit project and sub-directory databases for integrity, cycles, and contradictions
 state-memory-mcp audit --project my-project
 
-# Run environment health checks (Node, SQLite, FTS5, storage permissions, git, graph integrity)
+# Run environment health checks (Node, SQLite, FTS5, permissions, root & sub-directory git repos, graph integrity)
 state-memory-mcp doctor --project my-project
+
+# Update state-memory-mcp globally to the latest version published on npm
+state-memory-mcp update
 
 # Merge an external SQLite database into the current project database
 state-memory-mcp merge other-project.db --project my-project [--force]

@@ -211,7 +211,36 @@ export function getCommitLog(cwd: string, count: number, since?: string): GitCom
   }
 }
 
-export function findGitRepos(root: string, maxDepth: number = 2): string[] {
+export interface GitRepoDetails {
+  repoPath: string;
+  relPath: string;
+  branch: string | null;
+  isClean: boolean;
+}
+
+export function getGitRepoDetails(repoPath: string, rootDir: string = repoPath): GitRepoDetails {
+  const relPath = path.relative(rootDir, repoPath) || '.';
+  const branch = getCurrentBranch(repoPath);
+  let isClean = true;
+  try {
+    const status = execFileSync('git', ['status', '--porcelain'], {
+      cwd: repoPath,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf-8',
+    });
+    isClean = status.trim().length === 0;
+  } catch {
+    isClean = false;
+  }
+  return {
+    repoPath,
+    relPath,
+    branch,
+    isClean,
+  };
+}
+
+export function findGitRepos(root: string, maxDepth: number = 4): string[] {
   const repos: string[] = [];
 
   function search(dir: string, depth: number) {
@@ -237,3 +266,4 @@ export function findGitRepos(root: string, maxDepth: number = 2): string[] {
   search(root, 0);
   return repos;
 }
+

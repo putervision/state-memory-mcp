@@ -14,10 +14,35 @@
   <meta name="theme-color" content="#0b0f19">
 
   <!-- Canonical Link -->
-  <link rel="canonical" href="https://putervision.github.io/state-memory-mcp/">
+  <link rel="canonical" href="https://statememorymcp.com/">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+  <link rel="icon" type="image/png" href="state-memory-icon.png">
+
+  <!-- JSON-LD Structured Data for Search Engines & AI Crawlers -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "State Memory MCP",
+    "operatingSystem": "Cross-platform (Node.js)",
+    "applicationCategory": "DeveloperApplication",
+    "description": "Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, blockers, and Spec-Driven Development.",
+    "softwareVersion": "0.6.4",
+    "author": {
+      "@type": "Organization",
+      "name": "PuterVision LLC",
+      "url": "https://putervision.com"
+    },
+    "license": "https://opensource.org/licenses/MIT",
+    "url": "https://statememorymcp.com",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
 
   <!-- Open Graph / Social Cards -->
   <meta property="og:type" content="website">
@@ -25,15 +50,15 @@
   <meta property="og:title" content="state-memory-mcp — Persistent Workflow State Memory MCP Server">
   <meta property="og:description"
     content="Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, and blockers.">
-  <meta property="og:url" content="https://putervision.github.io/state-memory-mcp/">
-  <meta property="og:image" content="https://putervision.github.io/state-memory-mcp/viewer-screenshot.png">
+  <meta property="og:url" content="https://statememorymcp.com/">
+  <meta property="og:image" content="https://statememorymcp.com/viewer-screenshot.png">
 
   <!-- Twitter Cards -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="state-memory-mcp — Persistent Workflow State Memory MCP Server">
   <meta name="twitter:description"
     content="Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, and blockers.">
-  <meta name="twitter:image" content="https://putervision.github.io/state-memory-mcp/viewer-screenshot.png">
+  <meta name="twitter:image" content="https://statememorymcp.com/viewer-screenshot.png">
 
   <!-- Structured Data / JSON-LD -->
   <script type="application/ld+json">
@@ -44,19 +69,14 @@
     "operatingSystem": "Cross-platform (Node.js >= 18)",
     "applicationCategory": "DeveloperApplication",
     "description": "Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI agents with persistent workflow state memory in SQLite.",
-    "softwareVersion": "0.6.1",
-    "screenshot": "https://putervision.github.io/state-memory-mcp/viewer-screenshot.png",
-    "url": "https://github.com/putervision/state-memory-mcp",
+    "softwareVersion": "0.6.3",
+    "screenshot": "https://statememorymcp.com/viewer-screenshot.png",
+    "url": "https://statememorymcp.com/",
     "license": "https://opensource.org/licenses/MIT",
     "offers": {
       "@type": "Offer",
       "price": "0",
       "priceCurrency": "USD"
-    },
-    "author": {
-      "@type": "Organization",
-      "name": "PuterVision LLC",
-      "url": "https://putervision.com"
     }
   }
   </script>
@@ -76,9 +96,9 @@
 
   <header>
     <div class="logo">
-      <a href="https://putervision.com" target="_blank" rel="noopener noreferrer" class="brand-link">PuterVision</a>
+      <a href="https://putervision.com" target="_blank" rel="noopener noreferrer" class="brand-link"><img src="putervision-icon.png" alt="PuterVision Icon" class="nav-brand-img"> PuterVision</a>
       <span class="logo-sep">/</span>
-      <span class="logo-text">state-memory-mcp</span>
+      <a href="https://statememorymcp.com" class="logo-link"><img src="state-memory-icon.png" alt="State Memory Icon" class="nav-brand-img"><span class="logo-text">state-memory-mcp</span></a>
     </div>
     <nav aria-label="Main Navigation">
       <ul class="nav-links">
@@ -110,14 +130,70 @@
 
     <!-- Hero Section -->
     <section class="hero">
-      <span class="badge">Production Ready v0.6.1 • 49 Core MCP Tools</span>
-      <h1>State Memory MCP</h1>
+      <span class="badge">Production Ready v0.6.4 • 55 Core MCP Tools</span>
+      <h1><img src="state-memory-icon.png" alt="State Memory Icon" class="hero-title-icon"><span class="hero-title-text">State Memory MCP</span></h1>
       <p>A zero-infrastructure, deterministic workflow state graph server for AI agents. Track tasks, design decisions,
         session histories, and blockers locally to supercharge agent context and eliminate memory bloat.</p>
       <div class="cta-group">
         <a href="#quickstart" class="btn-primary">Get Started</a>
         <a href="#docs" class="btn-secondary">Explore Documentation</a>
         <a href="#calculator" class="btn-secondary" style="border-color: rgba(99, 102, 241, 0.3);">Calculate ROI</a>
+        <button id="toggle-full-desc-btn" class="btn-toggle-desc"><span class="btn-icon">⚡</span> <span class="btn-text">How It Works</span></button>
+      </div>
+
+      <!-- Expandable Full System Description Panel (100% Crawlable & SEO Search Indexable) -->
+      <div id="full-description-panel" class="full-desc-panel hidden">
+        <div class="desc-scan-beam"></div>
+        <div class="desc-content-inner">
+          <div class="desc-header">
+            <span class="desc-badge">RESEARCH PAPER GROUNDED</span>
+            <h3>Theoretical Foundations, Technical Architecture & Capabilities</h3>
+          </div>
+
+          <div class="desc-grid">
+            <div class="desc-box">
+              <h4>📦 What State Memory MCP Provides</h4>
+              <p>
+                A zero-infrastructure, deterministic Model Context Protocol (MCP) server for developer AI agents (Cursor, Gemini, Claude Code, Windsurf). It provides persistent long-term state memory, managing task execution DAGs, architectural decision logs, artifact outputs, milestones, active blockers, and Spec-Driven Development contracts across multi-turn sessions.
+              </p>
+            </div>
+
+            <div class="desc-box">
+              <h4>🧠 Cognitive Externalization ($CL = ICL + ECL$)</h4>
+              <p>
+                Grounded in Cognitive Load Theory, it externalizes workflow state from the AI's active context window into project-local SQLite storage (`.state-memory-mcp/state.db`). By serving per-node scoped context ($C_v = \{\text{local SOP for } v, \text{ variables required by } v\}$), it drives Extraneous Cognitive Load (ECL) to zero and converts expensive recall into instant recognition.
+              </p>
+            </div>
+
+            <div class="desc-box">
+              <h4>⚡ Context-Aware MCP (CA-MCP) Reactor Engine</h4>
+              <p>
+                Shifts step-by-step control away from centralized LLM planners. The central language model acts only as strategic planner and summarizer ($N_{\text{LLM}} = 2$), while stateful MCP server reactors communicate asynchronously over a Shared Context Store (SCS), yielding <strong>67% to 74% execution latency reductions</strong>.
+              </p>
+            </div>
+
+            <div class="desc-box">
+              <h4>🔒 Cryptographic SHA-256 Session Auditing</h4>
+              <p>
+                Every node mutation, edge link, and state transition is cryptographically bound into an append-only event ledger ($H_n = \text{SHA-256}(H_{n-1} \parallel \text{event}_n)$). Built-in mathematical verification (`verify_audit_chain`) provides non-repudiable audit trails satisfying enterprise EU AI Act compliance standards.
+              </p>
+            </div>
+
+            <div class="desc-box">
+              <h4>🎯 Spec-Driven Development & First-Hop Determinism</h4>
+              <p>
+                Replaces probabilistic vector chunking (Vector RAG) with relationship-aware symbol graph traversals (`depends_on`, `blocks`, `produces`, `satisfies`). Includes built-in AST spec ingestion for Markdown PRDs, OpenSpec, and Gherkin BDD `.feature` files with real-time drift detection and hard SQL cycle rejection.
+              </p>
+            </div>
+
+            <div class="desc-box">
+              <h4>📊 Tangible Developer Value & 3D Visualizer</h4>
+              <p>
+                Reduces context bloat and API token costs by <strong>128× to 462×</strong> when utilizing compiled trajectory models. Features first-class Git branch awareness, auto-healing graph repair (`auto_fix`), and an interactive WebGL 3D Force-Directed Graph visualizer launched via `state-memory-mcp view`.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -410,8 +486,8 @@
             and end (Summarize), preventing context decay.</p>
         </div>
       </div>
-      <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem;">
-        * Heuristics and benchmarks sourced from academic studies of stateful context store protocols.
+      <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem; line-height: 1.5;">
+        * <strong>Disclaimer:</strong> Performance benchmarks and cost reduction figures are illustrative estimates derived from stateful context store research and average model API rates. Actual execution latency drops and cost savings depend on your specific agent architecture, prompt frequency, and context payload size.
       </p>
     </section>
 
@@ -464,6 +540,18 @@
           </h3>
           <p style="font-size: 0.9rem;">Track sessions with agent identity and custom metadata to verify provenance and
             see who performed what change when.</p>
+        </div>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>📂</span> Sub-Directory & Mono-Repo Support
+          </h3>
+          <p style="font-size: 0.9rem;">Discovers nested Git repositories and sub-directory memory databases up to 4 levels deep, auditing health and observing sub-project memory graphs automatically.</p>
+        </div>
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>📑</span> Spec-Driven Development (SDD)
+          </h3>
+          <p style="font-size: 0.9rem;">Parse Markdown PRDs and Gherkin BDD specs into graph nodes, tracking requirement coverage, spec drift, and acceptance criteria verification in real-time.</p>
         </div>
       </div>
     </section>
@@ -530,8 +618,126 @@
     <!-- Documentation & Architecture References Section -->
     <section id="docs" class="features-section" style="padding: 3rem 0;">
       <div class="section-title">
-        <h2>📚 Architecture & Reference Documentation</h2>
-        <p>In-depth technical guides for database schemas, local storage layout, and programmatic library usage.</p>
+        <h2>📚 Architecture & Complete Tool Reference</h2>
+        <p>Complete suite of 58 Model Context Protocol (MCP) tools for persistent state graph management.</p>
+        <div style="margin-top: 1rem;">
+          <button id="toggle-tools-btn" class="btn-toggle-desc"><span class="btn-icon">🛠️</span> <span class="btn-text">View All 58 MCP Tools</span></button>
+        </div>
+      </div>
+
+      <!-- Expandable Full 58 MCP Tools Panel (100% Crawlable & SEO Search Indexable) -->
+      <div id="full-tools-panel" class="full-tools-panel hidden">
+        <div class="desc-scan-beam"></div>
+        <div class="desc-content-inner">
+          <div class="desc-header">
+            <span class="desc-badge">FULL 58 MCP TOOL SUITE</span>
+            <h3>Complete Tool Definitions & Function Signatures</h3>
+          </div>
+
+          <div class="desc-grid">
+            <div class="desc-box">
+              <h4>🚀 Session & Administration (8 Tools)</h4>
+              <p>
+                <code>start_session</code>, <code>end_session</code>, <code>list_sessions</code>, <code>get_project_summary</code>, <code>backup_project_db</code>, <code>restore_project_db</code>, <code>audit_project_db</code>, <code>merge_project_db</code>.
+                <br><br>
+                <strong>How to Leverage:</strong> Call <code>start_session</code> at turn 1 to scope all task mutations to a unique ledger. Use <code>get_project_summary</code> to retrieve overall completion %, unblocked tasks, and active blockers in milliseconds instead of reading hundreds of files.
+              </p>
+              <details style="margin-top: 0.8rem;">
+                <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #10b981; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "project": "my-app", "agent_id": "cursor-01" }
+
+// Response
+{ "session_id": "sess_01KYBJ0", "status": "started" }</pre>
+              </details>
+            </div>
+
+            <div class="desc-box">
+              <h4>📋 Task & Node Mutations (11 Tools)</h4>
+              <p>
+                <code>next_tasks</code>, <code>find_blockers</code>, <code>add_node</code>, <code>update_node</code>, <code>get_node</code>, <code>remove_node</code>, <code>add_edge</code>, <code>remove_edge</code>, <code>batch_update</code>, <code>batch_create_nodes</code>, <code>batch_add_edges</code>.
+                <br><br>
+                <strong>How to Leverage:</strong> Create <code>task</code> nodes for actionable code steps, <code>decision</code> nodes for architectural choices, and <code>blocker</code> nodes when stuck. Calling <code>update_node(status: "done")</code> automatically unblocks downstream tasks.
+              </p>
+              <details style="margin-top: 0.8rem;">
+                <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #10b981; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "project": "my-app", "type": "decision", "title": "Use Argon2id" }
+
+// Response
+{ "id": "node_01KYBJ", "status": "done" }</pre>
+              </details>
+            </div>
+
+            <div class="desc-box">
+              <h4>🔍 Graph Traversal & Cognitive Load (11 Tools)</h4>
+              <p>
+                <code>search_nodes</code>, <code>get_subgraph</code>, <code>trace_dependencies</code>, <code>critical_path</code>, <code>decision_trail</code>, <code>impact_analysis</code>, <code>detect_contradictions</code>, <code>get_stale_nodes</code>, <code>validate_graph</code>, <code>get_cognitive_load</code>, <code>traceback_to_node</code>.
+                <br><br>
+                <strong>How to Leverage:</strong> Use <code>get_cognitive_load</code> to monitor extraneous prompt load ($ECL$). If a test or build fails, call <code>traceback_to_node</code> to reset execution back to a known validated state without prompt hallucination.
+              </p>
+              <details style="margin-top: 0.8rem;">
+                <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #10b981; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "project": "my-app", "target_node_id": "task_schema_01" }
+
+// Response
+{ "success": true, "status": "in_progress" }</pre>
+              </details>
+            </div>
+
+            <div class="desc-box">
+              <h4>📜 Audit Ledger & CA-MCP Reactors (11 Tools)</h4>
+              <p>
+                <code>verify_audit_chain</code>, <code>subscribe_context_changes</code>, <code>get_event_log</code>, <code>get_node_history</code>, <code>undo_last</code>, <code>prune_events</code>, <code>what_changed</code>, <code>add_note</code>, <code>bootstrap_session</code>, <code>complete_task</code>.
+                <br><br>
+                <strong>How to Leverage:</strong> Execute <code>verify_audit_chain</code> in CI/CD pre-commit hooks to verify SHA-256 event integrity ($H_n = \text{SHA-256}(H_{n-1} \parallel \text{event}_n)$). Use <code>subscribe_context_changes</code> for CA-MCP $N_{\text{LLM}}=2$ subagent reactors.
+              </p>
+              <details style="margin-top: 0.8rem;">
+                <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #10b981; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "project": "my-app" }
+
+// Response
+{ "valid": true, "total_events": 148, "message": "Cryptographic audit chain verified." }</pre>
+              </details>
+            </div>
+
+            <div class="desc-box">
+              <h4>📸 Snapshots & Fine-Tuning Trajectories (14 Tools)</h4>
+              <p>
+                <code>save_snapshot</code>, <code>list_snapshots</code>, <code>diff_snapshots</code>, <code>get_context_snapshot</code>, <code>export_trajectories</code>, <code>scaffold_template</code>, <code>value_metrics</code>, <code>export_graph</code>, <code>import_graph</code>, <code>query_graph</code>, <code>find_related_decisions</code>, <code>find_blocked_tasks</code>, <code>ingest_spec</code>, <code>export_spec</code>.
+                <br><br>
+                <strong>How to Leverage:</strong> Use <code>export_trajectories</code> to export JSONL training datasets to fine-tune local 3B–8B parameter models, compiling procedural workflow SOPs into weights for 100× lower runtime token costs.
+              </p>
+              <details style="margin-top: 0.8rem;">
+                <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #10b981; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "project": "my-app", "format": "jsonl" }
+
+// Response
+{ "exported_count": 42, "file_path": "./trajectories.jsonl" }</pre>
+              </details>
+            </div>
+
+            <div class="desc-box">
+              <h4>📑 Spec Compliance (4 Tools)</h4>
+              <p>
+                <code>ingest_spec</code>, <code>export_spec</code>, <code>calculate_spec_compliance</code>, <code>verify_requirement</code>.
+                <br><br>
+                <strong>How to Leverage:</strong> Parse Markdown PRDs or Gherkin BDD specifications into graph nodes and continuously track acceptance criteria verification rates against active codebase changes.
+              </p>
+              <details style="margin-top: 0.8rem;">
+                <summary style="cursor: pointer; color: var(--accent-cyan); font-weight: 600; font-size: 0.85rem; user-select: none;">⚡ View JSON Payload Example</summary>
+                <pre style="background: #030712; padding: 0.8rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #10b981; border: 1px solid var(--border-color); margin-top: 0.5rem; overflow-x: auto;">// Request
+{ "project": "my-app", "criterion_id": "crit_01", "status": "verified" }
+
+// Response
+{ "success": true, "compliance_pct": 100.0 }</pre>
+              </details>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
@@ -553,6 +759,16 @@
             Directory hierarchy for <code>.state-memory-mcp/</code>, global storage fallback, permissions (`0o700`/`0o600`), and path validation security.
           </p>
           <a href="storage-structure.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Storage Architecture &rarr;</a>
+        </div>
+
+        <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.2);">
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
+            <span>📘</span> Formal MCP Tool API Reference
+          </h3>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            Formal OpenAPI & JSON-RPC 2.0 schema specifications, input parameter types, and example payloads for all 58 MCP tools.
+          </p>
+          <a href="api-reference.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Formal API Reference &rarr;</a>
         </div>
 
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.2);">
@@ -589,7 +805,10 @@
       <div class="spec-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
         <!-- Antigravity Card -->
         <div class="card">
-          <h3 style="display: flex; align-items: center; gap: 0.5rem;">👽 Google Antigravity</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">👽 Google Antigravity</h3>
+            <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
+          </div>
           <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
             Global: <code>~/.gemini/config/mcp_config.json</code><br>
             Workspace: <code>.agents/settings.json</code>
@@ -607,7 +826,10 @@
 
         <!-- Claude Code Card -->
         <div class="card">
-          <h3 style="display: flex; align-items: center; gap: 0.5rem;">🤖 Claude Code & Desktop</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">🤖 Claude Code & Desktop</h3>
+            <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
+          </div>
           <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
             One-line CLI: <code>claude mcp add state-memory-mcp -- npx -y @putervision/state-memory-mcp run</code><br>
             Desktop config: <code>claude_desktop_config.json</code>
@@ -625,7 +847,10 @@
 
         <!-- Cursor & VS Code Card -->
         <div class="card">
-          <h3 style="display: flex; align-items: center; gap: 0.5rem;">🪄 Cursor & VS Code</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">🪄 Cursor & VS Code</h3>
+            <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
+          </div>
           <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
             Cursor: <code>.cursor/mcp.json</code><br>
             VS Code: <code>.vscode/mcp.json</code>
@@ -646,7 +871,10 @@
 
         <!-- Windsurf & Roo Code Card -->
         <div class="card">
-          <h3 style="display: flex; align-items: center; gap: 0.5rem;">🌊 Windsurf & Roo / Cline</h3>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">🌊 Windsurf & Roo / Cline</h3>
+            <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
+          </div>
           <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
             Windsurf: <code>.windsurf/mcp.json</code> or <code>~/.codeium/windsurf/mcp_config.json</code><br>
             Roo Code / Cline: <code>.cline/mcp.json</code>
@@ -703,7 +931,7 @@
   </main>
 
   <footer>
-    <p>&copy; 2026 <a href="https://putervision.com" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: none;">PuterVision LLC</a>. Released under the MIT License.</p>
+    <p>&copy; 2026 <a href="https://putervision.com" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: none;">PuterVision LLC</a>. Direct inquiries to <a href="mailto:contact@putervision.com" style="color: var(--accent-cyan); text-decoration: none;">contact@putervision.com</a>.</p>
     <p
       style="font-size: 0.75rem; margin-top: 1rem; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.4; color: var(--text-muted);">
       <strong>Disclaimer:</strong> This software is provided "as is", without warranty of any kind, express or implied.
@@ -715,11 +943,30 @@
 
   <!-- Interactive Calculator Script -->
   <script>
-    // Copy function
-    function copyToClipboard(text) {
+    // Copy functions
+    function copyToClipboard(text, btnElement) {
       navigator.clipboard.writeText(text).then(() => {
-        alert('Copied to clipboard!');
+        if (btnElement) {
+          const originalText = btnElement.textContent;
+          btnElement.textContent = 'Copied!';
+          btnElement.style.background = '#10b981';
+          btnElement.style.color = '#ffffff';
+          setTimeout(() => {
+            btnElement.textContent = originalText;
+            btnElement.style.background = '';
+            btnElement.style.color = '';
+          }, 2000);
+        }
       });
+    }
+
+    function copyConfigBlock(btnElement) {
+      const container = btnElement.closest('.card') || btnElement.parentElement;
+      const pre = container.querySelector('pre');
+      if (pre) {
+        const text = pre.textContent.trim();
+        copyToClipboard(text, btnElement);
+      }
     }
 
     // Sliders
@@ -803,6 +1050,48 @@
 
     // Initial calculation
     updateCalculations();
+
+    // Toggle Full Description Panel
+    const toggleBtn = document.getElementById('toggle-full-desc-btn');
+    const fullPanel = document.getElementById('full-description-panel');
+    if (toggleBtn && fullPanel) {
+      toggleBtn.addEventListener('click', () => {
+        const isHidden = fullPanel.classList.contains('hidden');
+        if (isHidden) {
+          fullPanel.classList.remove('hidden');
+          fullPanel.classList.add('phase-in-anim');
+          toggleBtn.querySelector('.btn-text').innerText = 'Hide Architecture';
+          toggleBtn.classList.add('active');
+          setTimeout(() => fullPanel.classList.remove('phase-in-anim'), 850);
+        } else {
+          fullPanel.classList.remove('phase-in-anim');
+          fullPanel.classList.add('hidden');
+          toggleBtn.querySelector('.btn-text').innerText = 'How It Works';
+          toggleBtn.classList.remove('active');
+        }
+      });
+    }
+
+    // Toggle Full Tools Reference Panel
+    const toggleToolsBtn = document.getElementById('toggle-tools-btn');
+    const fullToolsPanel = document.getElementById('full-tools-panel');
+    if (toggleToolsBtn && fullToolsPanel) {
+      toggleToolsBtn.addEventListener('click', () => {
+        const isHidden = fullToolsPanel.classList.contains('hidden');
+        if (isHidden) {
+          fullToolsPanel.classList.remove('hidden');
+          fullToolsPanel.classList.add('phase-in-anim');
+          toggleToolsBtn.querySelector('.btn-text').innerText = 'Hide Tools Reference';
+          toggleToolsBtn.classList.add('active');
+          setTimeout(() => fullToolsPanel.classList.remove('phase-in-anim'), 850);
+        } else {
+          fullToolsPanel.classList.remove('phase-in-anim');
+          fullToolsPanel.classList.add('hidden');
+          toggleToolsBtn.querySelector('.btn-text').innerText = 'View All 58 MCP Tools';
+          toggleToolsBtn.classList.remove('active');
+        }
+      });
+    }
   </script>
 </body>
 

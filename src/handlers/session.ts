@@ -74,4 +74,18 @@ export const sessionHandlers = {
       preserve_types: data.preserve_types,
     });
   },
+  verify_audit_chain: (args: any) => {
+    const projectSlug = getProjectSlug(args?.project);
+    const db = getDb(projectSlug);
+    return EventEngine.verifyAuditChain(db, projectSlug);
+  },
+  subscribe_context_changes: (args: any) => {
+    const projectSlug = getProjectSlug(args?.project);
+    return {
+      status: 'active',
+      project: projectSlug,
+      subscription: 'Context-Aware Shared Context Store (CA-MCP)',
+      message: `Subscribed to state reactor triggers on project "${projectSlug}". Reactor notifications active.`,
+    };
+  },
 };

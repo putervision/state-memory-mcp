@@ -574,3 +574,40 @@ export function isIgnored(filePath: string, patterns: string[] | RegExp[]): bool
 
   return false;
 }
+
+/**
+ * Checks for modifications to spec files (.specs/ or docs/specs/) in git commits and marks spec nodes as stale.
+ */
+export function checkSpecFileChanges(
+  db: Database,
+  projectSlug: string,
+  commits: GitCommit[]
+): number {
+  let markedCount = 0;
+  for (const commit of commits) {
+    if (commit.filesChanged) {
+      for (const file of commit.filesChanged) {
+        if (
+          file.includes('.specs/') ||
+          file.includes('docs/specs/') ||
+          file.endsWith('.feature')
+        ) {
+          const specRows = db
+            .prepare(
+              "SELECT id FROM nodes WHERE project = ? AND type = 'spec' AND status != 'stale'"
+            )
+            .all(projectSlug) as { id: string }[];
+
+          for (const row of specRows) {
+            db.prepare(
+              "UPDATE nodes SET status = 'stale', updated_at = datetime('now') WHERE id = ?"
+            ).run(row.id);
+            markedCount++;
+          }
+        }
+      }
+    }
+  }
+  return markedCount;
+}
+

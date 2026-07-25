@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-07-24
+
+### Added
+- **Cryptographic SHA-256 Event Chaining & Session Audit Verification** (Armstrong 2026, Section 8):
+  - Database migration `v8`: Added `hash` and `prev_hash` columns to the `events` table.
+  - Implemented cryptographic event chaining: $H_n = \text{SHA-256}(H_{n-1} \parallel \text{event}_n)$ in `EventEngine.logEvent()`.
+  - Added `verify_audit_chain` MCP tool and `EventEngine.verifyAuditChain()` method to mathematically verify non-repudiable log integrity and detect tampered or deleted events.
+
+## [0.6.3] - 2026-07-24
+
+### Added
+- **Spec-Driven Development (SDD) & Ingestion Engine**:
+  - Added native graph node types: `spec`, `requirement`, `acceptance_criterion`, and `contract`.
+  - Added SDD edge relationships: `satisfies`, `verifies`, `specifies`, `violates`, `drifts_from`, and `visualizes_spec`.
+  - Created AST-based spec parser (`src/engine/spec-parser.ts`) supporting Markdown PRDs, OpenSpec standards, and Gherkin (`.feature`) BDD files.
+  - Implemented Spec Compliance Matrix engine (`src/engine/spec-compliance.ts`) calculating requirement coverage and unfulfilled criteria.
+  - Added SDD validation checks to `validateGraph`: `unfulfilled_specs`, `unverified_requirements`, and `spec_drift`.
+  - Updated `git-scanner.ts` to detect changes in `.specs/` or `docs/specs/` and flag graph nodes as `stale`.
+  - Added new MCP tools & CLI commands: `ingest_spec`, `export_spec`, `get_spec_compliance`, `scaffold_spec`, and `verify_requirement`.
+
+## [0.6.2] - 2026-07-24
+
+### Added & Improved
+- **Sub-Directory Git Repository Accounting**:
+  - Enhanced `doctor` health diagnostics (`state-memory-mcp doctor`) to discover and audit all nested Git repositories across sub-directories up to depth 4, reporting branch status and clean/dirty state for each.
+  - Added `getGitRepoDetails()` and updated `findGitRepos()` in `src/utils/git.ts`.
+- **Sub-Directory Memory Database Observation**:
+  - Created `subdirectory-scanner.ts` to locate nested `.state-memory-mcp` databases in workspace sub-directories.
+  - Enabled multi-database memory observation in `list_nodes` and `search_nodes` (`include_subdirectories: true`). Nodes from sub-directory databases are observed with origin metadata (`subproject: <slug>`) and origin tags.
+  - Updated `auditProjectDb` to recursively audit SQLite physical integrity and cycle graph health across all sub-directory memory databases.
+
 ## [0.6.1] - 2026-07-23
 
 ### Added & Improved

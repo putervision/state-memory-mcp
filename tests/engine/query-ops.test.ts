@@ -64,58 +64,58 @@ describe('QueryEngine Operations', () => {
   });
 
   describe('listNodes', () => {
-    it('should filter by node type', () => {
-      const result = QueryEngine.listNodes({ project, type: 'decision' });
+    it('should filter by node type', async () => {
+      const result = await QueryEngine.listNodes({ project, type: 'decision' });
       expect(result.total_count).toBe(1);
       expect(result.nodes[0].type).toBe('decision');
       expect(result.nodes[0].title).toBe('Use ULID for Node IDs');
     });
 
-    it('should filter by node status', () => {
-      const result = QueryEngine.listNodes({ project, status: 'done' });
+    it('should filter by node status', async () => {
+      const result = await QueryEngine.listNodes({ project, status: 'done' });
       expect(result.total_count).toBe(1);
       expect(result.nodes[0].title).toBe('Database Schema Implementation');
     });
 
-    it('should filter by multiple tags (AND query)', () => {
-      const result = QueryEngine.listNodes({ project, tags: ['database', 'schema'] });
+    it('should filter by multiple tags (AND query)', async () => {
+      const result = await QueryEngine.listNodes({ project, tags: ['database', 'schema'] });
       expect(result.total_count).toBe(1);
       expect(result.nodes[0].title).toBe('Database Schema Implementation');
 
-      const result2 = QueryEngine.listNodes({ project, tags: ['database', 'architecture'] });
+      const result2 = await QueryEngine.listNodes({ project, tags: ['database', 'architecture'] });
       expect(result2.total_count).toBe(1);
       expect(result2.nodes[0].type).toBe('decision');
     });
 
-    it('should support pagination (limit/offset)', () => {
-      const result = QueryEngine.listNodes({ project, limit: 1, offset: 1 });
+    it('should support pagination (limit/offset)', async () => {
+      const result = await QueryEngine.listNodes({ project, limit: 1, offset: 1 });
       expect(result.nodes.length).toBe(1);
       expect(result.total_count).toBe(3);
     });
 
-    it('should respect compact mode (metadata empty)', () => {
-      const result = QueryEngine.listNodes({ project, compact: true, type: 'task' });
+    it('should respect compact mode (metadata empty)', async () => {
+      const result = await QueryEngine.listNodes({ project, compact: true, type: 'task' });
       expect(result.nodes.length).toBe(2);
       expect(result.nodes[0].metadata).toEqual({});
     });
   });
 
   describe('searchNodes (FTS5)', () => {
-    it('should match keywords in title', () => {
-      const result = QueryEngine.searchNodes({ project, query: 'Authentication' });
+    it('should match keywords in title', async () => {
+      const result = await QueryEngine.searchNodes({ project, query: 'Authentication' });
       expect(result.total_count).toBe(1);
       expect(result.nodes[0].title).toBe('API Authentication Routes');
     });
 
-    it('should match keywords in metadata rationale', () => {
-      const result = QueryEngine.searchNodes({ project, query: 'Sortable' });
+    it('should match keywords in metadata rationale', async () => {
+      const result = await QueryEngine.searchNodes({ project, query: 'Sortable' });
       expect(result.total_count).toBe(1);
       expect(result.nodes[0].title).toBe('Use ULID for Node IDs');
     });
 
-    it('should update FTS index automatically via triggers on node update', () => {
+    it('should update FTS index automatically via triggers on node update', async () => {
       // Find node 2
-      const list = QueryEngine.listNodes({ project, type: 'task' });
+      const list = await QueryEngine.listNodes({ project, type: 'task' });
       const nodeToUpdate = list.nodes.find((n) => n.title.includes('Authentication'))!;
 
       GraphEngine.updateNode({
@@ -125,25 +125,25 @@ describe('QueryEngine Operations', () => {
       });
 
       // Search for updated keyword
-      const result = QueryEngine.searchNodes({ project, query: 'JWT' });
+      const result = await QueryEngine.searchNodes({ project, query: 'JWT' });
       expect(result.total_count).toBe(1);
       expect(result.nodes[0].title).toBe('API Authentication and JWT Routes');
     });
 
-    it('should safely handle queries with colons and special characters without crashing', () => {
-      const result = QueryEngine.searchNodes({ project, query: 'fix: authentication & jwt' });
+    it('should safely handle queries with colons and special characters without crashing', async () => {
+      const result = await QueryEngine.searchNodes({ project, query: 'fix: authentication & jwt' });
       expect(result).toBeDefined();
       expect(Array.isArray(result.nodes)).toBe(true);
     });
   });
 
   describe('getSubgraph', () => {
-    it('should retrieve a node and its N-hop neighbors', () => {
+    it('should retrieve a node and its N-hop neighbors', async () => {
       // API auth routes (node 2) depends_on Database schema (node 1) decided_in Use ULID (node 3)
-      const list = QueryEngine.listNodes({ project, type: 'task' });
+      const list = await QueryEngine.listNodes({ project, type: 'task' });
       const node1 = list.nodes.find((n) => n.title.includes('Schema'))!;
       const node2 = list.nodes.find((n) => n.title.includes('Authentication'))!;
-      const node3 = QueryEngine.listNodes({ project, type: 'decision' }).nodes[0];
+      const node3 = (await QueryEngine.listNodes({ project, type: 'decision' })).nodes[0];
 
       // Get 1-hop subgraph of node 1
       // Should include node 1 itself, node 2 (depends_on node 1), and node 3 (node 1 decided_in node 3)

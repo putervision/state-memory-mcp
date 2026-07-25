@@ -1,0 +1,29 @@
+# PuterVision LLC — MCP Research & Development Labs
+
+> PuterVision LLC is a private engineering research laboratory pioneering deterministic state graph storage, perceptual visual caching, and context compression algorithms for AI developer agents and Model Context Protocol (MCP) architectures.
+
+## Core Research Focus
+- **Deterministic Context Stores**: SQLite-backed state graph memory for AI coding agents to eliminate LLM hallucination in task tracking and audit trails.
+- **Perceptual Fast-Path Matching**: Sub-5ms screen state recognition using Hamming distance dHash algorithms to bypass expensive vision LLM calls.
+- **Spec-Driven Development (SDD)**: Compiling Markdown PRDs and Gherkin BDD specs into graph execution nodes to verify requirement coverage.
+- **Local Multimodal Perception**: Embedded zero-cloud CLIP vision models and LanceDB vector stores for private semantic retrieval.
+
+## Published Open-Source Initiatives
+
+### 1. State Memory MCP (`@putervision/state-memory-mcp`)
+- **Website**: https://statememorymcp.com
+- **Repository**: https://github.com/putervision/state-memory-mcp
+- **Description**: Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI agents with persistent SQLite state graph memory for tracking tasks, decisions, blockers, plans, and artifacts.
+- **Primary Capabilities**: SQLite graph database, 3D WebGL graph visualizer, Spec-Driven Development (SDD), Git branch isolation.
+
+### 2. Visual Memory MCP (`@putervision/vision-memory-mcp`)
+- **Website**: https://visionmemorymcp.com
+- **Repository**: https://github.com/putervision/vision-memory-mcp
+- **Description**: Visual perception cache & perceptual hashing MCP server. Caches webpage and app screenshots locally using dHash, local CLIP vector search, and accessibility trees to cut LLM token costs by up to 90%.
+- **Primary Capabilities**: L1/L2 dHash zero-token fast-path, L3 local CLIP vector search, visual layout drift verification.
+
+## Canonical URLs & References
+- **PuterVision R&D Labs**: https://putervision.com
+- **State Memory MCP**: https://statememorymcp.com
+- **Visual Memory MCP**: https://visionmemorymcp.com
+- **GitHub Organization**: https://github.com/putervision

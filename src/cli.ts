@@ -5,6 +5,8 @@ import { runInit } from './cli/init.js';
 import { VERSION } from './utils/version.js';
 import { inspectAction } from './cli/commands/inspect.js';
 import { doctorAction } from './cli/commands/doctor.js';
+import { updateAction } from './cli/commands/update.js';
+import { subprojectsAction } from './cli/commands/subprojects.js';
 import {
   scanGitAction,
   metricsAction,
@@ -62,6 +64,7 @@ class SubCommand {
   nameStr: string;
   descStr: string = '';
   optionsList: Option[] = [];
+  aliases: string[] = [];
   actionFn?: (...args: any[]) => void | Promise<void>;
   isDefaultCmd: boolean = false;
 
@@ -72,6 +75,11 @@ class SubCommand {
 
   description(desc: string): this {
     this.descStr = desc;
+    return this;
+  }
+
+  alias(aliasStr: string): this {
+    this.aliases.push(aliasStr);
     return this;
   }
 
@@ -119,13 +127,10 @@ class Command {
     if (this.programDesc) {
       console.log(`${this.programDesc}\n`);
     }
-    console.log(`Options:`);
-    console.log(`  -h, --help      Display help for command`);
-    console.log(`  -v, --version   Output the version number\n`);
-    console.log(`Commands:`);
+    console.log('Commands:');
     for (const cmd of this.commandsList) {
-      const defaultStr = cmd.isDefaultCmd ? ' (default)' : '';
-      console.log(`  ${cmd.nameStr.padEnd(20)} ${cmd.descStr}${defaultStr}`);
+      const aliasMsg = cmd.aliases.length > 0 ? ` (aliases: ${cmd.aliases.join(', ')})` : '';
+      console.log(`  ${cmd.nameStr.padEnd(25)} ${cmd.descStr}${aliasMsg}`);
       for (const opt of cmd.optionsList) {
         console.log(`    ${opt.flags.padEnd(22)} ${opt.description}`);
       }
@@ -150,7 +155,9 @@ class Command {
     let commandArgs: string[] = [];
 
     const firstArg = args[0];
-    let matchedCmd = this.commandsList.find(c => c.nameStr.split(' ')[0] === firstArg);
+    let matchedCmd = this.commandsList.find(
+      c => c.nameStr.split(' ')[0] === firstArg || c.aliases.includes(firstArg)
+    );
 
     if (matchedCmd) {
       cmdName = firstArg;
@@ -462,4 +469,63 @@ program
   .option('-p, --project <name>', 'Project slug name')
   .action(doctorAction);
 
+// Update command to update global npm package
+program
+  .command('update')
+  .alias('upgrade')
+  .description('Check npm registry and update @putervision/state-memory-mcp globally to the latest version')
+  .action(updateAction);
+
+// Subprojects command to explore workspace structure and repositories
+program
+  .command('subprojects')
+  .alias('repos')
+  .description('List all Git repositories and sub-directory memory databases in the workspace')
+  .option('-p, --project <name>', 'Project slug name')
+  .action(subprojectsAction);
+
+// Spec-Driven Development (SDD) commands
+program
+  .command('spec:ingest <file>')
+  .description('Ingest a Markdown PRD, OpenSpec, or Gherkin BDD specification file into graph memory')
+  .option('-p, --project <name>', 'Project slug name')
+  .option('-f, --format <format>', 'Format: markdown, gherkin, auto', 'auto')
+  .action((file: string, options: any) => {
+    const { getDb, getProjectSlug } = require('./engine/db.js');
+    const { ingestSpecFile } = require('./engine/spec-parser.js');
+    const projectSlug = getProjectSlug(options.project);
+    const db = getDb(projectSlug);
+    const res = ingestSpecFile(db, { filePath: file, format: options.format, project: projectSlug });
+    console.log(`Successfully ingested spec "${file}": ${res.requirements_count} requirements, ${res.criteria_count} criteria.`);
+  });
+
+program
+  .command('spec:export <specId>')
+  .description('Export a graph-managed spec node and requirements back to clean Markdown or Gherkin text')
+  .option('-p, --project <name>', 'Project slug name')
+  .option('-f, --format <format>', 'Export format: markdown, gherkin', 'markdown')
+  .action((specId: string, options: any) => {
+    const { getDb, getProjectSlug } = require('./engine/db.js');
+    const { exportSpecToFile } = require('./engine/spec-parser.js');
+    const projectSlug = getProjectSlug(options.project);
+    const db = getDb(projectSlug);
+    const out = exportSpecToFile(db, { specId, format: options.format, project: projectSlug });
+    console.log(out);
+  });
+
+program
+  .command('spec:matrix')
+  .alias('spec:coverage')
+  .description('Calculate real-time Spec Compliance matrix and requirement coverage ratio')
+  .option('-p, --project <name>', 'Project slug name')
+  .action((options: any) => {
+    const { getDb, getProjectSlug } = require('./engine/db.js');
+    const { calculateSpecCompliance } = require('./engine/spec-compliance.js');
+    const projectSlug = getProjectSlug(options.project);
+    const db = getDb(projectSlug);
+    const report = calculateSpecCompliance(db, projectSlug);
+    console.log(JSON.stringify(report, null, 2));
+  });
+
 program.parse(process.argv);
+

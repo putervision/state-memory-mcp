@@ -46,7 +46,7 @@ describe('TF-IDF Vector Search Engine', () => {
   });
 
   describe('tokenizer', () => {
-    it('should split camelCase and ignore stop words', () => {
+    it('should split camelCase and ignore stop words', async () => {
       const tokens = tokenize('AuthenticationWithOAuth and SQLite parameters');
       // "AuthenticationWithOAuth" -> "Authentication With OAuth" -> "authentication", "oauth" (since "with" is a stop word)
       // "and" -> ignored (stop word)
@@ -60,15 +60,15 @@ describe('TF-IDF Vector Search Engine', () => {
       expect(tokens).not.toContain('and');
     });
 
-    it('should normalize casing and strip special chars', () => {
+    it('should normalize casing and strip special chars', async () => {
       const tokens = tokenize('hello-world!!! this_is_testing');
       expect(tokens).toEqual(['hello', 'world', 'testing']); // "this", "is" are stop words
     });
   });
 
   describe('searchTfidf core logic', () => {
-    it('should correctly rank nodes by term similarity', () => {
-      const list = QueryEngine.listNodes({ project });
+    it('should correctly rank nodes by term similarity', async () => {
+      const list = await QueryEngine.listNodes({ project });
       const nodes = list.nodes;
 
       const results = searchTfidf(nodes, 'SQLite connection', 10);
@@ -76,16 +76,16 @@ describe('TF-IDF Vector Search Engine', () => {
       expect(results[0].title).toBe('Database connection configuration');
     });
 
-    it('should return empty array if no matches', () => {
-      const list = QueryEngine.listNodes({ project });
+    it('should return empty array if no matches', async () => {
+      const list = await QueryEngine.listNodes({ project });
       const results = searchTfidf(list.nodes, 'unrelated gibberish terms', 10);
       expect(results).toEqual([]);
     });
   });
 
   describe('QueryEngine integration (searchNodes)', () => {
-    it('should return matching nodes using tfidf algorithm option', () => {
-      const result = QueryEngine.searchNodes({
+    it('should return matching nodes using tfidf algorithm option', async () => {
+      const result = await QueryEngine.searchNodes({
         project,
         query: 'OAuth authentication login',
         algorithm: 'tfidf',
@@ -95,8 +95,8 @@ describe('TF-IDF Vector Search Engine', () => {
       expect(result.nodes[0].title).toBe('User Authentication system with OAuth');
     });
 
-    it('should respect status filter with tfidf algorithm', () => {
-      const result = QueryEngine.searchNodes({
+    it('should respect status filter with tfidf algorithm', async () => {
+      const result = await QueryEngine.searchNodes({
         project,
         query: 'SQLite configuration',
         algorithm: 'tfidf',
@@ -105,7 +105,7 @@ describe('TF-IDF Vector Search Engine', () => {
       expect(result.nodes.length).toBe(1);
       expect(result.nodes[0].title).toBe('Database connection configuration');
 
-      const resultBlocked = QueryEngine.searchNodes({
+      const resultBlocked = await QueryEngine.searchNodes({
         project,
         query: 'SQLite configuration',
         algorithm: 'tfidf',
@@ -114,8 +114,8 @@ describe('TF-IDF Vector Search Engine', () => {
       expect(resultBlocked.nodes.length).toBe(0);
     });
 
-    it('should respect type filter with tfidf algorithm', () => {
-      const result = QueryEngine.searchNodes({
+    it('should respect type filter with tfidf algorithm', async () => {
+      const result = await QueryEngine.searchNodes({
         project,
         query: 'dependency vector footprint',
         algorithm: 'tfidf',
@@ -125,7 +125,7 @@ describe('TF-IDF Vector Search Engine', () => {
       expect(result.nodes[0].type).toBe('decision');
       expect(result.nodes[0].title).toBe('Rely on local TF-IDF instead of vector model');
 
-      const resultTask = QueryEngine.searchNodes({
+      const resultTask = await QueryEngine.searchNodes({
         project,
         query: 'dependency vector footprint',
         algorithm: 'tfidf',
@@ -134,7 +134,7 @@ describe('TF-IDF Vector Search Engine', () => {
       expect(resultTask.nodes.length).toBe(0);
     });
 
-    it('should truncate candidate list to 1000 nodes for TF-IDF to prevent memory issues', () => {
+    it('should truncate candidate list to 1000 nodes for TF-IDF to prevent memory issues', async () => {
       const db = getDb(project);
 
       // Clear nodes temporarily (at the end of the suite, so we do not disrupt other tests)
@@ -150,7 +150,7 @@ describe('TF-IDF Vector Search Engine', () => {
         }
       })();
 
-      const result = QueryEngine.searchNodes({
+      const result = await QueryEngine.searchNodes({
         project,
         query: 'Auth',
         algorithm: 'tfidf',

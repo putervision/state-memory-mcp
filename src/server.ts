@@ -851,6 +851,75 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: 'verify_audit_chain',
+        description: 'Mathematically verify the cryptographic SHA-256 event audit chain for non-repudiable tamper resistance.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+          },
+        },
+      },
+      {
+        name: 'subscribe_context_changes',
+        description: 'Subscribe to Context-Aware Shared Context Store (CA-MCP) state reactor triggers for constant O(1) LLM coordination.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            since_event_id: {
+              type: 'number',
+              description: 'Optional event ID to fetch changes since.',
+            },
+            since_timestamp: {
+              type: 'string',
+              description: 'Optional ISO 8601 timestamp to fetch changes since.',
+            },
+          },
+        },
+      },
+      {
+        name: 'traceback_to_node',
+        description: 'Reset task execution state back to a prior validated node when downstream test/verification fails.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            target_node_id: {
+              type: 'string',
+              description: 'The target node ID to trace back to.',
+            },
+            reason: {
+              type: 'string',
+              description: 'Optional reason for the rollback.',
+            },
+          },
+          required: ['target_node_id'],
+        },
+      },
+      {
+        name: 'get_cognitive_load',
+        description: 'Calculate Intrinsic (ICL) and Extraneous (ECL) cognitive load metrics for the active task graph.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+          },
+        },
+      },
+      {
         name: 'get_node_history',
         description: 'Get the full chronological mutation history of a specific node.',
         inputSchema: {
@@ -1248,6 +1317,67 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['edges'],
         },
       },
+      {
+        name: 'ingest_spec',
+        description: 'Parse and ingest a Markdown PRD, OpenSpec, or Gherkin BDD specification file into graph nodes.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+            file_path: { type: 'string', description: 'Absolute or relative path to spec file.' },
+            format: { type: 'string', description: 'Optional spec format: markdown, gherkin, auto.' },
+          },
+          required: ['file_path'],
+        },
+      },
+      {
+        name: 'export_spec',
+        description: 'Export a graph-managed specification node and child requirements back to clean Markdown or Gherkin text.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+            spec_id: { type: 'string', description: 'Spec node ID to export.' },
+            format: { type: 'string', description: 'Optional export format: markdown, gherkin.' },
+          },
+          required: ['spec_id'],
+        },
+      },
+      {
+        name: 'get_spec_compliance',
+        description: 'Calculate real-time Spec Compliance matrix, requirement coverage ratio, and unfulfilled criteria.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+          },
+        },
+      },
+      {
+        name: 'scaffold_spec',
+        description: 'Scaffold a standard feature specification template in .specs/ and ingest it into memory.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+            title: { type: 'string', description: 'Optional title of feature spec.' },
+          },
+        },
+      },
+      {
+        name: 'verify_requirement',
+        description: 'Mark an acceptance criterion as verified, failing, or skipped, optionally linking a test observation.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: { type: 'string', description: 'Optional project identifier.' },
+            criterion_id: { type: 'string', description: 'Acceptance criterion node ID.' },
+            observation_id: { type: 'string', description: 'Optional observation node ID as proof.' },
+            status: { type: 'string', description: 'Status: verified, failing, skipped.' },
+          },
+          required: ['criterion_id'],
+        },
+      },
     ];
 
     return {
@@ -1261,7 +1391,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           'backup_project_db', 'audit_project_db', 'get_context_snapshot',
           'find_related_decisions', 'find_blocked_tasks', 'value_metrics',
           'get_event_log', 'get_node_history', 'list_snapshots', 'diff_snapshots',
-          'export_trajectories', 'next_tasks', 'what_changed', 'get_stale_nodes', 'validate_graph'
+          'export_trajectories', 'next_tasks', 'what_changed', 'get_stale_nodes', 'validate_graph',
+          'get_spec_compliance', 'export_spec'
         ].includes(t.name);
 
         return {
@@ -1449,7 +1580,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const data = GraphEngine.getNode({ project: projectSlug, id: nodeId });
     text = JSON.stringify(data);
   } else if (resourceType === 'decisions') {
-    const data = QueryEngine.listNodes({ project: projectSlug, type: 'decision', status: 'accepted' });
+    const data = await QueryEngine.listNodes({ project: projectSlug, type: 'decision', status: 'accepted' });
     text = JSON.stringify(data.nodes);
   } else if (resourceType === 'graph.json') {
     const data = exportGraph({ project: projectSlug, format: 'json' });

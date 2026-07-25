@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { logger } from '../utils/logger.js';
 
 export interface Migration {
@@ -226,6 +227,40 @@ export const migrations: Migration[] = [
       db.prepare('DROP TRIGGER IF EXISTS nodes_ai').run();
       db.prepare('DROP TRIGGER IF EXISTS nodes_ad').run();
       db.prepare('DROP TRIGGER IF EXISTS nodes_au').run();
+    },
+  },
+  // Version 8: Cryptographic SHA-256 Session Audit Hash Chaining (Armstrong 2026)
+  {
+    version: 8,
+    up: (db) => {
+      logger.info('Running migration v8: adding cryptographic hash chaining to events table...');
+      try {
+        db.prepare('ALTER TABLE events ADD COLUMN hash TEXT').run();
+        db.prepare('ALTER TABLE events ADD COLUMN prev_hash TEXT').run();
+      } catch (err: any) {
+        logger.debug(`Could not add hash/prev_hash to events: ${err.message}`);
+      }
+      db.prepare('CREATE INDEX IF NOT EXISTS idx_events_hash ON events(hash)').run();
+
+      // Backfill historical unhashed events in chronological order
+      try {
+        const events = db.prepare('SELECT * FROM events WHERE hash IS NULL ORDER BY rowid ASC').all() as any[];
+        if (events.length > 0) {
+          logger.info(`Backfilling cryptographic SHA-256 hashes for ${events.length} historical events...`);
+          let expectedPrevHash = '0000000000000000000000000000000000000000000000000000000000000000';
+          const updateStmt = db.prepare('UPDATE events SET hash = ?, prev_hash = ? WHERE id = ?');
+          db.transaction(() => {
+            for (const ev of events) {
+              const payload = `${expectedPrevHash}|${ev.id}|${ev.event_type}|${ev.entity_id}|${ev.after_state || ''}|${ev.timestamp}`;
+              const hash = crypto.createHash('sha256').update(payload).digest('hex');
+              updateStmt.run(hash, expectedPrevHash, ev.id);
+              expectedPrevHash = hash;
+            }
+          })();
+        }
+      } catch (err: any) {
+        logger.warn(`Could not backfill historical event hashes: ${err.message}`);
+      }
     },
   },
 ];

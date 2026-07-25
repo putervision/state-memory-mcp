@@ -315,6 +315,10 @@ export const NodeTypeSchema = z.enum([
   'observation',
   'blocker',
   'milestone',
+  'spec',
+  'requirement',
+  'acceptance_criterion',
+  'contract',
 ]);
 
 export const DEFAULT_STATUS_BY_TYPE: Record<NodeType, NodeStatus> = {
@@ -325,6 +329,10 @@ export const DEFAULT_STATUS_BY_TYPE: Record<NodeType, NodeStatus> = {
   observation: 'active',
   blocker: 'active',
   milestone: 'upcoming',
+  spec: 'approved',
+  requirement: 'accepted',
+  acceptance_criterion: 'unverified',
+  contract: 'draft',
 };
 
 export const MetadataSchema = z.record(z.unknown()).refine(
@@ -394,6 +402,12 @@ export const EdgeTypeSchema = z.enum([
   'extends',
   'modifies',
   'renders_state',
+  'satisfies',
+  'verifies',
+  'specifies',
+  'violates',
+  'drifts_from',
+  'visualizes_spec',
 ]);
 
 export const AddEdgeSchema = z.object({
@@ -426,6 +440,7 @@ export const NodeFieldSchema = z.enum([
 
 export const ListNodesSchema = z.object({
   project: z.string().optional(),
+  subproject: z.string().optional(),
   type: NodeTypeSchema.optional(),
   status: z.string().optional(),
   tags: z.array(z.string()).optional(),
@@ -434,11 +449,13 @@ export const ListNodesSchema = z.object({
   compact: z.boolean().optional().default(false),
   git_branch: z.string().optional(),
   fields: z.array(NodeFieldSchema).optional(),
+  include_subdirectories: z.boolean().optional().default(true),
   pretty_print: z.boolean().optional().default(false),
 });
 
 export const SearchNodesSchema = z.object({
   project: z.string().optional(),
+  subproject: z.string().optional(),
   query: z.string().min(1, 'Search query cannot be empty'),
   type: NodeTypeSchema.optional(),
   status: z.string().optional(),
@@ -446,6 +463,7 @@ export const SearchNodesSchema = z.object({
   offset: z.number().optional().default(0),
   algorithm: z.enum(['fts', 'tfidf']).optional().default('fts'),
   fields: z.array(NodeFieldSchema).optional(),
+  include_subdirectories: z.boolean().optional().default(true),
   pretty_print: z.boolean().optional().default(false),
 });
 
@@ -529,6 +547,7 @@ export const RestoreProjectDbSchema = z.object({
 
 export const AuditProjectDbSchema = z.object({
   project: z.string().optional(),
+  include_subdirectories: z.boolean().optional().default(true),
 });
 
 export const MergeProjectDbSchema = z.object({
@@ -727,3 +746,53 @@ export const BatchAddEdgesSchema = z.object({
     )
     .min(1, 'At least one edge is required'),
 });
+
+export const IngestSpecSchema = z.object({
+  project: z.string().optional(),
+  file_path: z.string().min(1, 'file_path is required'),
+  format: z.enum(['markdown', 'gherkin', 'auto']).optional(),
+});
+
+export const ExportSpecSchema = z.object({
+  project: z.string().optional(),
+  spec_id: z.string().min(1, 'spec_id is required'),
+  format: z.enum(['markdown', 'gherkin']).optional(),
+});
+
+export const GetSpecComplianceSchema = z.object({
+  project: z.string().optional(),
+});
+
+export const ScaffoldSpecSchema = z.object({
+  project: z.string().optional(),
+  title: z.string().optional(),
+});
+
+export const VerifyRequirementSchema = z.object({
+  project: z.string().optional(),
+  criterion_id: z.string().min(1, 'criterion_id is required'),
+  observation_id: z.string().optional(),
+  status: z.enum(['verified', 'failing', 'skipped']).optional(),
+});
+
+export const VerifyAuditChainSchema = z.object({
+  project: z.string().optional(),
+  limit: z.number().optional(),
+});
+
+export const TracebackToNodeSchema = z.object({
+  project: z.string().optional(),
+  target_node_id: z.string().min(1, 'target_node_id is required'),
+  reason: z.string().optional(),
+});
+
+export const SubscribeContextChangesSchema = z.object({
+  project: z.string().optional(),
+  since_event_id: z.number().optional(),
+  since_timestamp: z.string().optional(),
+});
+
+export const GetCognitiveLoadSchema = z.object({
+  project: z.string().optional(),
+});
+

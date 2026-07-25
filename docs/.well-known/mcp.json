@@ -1,0 +1,32 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp-manifest.json",
+  "name": "PuterVision MCP Ecosystem",
+  "vendor": "PuterVision LLC",
+  "description": "Deterministic state memory graph and visual perception cache MCP servers for AI developer agents.",
+  "homepage": "https://putervision.com",
+  "documentation": "https://putervision.com/llms.txt",
+  "servers": [
+    {
+      "id": "state-memory-mcp",
+      "name": "State Memory MCP",
+      "package": "@putervision/state-memory-mcp",
+      "command": "npx",
+      "args": ["-y", "@putervision/state-memory-mcp"],
+      "homepage": "https://statememorymcp.com",
+      "repository": "https://github.com/putervision/state-memory-mcp",
+      "capabilities": ["tasks", "decisions", "blockers", "plans", "artifacts", "sdd", "3d-visualizer"],
+      "protocolVersion": "2024-11-05"
+    },
+    {
+      "id": "vision-memory-mcp",
+      "name": "Visual Memory MCP",
+      "package": "@putervision/vision-memory-mcp",
+      "command": "npx",
+      "args": ["-y", "@putervision/vision-memory-mcp"],
+      "homepage": "https://visionmemorymcp.com",
+      "repository": "https://github.com/putervision/vision-memory-mcp",
+      "capabilities": ["dhash-fastpath", "clip-vector-search", "layout-drift-detection", "screenshot-caching"],
+      "protocolVersion": "2024-11-05"
+    }
+  ]
+}

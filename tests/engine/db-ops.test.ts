@@ -98,9 +98,9 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
     }
   });
 
-  it('should audit database and detect integrity, cycles, and contradictions', () => {
+  it('should audit database and detect integrity, cycles, and contradictions', async () => {
     // 1. Audit clean DB
-    const reportClean = auditProjectDb({ project: targetProject });
+    const reportClean = await auditProjectDb({ project: targetProject });
     expect(reportClean.sqlite_integrity).toContain('ok');
     expect(reportClean.cycles.length).toBe(0);
     expect(reportClean.contradictions.blocked_done_tasks.length).toBe(0);
@@ -137,7 +137,7 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
     ).run(nodeB.id, nodeA.id, targetProject);
 
     // Audit and verify cycle detected
-    const reportCycle = auditProjectDb({ project: targetProject });
+    const reportCycle = await auditProjectDb({ project: targetProject });
     expect(reportCycle.cycles.length).toBeGreaterThan(0);
 
     // 3. Introduce contradiction: Task C is done, but blocks by active blocker D
@@ -163,13 +163,13 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
     ).run(nodeD.id, nodeC.id, targetProject);
 
     // Audit and verify contradiction detected
-    const reportContradiction = auditProjectDb({ project: targetProject });
+    const reportContradiction = await auditProjectDb({ project: targetProject });
     expect(reportContradiction.contradictions.blocked_done_tasks.length).toBe(1);
     expect(reportContradiction.contradictions.blocked_done_tasks[0].task.id).toBe(nodeC.id);
     expect(reportContradiction.contradictions.blocked_done_tasks[0].blocker.id).toBe(nodeD.id);
   });
 
-  it('should merge databases resolving conflicts by newer updated_at', () => {
+  it('should merge databases resolving conflicts by newer updated_at', async () => {
     // 1. Target database setup
     const nodeA = GraphEngine.addNode({
       project: targetProject,
@@ -234,7 +234,7 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
     expect(mergedNodeB.title).toBe('Node B');
   });
 
-  it('should rollback merge transaction if cycle is introduced without force flag', () => {
+  it('should rollback merge transaction if cycle is introduced without force flag', async () => {
     // 1. Target database setup: Node A blocks Node B
     const nodeA = GraphEngine.addNode({
       project: targetProject,
@@ -318,7 +318,7 @@ describe('Database Operations (Backup, Restore, Audit, Merge)', () => {
     expect(cycleEdgeForce).toBeDefined();
   });
 
-  it('should verify that edges table has updated_at column from migration v6', () => {
+  it('should verify that edges table has updated_at column from migration v6', async () => {
     const db = getDb(targetProject);
     const info = db.pragma('table_info(edges)') as { name: string }[];
     const hasUpdatedAt = info.some((col) => col.name === 'updated_at');

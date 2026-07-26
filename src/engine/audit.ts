@@ -83,7 +83,10 @@ export function findCycles(nodes: BaseNode[], edges: Edge[]): string[][] {
 /**
  * Audit project database for integrity and logical problems
  */
-export async function auditProjectDb(params: { project?: string; includeSubdirectories?: boolean }): Promise<AuditReport> {
+export async function auditProjectDb(params: {
+  project?: string;
+  includeSubdirectories?: boolean;
+}): Promise<AuditReport> {
   const projectSlug = getProjectSlug(params.project);
   const db = getDb(projectSlug);
 
@@ -212,4 +215,3 @@ export async function auditProjectDb(params: { project?: string; includeSubdirec
 
   return report;
 }
-

@@ -244,9 +244,13 @@ export const migrations: Migration[] = [
 
       // Backfill historical unhashed events in chronological order
       try {
-        const events = db.prepare('SELECT * FROM events WHERE hash IS NULL ORDER BY rowid ASC').all() as any[];
+        const events = db
+          .prepare('SELECT * FROM events WHERE hash IS NULL ORDER BY rowid ASC')
+          .all() as any[];
         if (events.length > 0) {
-          logger.info(`Backfilling cryptographic SHA-256 hashes for ${events.length} historical events...`);
+          logger.info(
+            `Backfilling cryptographic SHA-256 hashes for ${events.length} historical events...`
+          );
           let expectedPrevHash = '0000000000000000000000000000000000000000000000000000000000000000';
           const updateStmt = db.prepare('UPDATE events SET hash = ?, prev_hash = ? WHERE id = ?');
           db.transaction(() => {

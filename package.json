@@ -1,6 +1,6 @@
 {
   "name": "@putervision/state-memory-mcp",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "keywords": [
     "mcp",
@@ -92,12 +92,16 @@
     "@eslint/js": "^9.39.4",
     "@types/better-sqlite3": "^7.6.10",
     "@types/node": "^20.14.9",
-    "eslint": "^9.0.0",
+    "eslint": "^10.8.0",
     "prettier": "^3.9.6",
     "tsup": "^8.1.0",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "@hono/node-server": "^2.0.5",
+    "esbuild": "^0.28.1"
   },
   "engines": {
     "node": ">=18.0.0"

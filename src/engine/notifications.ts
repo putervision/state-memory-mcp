@@ -12,7 +12,9 @@ export interface ContextChangeEvent {
 
 class ContextStoreNotifier extends EventEmitter {
   notify(event: ContextChangeEvent): void {
-    logger.debug(`[CA-MCP Shared Context Store] Notification: ${event.eventType} on ${event.entityId}`);
+    logger.debug(
+      `[CA-MCP Shared Context Store] Notification: ${event.eventType} on ${event.entityId}`
+    );
     this.emit('change', event);
     this.emit(`change:${event.project}`, event);
   }

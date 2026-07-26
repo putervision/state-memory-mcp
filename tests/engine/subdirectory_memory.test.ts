@@ -3,7 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import os from 'os';
 import Database from 'better-sqlite3';
-import { findSubdirectoryMemoryDbs, getWorkspaceGitRepos, clearSubdirectoryCache } from '../../src/engine/subdirectory-scanner.js';
+import {
+  findSubdirectoryMemoryDbs,
+  getWorkspaceGitRepos,
+  clearSubdirectoryCache,
+} from '../../src/engine/subdirectory-scanner.js';
 import { auditProjectDb } from '../../src/engine/audit.js';
 import { QueryEngine } from '../../src/engine/queries.js';
 import { doctorAction } from '../../src/cli/commands/doctor.js';

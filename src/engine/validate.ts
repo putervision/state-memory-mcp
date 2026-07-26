@@ -446,4 +446,3 @@ export function validateGraph(
     fixed_count: fixedCount,
   };
 }
-

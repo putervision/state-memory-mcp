@@ -57,8 +57,9 @@ export class QueryEngine {
       ? 'id, type, title, status, project, git_branch, tags, created_at, updated_at'
       : '*';
 
-    const skipRoot = params.subproject && params.subproject !== 'root' && params.subproject !== projectSlug;
-    
+    const skipRoot =
+      params.subproject && params.subproject !== 'root' && params.subproject !== projectSlug;
+
     const limit = params.limit !== undefined ? params.limit : 50;
     const offset = params.offset !== undefined ? params.offset : 0;
     const perDbLimit = limit + offset;
@@ -128,10 +129,12 @@ export class QueryEngine {
               subSql += ' AND status = ?';
               subParams.push(params.status);
             }
-            
-            const subCountRow = subConn.prepare(`SELECT COUNT(*) as total FROM (${subSql})`).get(...subParams) as any;
+
+            const subCountRow = subConn
+              .prepare(`SELECT COUNT(*) as total FROM (${subSql})`)
+              .get(...subParams) as any;
             total_count += subCountRow ? subCountRow.total : 0;
-            
+
             subSql += ' ORDER BY created_at DESC LIMIT ?';
             const subRows = subConn.prepare(subSql).all(...subParams, perDbLimit) as NodeRow[];
             for (const r of subRows) {
@@ -154,7 +157,7 @@ export class QueryEngine {
 
     // Global sort by created_at DESC across all databases
     allNodes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    
+
     // Apply final offset and limit globally
     const paginatedNodes = allNodes.slice(offset, offset + limit);
 
@@ -177,7 +180,8 @@ export class QueryEngine {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
-    const skipRoot = params.subproject && params.subproject !== 'root' && params.subproject !== projectSlug;
+    const skipRoot =
+      params.subproject && params.subproject !== 'root' && params.subproject !== projectSlug;
     const limit = params.limit !== undefined ? params.limit : 20;
     const offset = params.offset !== undefined ? params.offset : 0;
     const perDbLimit = limit + offset;
@@ -189,7 +193,9 @@ export class QueryEngine {
         subDbs = await findSubdirectoryMemoryDbs(rootDir);
         if (params.subproject) {
           const target = params.subproject.toLowerCase();
-          subDbs = subDbs.filter(d => d.projectSlug.toLowerCase() === target || d.relPath.toLowerCase() === target);
+          subDbs = subDbs.filter(
+            (d) => d.projectSlug.toLowerCase() === target || d.relPath.toLowerCase() === target
+          );
         }
       } catch {}
     }
@@ -277,7 +283,11 @@ export class QueryEngine {
     let allFtsNodes: (BaseNode & { _rank: number })[] = [];
     let total_count = 0;
 
-    const executeFtsOnDb = (conn: Database.Database, isRoot: boolean, subDb?: SubdirectoryMemoryDb) => {
+    const executeFtsOnDb = (
+      conn: Database.Database,
+      isRoot: boolean,
+      subDb?: SubdirectoryMemoryDb
+    ) => {
       let sql = `
         SELECT n.*, nodes_fts.rank as _rank
         FROM nodes n
@@ -289,7 +299,7 @@ export class QueryEngine {
       if (isRoot) {
         sql += ' AND n.project = ?';
         queryParams.push(projectSlug);
-        
+
         const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
         if (branch !== '*') {
           sql += ' AND n.git_branch = ?';
@@ -355,19 +365,19 @@ export class QueryEngine {
           } catch {}
         }
       } catch (retryErr: any) {
-        logger.warn(`Sanitized FTS search failed, falling back to TF-IDF search: ${retryErr.message}`);
+        logger.warn(
+          `Sanitized FTS search failed, falling back to TF-IDF search: ${retryErr.message}`
+        );
         return QueryEngine.searchNodes({ ...params, algorithm: 'tfidf' });
       }
     }
 
     allFtsNodes.sort((a, b) => a._rank - b._rank);
-    
-    const paginatedNodes = allFtsNodes
-      .slice(offset, offset + limit)
-      .map((n) => {
-        const { _rank, ...cleanNode } = n;
-        return projectNodeFields(cleanNode, params.fields);
-      });
+
+    const paginatedNodes = allFtsNodes.slice(offset, offset + limit).map((n) => {
+      const { _rank, ...cleanNode } = n;
+      return projectNodeFields(cleanNode, params.fields);
+    });
 
     return { nodes: paginatedNodes, total_count };
   }

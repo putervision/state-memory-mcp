@@ -20,12 +20,7 @@ export type BlockerStatus = 'active' | 'mitigated' | 'resolved';
 export type MilestoneStatus = 'upcoming' | 'in_progress' | 'reached' | 'missed';
 export type SpecStatus = 'draft' | 'approved' | 'in_progress' | 'verified' | 'deprecated' | 'stale';
 export type RequirementStatus =
-  | 'proposed'
-  | 'accepted'
-  | 'implemented'
-  | 'verified'
-  | 'rejected'
-  | 'needs_review';
+  'proposed' | 'accepted' | 'implemented' | 'verified' | 'rejected' | 'needs_review';
 export type AcceptanceCriterionStatus = 'unverified' | 'verified' | 'failing' | 'skipped';
 
 export type NodeStatus =

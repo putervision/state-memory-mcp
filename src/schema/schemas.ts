@@ -795,4 +795,3 @@ export const SubscribeContextChangesSchema = z.object({
 export const GetCognitiveLoadSchema = z.object({
   project: z.string().optional(),
 });
-

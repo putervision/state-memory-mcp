@@ -12,6 +12,12 @@ async function shutdown(signal: string) {
   isShuttingDown = true;
   logger.info(`Received ${signal}. Shutting down gracefully...`);
   
+  const forceTimer = setTimeout(() => {
+    logger.warn('Shutdown timed out. Forcing process exit.');
+    process.exit(signal === 'uncaughtException' || signal === 'unhandledRejection' ? 1 : 0);
+  }, 1000);
+  forceTimer.unref();
+
   try {
     await server.close();
     logger.info('MCP server connection closed.');
@@ -29,7 +35,7 @@ async function shutdown(signal: string) {
   if (signal === 'uncaughtException' || signal === 'unhandledRejection') {
     process.exit(1);
   } else {
-    process.exitCode = 0;
+    process.exit(0);
   }
 }
 
@@ -50,6 +56,13 @@ async function main() {
   await server.connect(transport);
   logger.info('state-memory-mcp server started');
 }
+
+process.stdin.on('close', () => {
+  shutdown('stdin close').catch((err) => {
+    logger.error('Error during stdin close shutdown:', err);
+    process.exit(0);
+  });
+});
 
 process.on('SIGINT', () => {
   shutdown('SIGINT').catch((err) => {

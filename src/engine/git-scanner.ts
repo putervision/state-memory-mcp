@@ -587,11 +587,7 @@ export function checkSpecFileChanges(
   for (const commit of commits) {
     if (commit.filesChanged) {
       for (const file of commit.filesChanged) {
-        if (
-          file.includes('.specs/') ||
-          file.includes('docs/specs/') ||
-          file.endsWith('.feature')
-        ) {
+        if (file.includes('.specs/') || file.includes('docs/specs/') || file.endsWith('.feature')) {
           const specRows = db
             .prepare(
               "SELECT id FROM nodes WHERE project = ? AND type = 'spec' AND status != 'stale'"
@@ -610,4 +606,3 @@ export function checkSpecFileChanges(
   }
   return markedCount;
 }
-

@@ -156,7 +156,7 @@ export async function getWorkspaceGitRepos(
     }
   }
 
-  // We can keep findGitRepos synchronous since it's just for CLI right now, 
+  // We can keep findGitRepos synchronous since it's just for CLI right now,
   // or migrate it if we want, but wrapping it here is fine.
   const repoPaths = findGitRepos(rootDir, maxDepth);
   const results = repoPaths.map((repoPath) => getGitRepoDetails(repoPath, rootDir));

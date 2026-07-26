@@ -266,4 +266,3 @@ export function findGitRepos(root: string, maxDepth: number = 4): string[] {
   search(root, 0);
   return repos;
 }
-

@@ -17,4 +17,3 @@ export const toolHandlers: Record<string, (args: any) => Promise<any> | any> = {
   ...batchHandlers,
   ...specHandlers,
 };
-

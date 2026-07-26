@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2026-07-26
+
+### Fixed & Security / Performance
+- **Clean Stdio Teardown & Exit Timeout**: Added `process.stdin.on('close')` event listener and 1-second unref'd force-exit safety timer to prevent process hangs on IDE disconnect.
+- **Project Version Bump**: Bumped version across package manifests, CLI runtime, and documentation.
+
 ## [0.6.4] - 2026-07-24
 
 ### Added

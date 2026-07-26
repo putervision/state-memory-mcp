@@ -11,11 +11,8 @@
       ]
     },
     "sequentialthinking": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
-      ]
+      "command": "mcp-server-sequential-thinking",
+      "args": []
     },
     "vision-memory-mcp": {
       "command": "vision-memory-mcp",

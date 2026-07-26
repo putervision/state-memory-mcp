@@ -68,8 +68,8 @@ state-memory-mcp init
 # Global install (recommended)
 npm install -g @putervision/state-memory-mcp
 
-# Or use directly with npx (no install)
-npx @putervision/state-memory-mcp
+# Run directly via binary (after global install)
+state-memory-mcp run
 
 # Or install as a project dev dependency
 npm install --save-dev @putervision/state-memory-mcp

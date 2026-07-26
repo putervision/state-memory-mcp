@@ -831,15 +831,15 @@
             <button class="btn-copy" onclick="copyConfigBlock(this)" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">Copy</button>
           </div>
           <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.8rem;">
-            One-line CLI: <code>claude mcp add state-memory-mcp -- npx -y @putervision/state-memory-mcp run</code><br>
+            One-line CLI: <code>claude mcp add state-memory-mcp -- state-memory-mcp run</code><br>
             Desktop config: <code>claude_desktop_config.json</code>
           </p>
           <pre
             style="background: #030712; padding: 1rem; border-radius: 8px; font-family: monospace; font-size: 0.82rem; border: 1px solid var(--border-color); color: #f59e0b; overflow-x: auto; text-align: left;">{
   "mcpServers": {
     "state-memory-mcp": {
-      "command": "npx",
-      "args": ["-y", "@putervision/state-memory-mcp", "run"]
+      "command": "state-memory-mcp",
+      "args": ["run"]
     }
   }
 }</pre>

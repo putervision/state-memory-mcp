@@ -604,7 +604,7 @@ export function exportGraph(params: {
     result = JSON.stringify(
       {
         project: projectSlug,
-        version: '0.7.0',
+        version: '0.7.1',
         exported_at: new Date().toISOString(),
         audit_verification: auditProof,
         nodes,

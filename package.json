@@ -1,6 +1,6 @@
 {
   "name": "@putervision/state-memory-mcp",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "keywords": [
     "mcp",
@@ -40,6 +40,7 @@
     "type": "git",
     "url": "https://github.com/putervision/state-memory-mcp.git"
   },
+  "mcpName": "io.github.putervision/state-memory-mcp",
   "publishConfig": {
     "access": "public"
   },

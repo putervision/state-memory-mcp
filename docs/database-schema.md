@@ -122,6 +122,17 @@ Automatically kept in sync with `nodes` via SQLite triggers:
 
 ---
 
+### 7. `schema_meta` Table
+Tracks database schema migration versions, migration timestamps, and integrity metadata.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `key` | `TEXT` | `PRIMARY KEY` | Metadata property key (e.g. `version`) |
+| `value` | `TEXT` | `NOT NULL` | Metadata property value (e.g. `9`) |
+| `updated_at` | `TEXT` | `NOT NULL` | ISO 8601 UTC update timestamp |
+
+---
+
 ## Disclaimer & Limitation of Liability
 
 This software is provided "as is", without warranty of any kind, express or implied. Under no circumstances shall the authors or contributors be liable for any database corruption, Git repository modification, data loss, or other issues resulting from execution. Always backup your database files before performing destructive operations.

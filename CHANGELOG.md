@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.7.1] - 2026-07-27
+
+### Maintenance & Registry Preparation
+- **MCP Server Registry Schema (`server.json`)**: Configured official MCP registry metadata (`io.github.putervision/state-memory-mcp`) compliant with schema `2025-12-11`.
+- **Legal & Financial Disclaimers**: Added ROI calculator disclaimers and trademark non-affiliation notices across documentation and marketing assets.
+- **State Memory Graph Alignment**: Updated project memory state graph with v0.7.1 task completions and decision logs.
+
 ## [0.7.0] - 2026-07-27
 
 ### Added & Architecture Hardening

@@ -143,7 +143,26 @@ Before doing any coding or investigation, you MUST run this sequence:
 - `renders_state` — Visual memory verification relationship.
 - `verifies` — Verification link connecting tests/observations to acceptance criteria.
 
-### 4. CLI Commands Reference
+### 4. Workflow Patterns
+
+**Session Lifecycle:**
+1. `start_session(agent_id: "my-agent")` → get `session_id`
+2. Pass `session_id` to all `add_node`, `update_node`, `add_edge` calls
+3. `end_session(session_id)` when work is complete
+
+**Task Decomposition:**
+1. Decompose user requests into task nodes with `add_node(type: "task")`
+2. Connect related tasks with `add_edge(type: "depends_on")`
+3. Group under milestones with `add_edge(type: "part_of")`
+
+**Codebase Seeding (on first init):**
+If the project has no Plan or Milestone nodes:
+1. Read README and core files to understand the roadmap and architecture.
+2. Create a `plan` node (e.g., "Project Roadmap").
+3. Add `milestone` nodes for key phases, connecting with `part_of` edges.
+4. Create `decision` nodes for core technical choices, linking with `decided_in` edges.
+
+### 5. CLI Commands Reference
 ```bash
 state-memory-mcp init          # Initialize in current project
 state-memory-mcp run           # Start the MCP server

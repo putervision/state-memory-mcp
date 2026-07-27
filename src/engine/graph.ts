@@ -1,7 +1,7 @@
-import { getDb, getProjectSlug } from './db.js';
+import { getDb, getProjectSlug, encryptPayload, resolveProjectRoot } from './db.js';
 import { BaseNode, Edge, NodeType, NodeRow, EdgeRow } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
-import { DEFAULT_STATUS_BY_TYPE } from '../schema/schemas.js';
+import { DEFAULT_STATUS_BY_TYPE, AddNodeSchema } from '../schema/schemas.js';
 import { generateId } from '../utils/id.js';
 import { getCurrentIsoString } from '../utils/time.js';
 import { getCurrentBranch } from '../utils/git.js';
@@ -27,6 +27,7 @@ export class GraphEngine {
     tags?: string[];
     session_id?: string | null;
   }): BaseNode {
+    AddNodeSchema.parse(params);
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
@@ -36,8 +37,9 @@ export class GraphEngine {
       const branch = getCurrentBranch() || undefined;
       const status = params.status || DEFAULT_STATUS_BY_TYPE[params.type];
 
-      const metadataStr = JSON.stringify(params.metadata || {});
-      const tagsStr = JSON.stringify(params.tags || []);
+      const root = resolveProjectRoot(params.project);
+      const metadataStr = encryptPayload(JSON.stringify(params.metadata || {}), root);
+      const tagsStr = encryptPayload(JSON.stringify(params.tags || []), root);
 
       const stmt = db.prepare(`
         INSERT INTO nodes (id, type, title, status, project, git_branch, metadata, tags, created_at, updated_at)

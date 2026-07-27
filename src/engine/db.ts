@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import crypto from 'node:crypto';
 import { logger } from '../utils/logger.js';
 import { DatabaseError, ValidationError } from '../utils/errors.js';
 import { loadProjectConfig } from './config.js';
@@ -283,6 +284,76 @@ const MAX_CACHED_DBS = 5;
 const dbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 const readOnlyDbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 
+export function getEncryptionKey(projectRoot?: string): Buffer | null {
+  const keyStr =
+    process.env.STATE_MEMORY_ENCRYPTION_KEY ||
+    (projectRoot ? loadProjectConfig(projectRoot).encryptionKey : undefined);
+  if (!keyStr) return null;
+  return crypto.createHash('sha256').update(keyStr).digest();
+}
+
+export function encryptPayload(dataStr: string, projectRoot?: string): string {
+  const key = getEncryptionKey(projectRoot);
+  if (!key) return dataStr;
+  try {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    let encrypted = cipher.update(dataStr, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+    return `ENC:${iv.toString('hex')}:${authTag}:${encrypted}`;
+  } catch (err: any) {
+    logger.warn(`Failed to encrypt payload: ${err.message}`);
+    return dataStr;
+  }
+}
+
+export function decryptPayload(dataStr: string, projectRoot?: string): string {
+  if (!dataStr || !dataStr.startsWith('ENC:')) return dataStr;
+  const key = getEncryptionKey(projectRoot);
+  if (!key) return dataStr;
+  try {
+    const parts = dataStr.split(':');
+    if (parts.length !== 4) return dataStr;
+    const iv = Buffer.from(parts[1], 'hex');
+    const authTag = Buffer.from(parts[2], 'hex');
+    const encryptedText = parts[3];
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err: any) {
+    logger.warn(`Failed to decrypt payload: ${err.message}`);
+    return dataStr;
+  }
+}
+
+export function checkDatabaseSizeLimit(db: Database.Database, projectRoot: string): void {
+  try {
+    const config = loadProjectConfig(projectRoot);
+    const maxBytes =
+      config.maxDatabaseSizeBytes ||
+      parseInt(process.env.STATE_MEMORY_MAX_DB_BYTES || '104857600', 10);
+    const pageCount = (db.prepare('PRAGMA page_count').get() as any)?.page_count || 0;
+    const pageSize = (db.prepare('PRAGMA page_size').get() as any)?.page_size || 4096;
+    const dbSizeBytes = pageCount * pageSize;
+
+    if (dbSizeBytes > maxBytes * 0.8) {
+      logger.warn(
+        `[WARN] Database size threshold reached: ${(dbSizeBytes / 1024 / 1024).toFixed(2)}MB / ${(maxBytes / 1024 / 1024).toFixed(2)}MB (${((dbSizeBytes / maxBytes) * 100).toFixed(1)}%). Consider running VACUUM or pruning events.`
+      );
+    }
+
+    if (config.autoVacuumThresholdBytes && dbSizeBytes > config.autoVacuumThresholdBytes) {
+      logger.info('Auto-vacuum threshold reached: executing PRAGMA incremental_vacuum...');
+      db.pragma('incremental_vacuum(100)');
+    }
+  } catch (err: any) {
+    logger.debug(`Could not check database size limit: ${err.message}`);
+  }
+}
+
 /**
  * Opens or retrieves a cached better-sqlite3 database connection for the given project, performing migrations if needed.
  *
@@ -339,14 +410,21 @@ export function getDb(project?: string): Database.Database {
     // Ignore permissions errors on non-posix systems
   }
 
+  const projectRoot = resolveProjectRoot(project);
+  const config = loadProjectConfig(projectRoot);
+  const busyTimeout =
+    config.busyTimeoutMs || parseInt(process.env.STATE_MEMORY_BUSY_TIMEOUT || '5000', 10);
+  const journalMode = process.env.STATE_MEMORY_WAL_MODE || 'WAL';
+
   // WAL mode, synchronous mode, and busy timeout
-  db.pragma('journal_mode = WAL');
+  db.pragma(`journal_mode = ${journalMode}`);
   db.pragma('synchronous = NORMAL');
-  db.pragma('busy_timeout = 5000');
+  db.pragma(`busy_timeout = ${busyTimeout}`);
   db.pragma('foreign_keys = ON');
 
   // Initialize schema
   initializeSchema(db);
+  checkDatabaseSizeLimit(db, projectRoot);
 
   dbCache.set(projectSlug, { db, lastUsed: Date.now() });
   return db;

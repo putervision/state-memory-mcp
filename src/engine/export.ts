@@ -3,6 +3,7 @@ import { BaseNode, Edge, NodeType, NodeRow, EdgeRow } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { logger } from '../utils/logger.js';
 import { validatePath, loadPathConfig } from '../utils/path-validator.js';
+import { EventEngine } from './events.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -23,6 +24,10 @@ const TYPE_COLORS: Record<NodeType, string> = {
   milestone: '#f59e0b',
   observation: '#06b6d4',
   plan: '#ec4899',
+  spec: '#8b5cf6',
+  requirement: '#10b981',
+  acceptance_criterion: '#f59e0b',
+  contract: '#6366f1',
 };
 
 const EDGE_TYPE_COLORS: Record<string, string> = {
@@ -578,10 +583,10 @@ export function exportGraph(params: {
   const db = getDb(projectSlug);
 
   const nodeRows = db
-    .prepare('SELECT * FROM nodes WHERE project = ?')
+    .prepare('SELECT * FROM nodes WHERE project = ? ORDER BY id ASC')
     .all(projectSlug) as NodeRow[];
   const edgeRows = db
-    .prepare('SELECT * FROM edges WHERE project = ?')
+    .prepare('SELECT * FROM edges WHERE project = ? ORDER BY id ASC')
     .all(projectSlug) as EdgeRow[];
 
   const nodes = nodeRows.map(parseNodeRow);
@@ -589,7 +594,25 @@ export function exportGraph(params: {
 
   let result = '';
   if (params.format === 'json') {
-    result = JSON.stringify({ nodes, edges }, null, 2);
+    let auditProof: any = null;
+    try {
+      auditProof = EventEngine.verifyAuditChain(db, projectSlug);
+    } catch {
+      // Ignore verification errors if no events exist
+    }
+
+    result = JSON.stringify(
+      {
+        project: projectSlug,
+        version: '0.7.0',
+        exported_at: new Date().toISOString(),
+        audit_verification: auditProof,
+        nodes,
+        edges,
+      },
+      null,
+      2
+    );
   } else if (params.format === 'dot') {
     let dot = 'digraph G {\n';
     dot += '  rankdir=LR;\n';
@@ -603,6 +626,10 @@ export function exportGraph(params: {
       milestone: '"#fef08a"', // gold
       observation: '"#e2e8f0"', // gray
       plan: '"#fed7aa"', // orange
+      spec: '"#ddd6fe"', // violet
+      requirement: '"#a7f3d0"', // emerald
+      acceptance_criterion: '"#fde68a"', // amber
+      contract: '"#c7d2fe"', // indigo
     };
 
     const escapeDot = (val: string) => val.replace(/"/g, '\\"');

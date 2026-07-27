@@ -5,7 +5,7 @@ import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
 import { getCurrentBranch } from '../utils/git.js';
 import { searchTfidf } from './tfidf.js';
 import { logger } from '../utils/logger.js';
-import { findSubdirectoryMemoryDbs } from './subdirectory-scanner.js';
+import { findSubdirectoryMemoryDbs, SubdirectoryMemoryDb } from './subdirectory-scanner.js';
 
 export function projectNodeFields(node: BaseNode, fields?: NodeField[]): BaseNode {
   if (!fields || fields.length === 0) return node;

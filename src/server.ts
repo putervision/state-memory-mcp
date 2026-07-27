@@ -62,7 +62,8 @@ import { EdgeEngine } from './engine/edges.js';
 import { QueryEngine } from './engine/queries.js';
 import { AnalyticsEngine } from './engine/analytics.js';
 import { scaffoldTemplate } from './engine/scaffolder.js';
-import { getDb, getProjectSlug } from './engine/db.js';
+import { getDb, getProjectSlug, resolveProjectRoot } from './engine/db.js';
+import { loadProjectConfig } from './engine/config.js';
 import { exportGraph } from './engine/export.js';
 import { importGraph } from './engine/import.js';
 import { backupProjectDb, restoreProjectDb } from './engine/backup.js';
@@ -1416,6 +1417,53 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const handler = toolHandlers[name];
   if (!handler) {
     throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+  }
+
+  // Security & Access Control Enforcement
+  const projectRoot = resolveProjectRoot((args as any)?.project);
+  const config = loadProjectConfig(projectRoot);
+  const accessMode = process.env.STATE_MEMORY_READ_ONLY === 'true' ? 'read_only' :
+                     process.env.STATE_MEMORY_AUDIT_ONLY === 'true' ? 'audit_only' :
+                     config.accessMode || 'normal';
+
+  const readOnlyAllowed = [
+    'get_node', 'list_nodes', 'search_nodes', 'get_subgraph', 'trace_dependencies',
+    'find_blockers', 'get_project_summary', 'decision_trail', 'critical_path',
+    'impact_analysis', 'detect_contradictions', 'export_graph', 'query_graph',
+    'backup_project_db', 'audit_project_db', 'get_context_snapshot',
+    'find_related_decisions', 'find_blocked_tasks', 'value_metrics',
+    'get_event_log', 'get_node_history', 'list_snapshots', 'diff_snapshots',
+    'export_trajectories', 'next_tasks', 'what_changed', 'get_stale_nodes', 'validate_graph',
+    'get_spec_compliance', 'export_spec'
+  ];
+
+  const auditOnlyAllowed = [
+    'audit_project_db', 'validate_graph', 'get_event_log', 'verify_audit_chain', 'get_project_summary'
+  ];
+
+  if (accessMode === 'read_only' && !readOnlyAllowed.includes(name)) {
+    throw new McpError(ErrorCode.InvalidRequest, `Tool "${name}" is prohibited in read-only access mode.`);
+  }
+
+  if (accessMode === 'audit_only' && !auditOnlyAllowed.includes(name)) {
+    throw new McpError(ErrorCode.InvalidRequest, `Tool "${name}" is prohibited in audit-only access mode.`);
+  }
+
+  if (config.allowedTools && config.allowedTools.length > 0 && !config.allowedTools.includes(name)) {
+    throw new McpError(ErrorCode.InvalidRequest, `Tool "${name}" is not permitted by project allowedTools list.`);
+  }
+
+  if (config.disallowedTools && config.disallowedTools.includes(name)) {
+    throw new McpError(ErrorCode.InvalidRequest, `Tool "${name}" is explicitly disallowed by project configuration.`);
+  }
+
+  if (name === 'prune_events') {
+    const adminKey = process.env.STATE_MEMORY_ADMIN_KEY;
+    const requestKey = (args as any)?.admin_key;
+    const isAdmin = process.env.STATE_MEMORY_ADMIN_MODE === 'true' || (adminKey && requestKey === adminKey);
+    if (!isAdmin) {
+      throw new McpError(ErrorCode.InvalidRequest, 'Executing prune_events requires administrative privilege (STATE_MEMORY_ADMIN_KEY or --admin mode).');
+    }
   }
 
   try {

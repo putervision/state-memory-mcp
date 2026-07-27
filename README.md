@@ -40,6 +40,8 @@ AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within stric
 * **🤝 Supercharged Multi-Agent Collaboration**: When deploying parallel subagents (e.g., one writing code, one running tests, one scanning logs), they lack a shared memory pool. `state-memory-mcp` acts as a local blackboard (Shared Context Store) where all subagents publish decisions, tasks, and blocker updates, ensuring coordination-level alignment without passing massive chat histories. This limits central LLM invocations to a constant $O(1)$ (Plan + Summarize) instead of scaling linearly $O(N)$ with task steps.
 * **📈 Compounding Memory Flywheel**: As you log more tasks, architectural decisions, and observations, the state memory transitions from a simple checklist into a rich repository of project intelligence. Future agents can trace the `decision_trail`, reuse established subgraphs, avoid repeating past failures (recorded as blockers/observations), and instantly query context snapshots to understand code rationale. The more context is recorded, the less onboarding/discovery overhead is required for new agents, creating a compounding productivity flywheel.
 
+> *\*Disclaimer: Latency reduction percentages and token savings ratios cited above are illustrative metrics derived from controlled context-store research models. Actual performance improvements, token savings, and cost reductions vary depending on model provider choice, prompt frequency, and individual workflow complexity.*
+
 ---
 
 ## Quick Start
@@ -597,3 +599,7 @@ Developed and maintained by [PuterVision LLC](https://putervision.com). Released
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 By using this software, you acknowledge and agree that the authors and contributors are not liable for any database corruption, Git repository modification, data loss, or other issues resulting from execution. Always backup your database files before performing destructive operations.
+
+### Trademarks & Non-Affiliation Notice
+
+All product names, trademarks, service marks, logos, and brands (such as Cursor, Claude Code, OpenAI, Gemini, Windsurf, GitHub, and SQLite) referenced in this project and documentation are the property of their respective owners. References to third-party products, services, or companies are strictly for compatibility identification and descriptive purposes only, and do not constitute or imply endorsement, sponsorship, or affiliation with PuterVision LLC.

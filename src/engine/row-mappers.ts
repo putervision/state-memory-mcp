@@ -1,5 +1,6 @@
 import { BaseNode, Edge, NodeType, EdgeType, NodeRow, EdgeRow } from '../schema/types.js';
 import { logger } from '../utils/logger.js';
+import { decryptPayload, resolveProjectRoot } from './db.js';
 
 /**
  * Idempotently and safely parse a NodeRow database record into a BaseNode domain object.
@@ -9,7 +10,9 @@ export function parseNodeRow(row: NodeRow): BaseNode {
   let metadata: Record<string, unknown> = {};
   if (row.metadata) {
     try {
-      const parsed = JSON.parse(row.metadata);
+      const root = resolveProjectRoot(row.project);
+      const dec = decryptPayload(row.metadata, root);
+      const parsed = JSON.parse(dec);
       if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
         metadata = parsed;
       } else {
@@ -57,7 +60,9 @@ export function parseEdgeRow(row: EdgeRow): Edge {
   let properties: Record<string, unknown> = {};
   if (row.properties) {
     try {
-      const parsed = JSON.parse(row.properties);
+      const root = resolveProjectRoot(row.project);
+      const dec = decryptPayload(row.properties, root);
+      const parsed = JSON.parse(dec);
       if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
         properties = parsed;
       } else {

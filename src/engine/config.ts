@@ -10,6 +10,14 @@ export const ProjectConfigSchema = z.object({
   storagePath: z.string().optional(),
   allowedExportDirs: z.array(z.string()).optional(),
   strictAudit: z.boolean().optional(),
+  busyTimeoutMs: z.number().optional(),
+  maxDatabaseSizeBytes: z.number().optional(),
+  autoVacuumThresholdBytes: z.number().optional(),
+  cycleDetectionMode: z.enum(['strict', 'best_effort']).optional(),
+  accessMode: z.enum(['normal', 'read_only', 'audit_only']).optional(),
+  allowedTools: z.array(z.string()).optional(),
+  disallowedTools: z.array(z.string()).optional(),
+  encryptionKey: z.string().optional(),
 });
 
 export type ProjectConfig = {
@@ -18,6 +26,14 @@ export type ProjectConfig = {
   storagePath?: string;
   allowedExportDirs?: string[];
   strictAudit?: boolean;
+  busyTimeoutMs?: number;
+  maxDatabaseSizeBytes?: number;
+  autoVacuumThresholdBytes?: number;
+  cycleDetectionMode?: 'strict' | 'best_effort';
+  accessMode?: 'normal' | 'read_only' | 'audit_only';
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  encryptionKey?: string;
 };
 
 const configCache = new Map<string, { config: ProjectConfig; timestamp: number }>();

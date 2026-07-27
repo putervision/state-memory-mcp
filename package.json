@@ -1,6 +1,6 @@
 {
   "name": "@putervision/state-memory-mcp",
-  "version": "0.6.7",
+  "version": "0.7.0",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "keywords": [
     "mcp",

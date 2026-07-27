@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.7.0] - 2026-07-27
+
+### Added & Architecture Hardening
+- **58 Core MCP Tool Documentation Sync**: Synchronized agent skill templates (`.agents/skills/state-memory-mcp/SKILL.md` and `src/cli/templates.ts`) to document all 58 MCP Tools across 9 structured categories.
+- **Database & Concurrency Hardening**: Explicit SQLite WAL mode and busy timeout configuration (`busyTimeoutMs`, default 5000ms) with multi-process concurrent access stress tests (`tests/engine/concurrency-multi-process.test.ts`).
+- **Reverse-Compatible Migrations & Rollback Engine**: Extended `Migration` interface with explicit `down` rollback functions, introduced programmatic `rollbackMigration(project, targetVersion)`, and added step-up/step-down test suite (`tests/engine/migration-history.test.ts`).
+- **Optional Payload Encryption**: Integrated AES-256-GCM application-level payload encryption for sensitive node/edge metadata when `STATE_MEMORY_ENCRYPTION_KEY` is provided.
+- **Auto-Vacuum & DB Size Warnings**: Implemented database size limit monitoring with user-visible warnings (`[WARN] Database size threshold reached...`) and auto-vacuum triggers.
+- **Configurable Cycle Detection & Auto-Fix**: Added `cycleDetectionMode` (`strict` vs `best_effort`) and `autoFixMode` (`disabled` | `safe` | `aggressive`).
+- **Restricted Access Modes**: Added server-level `Read-Only Mode` (`STATE_MEMORY_READ_ONLY=true` or `--read-only`) and `Audit-Only Mode` (`STATE_MEMORY_AUDIT_ONLY=true` or `--audit-only`).
+- **SQL AST Allow-List Validator**: Upgraded `query_graph` with a SQL AST/Tokenizer validator enforcing a hard table allow-list (`nodes`, `edges`, `sessions`, `events`, `snapshots`, `nodes_fts`, `schema_meta`).
+- **Privileged Audit Log Pruning**: Gated `prune_events` tool execution behind administrative key checks (`STATE_MEMORY_ADMIN_KEY` or `--admin`).
+- **Testing Surface Expansion**: Added property-based mutation tests (`fast-check`) and security prompt-injection defense test suites.
 
 ## [0.6.7] - 2026-07-26
 

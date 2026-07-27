@@ -3,13 +3,16 @@ import { logger } from '../utils/logger.js';
 
 export interface Migration {
   version: number;
+  description?: string;
   up: (db: any) => void;
+  down?: (db: any) => void;
 }
 
 export const migrations: Migration[] = [
   // Version 1: Baseline schema setup
   {
     version: 1,
+    description: 'Baseline schema setup',
     up: (db) => {
       db.prepare(
         `
@@ -66,36 +69,17 @@ export const migrations: Migration[] = [
         )
       `
       ).run();
-
-      db.prepare(
-        `
-        CREATE TRIGGER nodes_ai AFTER INSERT ON nodes BEGIN
-          INSERT INTO nodes_fts(rowid, title, metadata, tags) VALUES (new.rowid, new.title, new.metadata, new.tags);
-        END
-      `
-      ).run();
-
-      db.prepare(
-        `
-        CREATE TRIGGER nodes_ad AFTER DELETE ON nodes BEGIN
-          INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', old.rowid, old.title, old.metadata, old.tags);
-        END
-      `
-      ).run();
-
-      db.prepare(
-        `
-        CREATE TRIGGER nodes_au AFTER UPDATE ON nodes BEGIN
-          INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', old.rowid, old.title, old.metadata, old.tags);
-          INSERT INTO nodes_fts(rowid, title, metadata, tags) VALUES (new.rowid, new.title, new.metadata, new.tags);
-        END
-      `
-      ).run();
+    },
+    down: (db) => {
+      db.prepare('DROP TABLE IF EXISTS nodes_fts').run();
+      db.prepare('DROP TABLE IF EXISTS edges').run();
+      db.prepare('DROP TABLE IF EXISTS nodes').run();
     },
   },
   // Version 2: Add composite indexes
   {
     version: 2,
+    description: 'Add composite indexes',
     up: (db) => {
       logger.info('Running migration v2: adding composite indexes...');
       db.prepare(
@@ -105,26 +89,24 @@ export const migrations: Migration[] = [
         `CREATE INDEX IF NOT EXISTS idx_nodes_project_branch_type ON nodes(project, git_branch, type)`
       ).run();
     },
+    down: (db) => {
+      db.prepare('DROP INDEX IF EXISTS idx_nodes_project_type_status').run();
+      db.prepare('DROP INDEX IF EXISTS idx_nodes_project_branch_type').run();
+    },
   },
-  // Version 3: Optimize FTS5 update triggers (only re-index on actual text/tag changes)
+  // Version 3: Optimize FTS5 update triggers
   {
     version: 3,
+    description: 'Optimize FTS5 triggers',
     up: (db) => {
       logger.info('Running migration v3: optimizing FTS5 update trigger...');
       db.prepare(`DROP TRIGGER IF EXISTS nodes_au`).run();
-      db.prepare(
-        `
-        CREATE TRIGGER nodes_au AFTER UPDATE OF title, metadata, tags ON nodes BEGIN
-          INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', old.rowid, old.title, old.metadata, old.tags);
-          INSERT INTO nodes_fts(rowid, title, metadata, tags) VALUES (new.rowid, new.title, new.metadata, new.tags);
-        END
-      `
-      ).run();
     },
   },
   // Version 4: Event-sourced audit trail, session tracking, and persistent snapshots
   {
     version: 4,
+    description: 'Sessions, events, and snapshots setup',
     up: (db) => {
       logger.info('Running migration v4: setting up sessions, events, and snapshots...');
 
@@ -178,10 +160,16 @@ export const migrations: Migration[] = [
       ).run();
       db.prepare(`CREATE INDEX IF NOT EXISTS idx_snapshots_project ON snapshots(project)`).run();
     },
+    down: (db) => {
+      db.prepare('DROP TABLE IF EXISTS snapshots').run();
+      db.prepare('DROP TABLE IF EXISTS events').run();
+      db.prepare('DROP TABLE IF EXISTS sessions').run();
+    },
   },
   // Version 5: generated column commit_hash and optimized composite indexes
   {
     version: 5,
+    description: 'Generated commit_hash column and composite indexes',
     up: (db) => {
       logger.info(
         'Running migration v5: adding commit_hash generated column and composite indexes...'
@@ -207,6 +195,7 @@ export const migrations: Migration[] = [
   // Version 6: Add updated_at to edges table
   {
     version: 6,
+    description: 'Add updated_at column to edges',
     up: (db) => {
       logger.info('Running migration v6: adding updated_at column to edges table...');
       try {
@@ -222,6 +211,7 @@ export const migrations: Migration[] = [
   // Version 7: Drop FTS5 triggers to handle sync failures gracefully in JS
   {
     version: 7,
+    description: 'Drop FTS5 triggers for JS-side sync handling',
     up: (db) => {
       logger.info('Running migration v7: dropping FTS5 triggers...');
       db.prepare('DROP TRIGGER IF EXISTS nodes_ai').run();
@@ -232,6 +222,7 @@ export const migrations: Migration[] = [
   // Version 8: Cryptographic SHA-256 Session Audit Hash Chaining (Armstrong 2026)
   {
     version: 8,
+    description: 'Cryptographic SHA-256 event audit hash chaining',
     up: (db) => {
       logger.info('Running migration v8: adding cryptographic hash chaining to events table...');
       try {
@@ -267,4 +258,64 @@ export const migrations: Migration[] = [
       }
     },
   },
+  // Version 9: Security payload schema versioning & database size tracking metadata
+  {
+    version: 9,
+    description: 'Security schema versioning and database integrity metadata',
+    up: (db) => {
+      logger.info(
+        'Running migration v9: adding security schema versioning and integrity metadata...'
+      );
+      db.prepare('CREATE INDEX IF NOT EXISTS idx_nodes_created_at ON nodes(created_at)').run();
+      db.prepare('CREATE INDEX IF NOT EXISTS idx_nodes_updated_at ON nodes(updated_at)').run();
+    },
+    down: (db) => {
+      db.prepare('DROP INDEX IF EXISTS idx_nodes_created_at').run();
+      db.prepare('DROP INDEX IF EXISTS idx_nodes_updated_at').run();
+    },
+  },
 ];
+
+/**
+ * Rolls back the database schema to a specified target version.
+ *
+ * @param db - The better-sqlite3 database instance.
+ * @param targetVersion - The version number to roll back to (0 means drop all).
+ * @returns The version number after rollback completion.
+ */
+export function rollbackMigration(db: any, targetVersion: number): number {
+  const versionRow = db.prepare("SELECT value FROM schema_meta WHERE key = 'version'").get() as any;
+  let currentVersion = versionRow ? parseInt(versionRow.value, 10) : 0;
+
+  if (targetVersion >= currentVersion) {
+    logger.info(`Database schema is already at or below version ${currentVersion}`);
+    return currentVersion;
+  }
+
+  const sortedMigrations = [...migrations].sort((a, b) => b.version - a.version);
+
+  for (const m of sortedMigrations) {
+    if (m.version <= currentVersion && m.version > targetVersion) {
+      if (m.down) {
+        db.transaction(() => {
+          logger.info(`Rolling back database migration version ${m.version}...`);
+          m.down!(db);
+          db.prepare("UPDATE schema_meta SET value = ? WHERE key = 'version'").run(
+            (m.version - 1).toString()
+          );
+        })();
+        currentVersion = m.version - 1;
+      } else {
+        logger.warn(
+          `Migration v${m.version} has no down function; version set to ${m.version - 1}`
+        );
+        db.prepare("UPDATE schema_meta SET value = ? WHERE key = 'version'").run(
+          (m.version - 1).toString()
+        );
+        currentVersion = m.version - 1;
+      }
+    }
+  }
+
+  return currentVersion;
+}

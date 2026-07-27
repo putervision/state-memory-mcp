@@ -1,5 +1,6 @@
 import type { Database } from 'better-sqlite3';
-import { getDb, getProjectSlug } from './db.js';
+import { getDb, getProjectSlug, resolveProjectRoot } from './db.js';
+import { loadProjectConfig } from './config.js';
 import { Edge, EdgeType, EdgeRow } from '../schema/types.js';
 import { generateId } from '../utils/id.js';
 import { getCurrentIsoString } from '../utils/time.js';
@@ -111,8 +112,19 @@ export class EdgeEngine {
       }
 
       // Cycle detection for dependency-like edge types
+      const root = resolveProjectRoot(params.project);
+      const config = loadProjectConfig(root);
+      const mode =
+        config.cycleDetectionMode || process.env.STATE_MEMORY_CYCLE_DETECTION_MODE || 'strict';
+
       if (hasCycle(db, params.source_id, params.target_id, params.type)) {
-        throw new Error(`Cannot add edge: relationship introduces a circular dependency`);
+        if (mode === 'best_effort') {
+          logger.warn(
+            `[WARN] Edge from ${params.source_id} to ${params.target_id} (${params.type}) introduces a circular dependency (best_effort mode).`
+          );
+        } else {
+          throw new Error(`Cannot add edge: relationship introduces a circular dependency`);
+        }
       }
 
       const id = generateId();

@@ -74,7 +74,7 @@ export const specHandlers = {
 
     return {
       criterion_id: params.criterion_id,
-      status: updatedNode.status,
+      status: updatedNode ? updatedNode.status : status,
       observation_id: params.observation_id || null,
     };
   },

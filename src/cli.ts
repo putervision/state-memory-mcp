@@ -329,7 +329,19 @@ program
 program
   .command('run', { isDefault: true })
   .description('Start the MCP server (default)')
-  .action(async () => {
+  .option('--read-only', 'Enforce read-only mode blocking graph mutations')
+  .option('--audit-only', 'Enforce audit-only mode permitting only health and verification tools')
+  .option('--admin', 'Enable administrative mode for privileged operations like event log pruning')
+  .action(async (options) => {
+    if (options.readOnly) {
+      process.env.STATE_MEMORY_READ_ONLY = 'true';
+    }
+    if (options.auditOnly) {
+      process.env.STATE_MEMORY_AUDIT_ONLY = 'true';
+    }
+    if (options.admin) {
+      process.env.STATE_MEMORY_ADMIN_MODE = 'true';
+    }
     logger.info('Starting MCP server...');
     await import('./index.js');
   });

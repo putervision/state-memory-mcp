@@ -76,6 +76,9 @@ export class StringSchema extends Schema<string> {
     if (typeof val !== 'string') {
       throw new Error(`${path} must be a string`);
     }
+    if (/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(val)) {
+      throw new Error(`${path} contains forbidden control characters`);
+    }
     if (this.minLength !== undefined && val.length < this.minLength) {
       throw new Error(this.minMessage || `${path} must be at least ${this.minLength} characters`);
     }

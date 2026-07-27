@@ -41,10 +41,33 @@ export function queryGraph(params: {
   }
 
   const forbiddenPattern =
-    /\b(load_extension|writefile|readfile|attach|detach|fts3_tokenizer|pragma)\b/i;
+    /\b(load_extension|writefile|readfile|attach|detach|fts3_tokenizer|pragma|sqlite_master|sqlite_schema)\b/i;
   const match = cleanSql.match(forbiddenPattern);
   if (match) {
     throw new ValidationError(`SQL query contains forbidden keyword/function: ${match[1]}`);
+  }
+
+  // Tokenizer AST Allow-list check: target tables must belong to allowed list
+  const ALLOWED_TABLES = new Set([
+    'nodes',
+    'edges',
+    'sessions',
+    'events',
+    'snapshots',
+    'nodes_fts',
+    'schema_meta',
+  ]);
+
+  // Extract table names following FROM and JOIN (strip string literals)
+  const fromJoinMatches = sqlWithoutStrings.matchAll(/\b(?:FROM|JOIN)\s+([a-zA-Z0-9_]+)/gi);
+  for (const m of fromJoinMatches) {
+    const tableName = m[1].toLowerCase();
+    // Ignore subqueries (e.g. FROM (SELECT ...))
+    if (tableName !== 'select' && tableName !== 'with' && !ALLOWED_TABLES.has(tableName)) {
+      throw new ValidationError(
+        `Access to table or subquery alias "${tableName}" is not allowed in query_graph.`
+      );
+    }
   }
 
   // Enforce a row limit at the SQLite engine level (default 500)

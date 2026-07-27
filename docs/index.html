@@ -8,7 +8,7 @@
   <meta name="description"
     content="Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, and blockers.">
   <meta name="keywords"
-    content="mcp, model context protocol, state memory, state-memory-mcp, ai agents, cursor, claude code, sqlite, workflow graph, dependency graph, context optimization">
+    content="mcp, model context protocol, state memory, state-memory-mcp, ai agents, cursor, claude code, sqlite, workflow graph, dependency graph, context optimization, schema migrations, read-only mode, audit chain verification, payload encryption, wal mode">
   <meta name="author" content="PuterVision LLC">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0b0f19">
@@ -24,18 +24,19 @@
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "State Memory MCP",
-    "operatingSystem": "Cross-platform (Node.js)",
+    "name": "@putervision/state-memory-mcp",
+    "operatingSystem": "Cross-platform (Node.js >= 18)",
     "applicationCategory": "DeveloperApplication",
     "description": "Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, blockers, and Spec-Driven Development.",
-    "softwareVersion": "0.6.4",
+    "softwareVersion": "0.7.0",
     "author": {
       "@type": "Organization",
       "name": "PuterVision LLC",
       "url": "https://putervision.com"
     },
     "license": "https://opensource.org/licenses/MIT",
-    "url": "https://statememorymcp.com",
+    "screenshot": "https://statememorymcp.com/viewer-screenshot.png",
+    "url": "https://statememorymcp.com/",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -59,27 +60,6 @@
   <meta name="twitter:description"
     content="Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, and blockers.">
   <meta name="twitter:image" content="https://statememorymcp.com/viewer-screenshot.png">
-
-  <!-- Structured Data / JSON-LD -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "@putervision/state-memory-mcp",
-    "operatingSystem": "Cross-platform (Node.js >= 18)",
-    "applicationCategory": "DeveloperApplication",
-    "description": "Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI agents with persistent workflow state memory in SQLite.",
-    "softwareVersion": "0.6.3",
-    "screenshot": "https://statememorymcp.com/viewer-screenshot.png",
-    "url": "https://statememorymcp.com/",
-    "license": "https://opensource.org/licenses/MIT",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    }
-  }
-  </script>
 
   <!-- Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -130,7 +110,7 @@
 
     <!-- Hero Section -->
     <section class="hero">
-      <span class="badge">Production Ready v0.6.4 • 55 Core MCP Tools</span>
+      <span class="badge">Production Ready v0.7.0 • 58 Core MCP Tools</span>
       <h1><img src="state-memory-icon.png" alt="State Memory Icon" class="hero-title-icon"><span class="hero-title-text">State Memory MCP</span></h1>
       <p>A zero-infrastructure, deterministic workflow state graph server for AI agents. Track tasks, design decisions,
         session histories, and blockers locally to supercharge agent context and eliminate memory bloat.</p>
@@ -175,7 +155,7 @@
             <div class="desc-box">
               <h4>🔒 Cryptographic SHA-256 Session Auditing</h4>
               <p>
-                Every node mutation, edge link, and state transition is cryptographically bound into an append-only event ledger ($H_n = \text{SHA-256}(H_{n-1} \parallel \text{event}_n)$). Built-in mathematical verification (`verify_audit_chain`) provides non-repudiable audit trails satisfying enterprise EU AI Act compliance standards.
+                Every node mutation, edge link, and state transition is cryptographically bound into an append-only event ledger ($H_n = \text{SHA-256}(H_{n-1} \parallel \text{event}_n)$). Built-in mathematical verification (`verify_audit_chain`) provides tamper-evident audit trails designed to support enterprise AI governance and record-keeping frameworks.
               </p>
             </div>
 
@@ -368,6 +348,9 @@
           </div>
         </div>
       </div>
+      <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem; line-height: 1.5; max-width: 900px; margin-left: auto; margin-right: auto;">
+        * <strong>Legal & Financial Disclaimer:</strong> ROI metrics, token savings estimates, and developer time reductions generated by this calculator are for illustrative, hypothetical modeling purposes only based on baseline model context window formulas. Actual token consumption, latency reductions, and cost savings depend on specific LLM provider API pricing, prompt frequencies, project complexity, and agent execution architectures. PuterVision LLC does not guarantee specific monetary savings or productivity gains.
+      </p>
     </section>
 
     <!-- State Memory Anatomy Section -->
@@ -933,11 +916,15 @@
   <footer>
     <p>&copy; 2026 <a href="https://putervision.com" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); text-decoration: none;">PuterVision LLC</a>. Direct inquiries to <a href="mailto:contact@putervision.com" style="color: var(--accent-cyan); text-decoration: none;">contact@putervision.com</a>.</p>
     <p
-      style="font-size: 0.75rem; margin-top: 1rem; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.4; color: var(--text-muted);">
+      style="font-size: 0.75rem; margin-top: 1rem; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.4; color: var(--text-muted);">
       <strong>Disclaimer:</strong> This software is provided "as is", without warranty of any kind, express or implied.
       Under no circumstances shall the authors or contributors be liable for any database corruption, Git history
       modification, data loss, or other issues resulting from execution. Always backup your database files before
       performing destructive operations.
+    </p>
+    <p
+      style="font-size: 0.7rem; margin-top: 0.5rem; max-width: 700px; margin-left: auto; margin-right: auto; line-height: 1.4; color: var(--text-muted);">
+      * All product names, trademarks, logos, and brands (such as Cursor, Claude, OpenAI, Gemini, Windsurf, GitHub, and SQLite) are property of their respective owners. Reference to third-party technologies is for compatibility identification only and does not imply endorsement, sponsorship, or affiliation.
     </p>
   </footer>
 

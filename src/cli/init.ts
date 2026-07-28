@@ -192,6 +192,40 @@ function updateGitignore(root: string): void {
 /**
  * Create or append IDE instruction files for all supported editors/models.
  */
+/**
+ * Helper to insert or update marked instruction blocks in markdown files.
+ */
+function upsertInstructionBlock(
+  content: string,
+  newBlock: string,
+  startMarker: string = '<!-- state-memory-mcp:start -->',
+  endMarker: string = '<!-- state-memory-mcp:end -->'
+): { updatedContent: string; status: 'updated' | 'appended' | 'unchanged' } {
+  const startIndex = content.indexOf(startMarker);
+  const endIndex = content.indexOf(endMarker);
+
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    const before = content.substring(0, startIndex);
+    const after = content.substring(endIndex + endMarker.length);
+    const existingBlock = content.substring(startIndex, endIndex + endMarker.length);
+    if (existingBlock.trim() === newBlock.trim()) {
+      return { updatedContent: content, status: 'unchanged' };
+    }
+    const updatedContent = `${before}${newBlock.trim()}${after}`;
+    return { updatedContent, status: 'updated' };
+  }
+
+  if (content.includes(MARKER)) {
+    return { updatedContent: content, status: 'unchanged' };
+  }
+
+  const separator = content.endsWith('\n') ? '\n' : '\n\n';
+  return { updatedContent: `${content}${separator}${newBlock.trim()}\n`, status: 'appended' };
+}
+
+/**
+ * Create or append IDE instruction files for all supported editors/models.
+ */
 function scaffoldInstructions(root: string, projectSlug: string): void {
   console.log('');
   console.log('   📝 IDE Instruction Files:');
@@ -209,21 +243,24 @@ function scaffoldInstructions(root: string, projectSlug: string): void {
 
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8');
-      if (content.includes(MARKER)) {
-        console.log(`      ⏭️  ${target.label} (${target.path}) — already configured`);
-        continue;
-      }
 
       if (target.standalone) {
-        // Standalone files are not appended to — skip if they exist with different content
-        console.log(`      ⏭️  ${target.label} (${target.path}) — file exists, skipping`);
+        if (content.trim() === instructionsText.trim()) {
+          console.log(`      ⏭️  ${target.label} (${target.path}) — already configured`);
+        } else {
+          fs.writeFileSync(filePath, instructionsText, 'utf-8');
+          console.log(`      ✅ ${target.label} (${target.path}) — updated instructions`);
+        }
         continue;
       }
 
-      // Append to existing file
-      const separator = content.endsWith('\n') ? '\n' : '\n\n';
-      fs.appendFileSync(filePath, `${separator}${instructionsText}`, 'utf-8');
-      console.log(`      ✅ ${target.label} (${target.path}) — appended instructions`);
+      const { updatedContent, status } = upsertInstructionBlock(content, instructionsText);
+      if (status === 'unchanged') {
+        console.log(`      ⏭️  ${target.label} (${target.path}) — already configured`);
+      } else {
+        fs.writeFileSync(filePath, updatedContent, 'utf-8');
+        console.log(`      ✅ ${target.label} (${target.path}) — ${status} instructions`);
+      }
     } else {
       // Create new file
       fs.writeFileSync(filePath, instructionsText, 'utf-8');
@@ -320,13 +357,13 @@ function scaffoldGlobalRules(projectSlug: string): void {
 
     if (fs.existsSync(target.path)) {
       const content = fs.readFileSync(target.path, 'utf-8');
-      if (content.includes('state-memory-mcp')) {
+      const { updatedContent, status } = upsertInstructionBlock(content, globalRulesText);
+      if (status === 'unchanged') {
         console.log(`      ⏭️  ${target.label} — already configured`);
-        continue;
+      } else {
+        fs.writeFileSync(target.path, updatedContent, 'utf-8');
+        console.log(`      ✅ ${target.label} — ${status} rules`);
       }
-      const separator = content.endsWith('\n') ? '\n' : '\n\n';
-      fs.appendFileSync(target.path, `${separator}${globalRulesText}`, 'utf-8');
-      console.log(`      ✅ ${target.label} — appended rules`);
     } else {
       fs.writeFileSync(target.path, globalRulesText, 'utf-8');
       console.log(`      ✅ ${target.label} — created`);
@@ -378,12 +415,12 @@ function scaffoldAgentsCustomizations(root: string, projectSlug: string): void {
 
   if (fs.existsSync(agentsMdPath)) {
     const existing = fs.readFileSync(agentsMdPath, 'utf-8');
-    if (existing.includes(MARKER)) {
+    const { updatedContent, status } = upsertInstructionBlock(existing, agentsMdContent);
+    if (status === 'unchanged') {
       console.log('      ⏭️  .agents/AGENTS.md — already configured');
     } else {
-      const separator = existing.endsWith('\n') ? '\n' : '\n\n';
-      fs.appendFileSync(agentsMdPath, `${separator}${agentsMdContent}`, 'utf-8');
-      console.log('      ✅ .agents/AGENTS.md — appended state-memory-mcp rules');
+      fs.writeFileSync(agentsMdPath, updatedContent, 'utf-8');
+      console.log(`      ✅ .agents/AGENTS.md — ${status} state-memory-mcp rules`);
     }
   } else {
     fs.writeFileSync(agentsMdPath, agentsMdContent, 'utf-8');

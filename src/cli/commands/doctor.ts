@@ -66,8 +66,8 @@ export async function doctorAction(options: { project?: string }): Promise<void>
   let storageOk = false;
   let dbFilePath = '';
   try {
-    const projectRoot = resolveProjectRoot();
-    const projectSlug = options.project || getProjectSlug();
+    const projectRoot = resolveProjectRoot(options.project);
+    const projectSlug = options.project || getProjectSlug(options.project);
     dbFilePath = getDbPath(projectSlug);
     const dbDir = path.dirname(dbFilePath);
 
@@ -95,7 +95,7 @@ export async function doctorAction(options: { project?: string }): Promise<void>
 
   // 4. Git Repository & Sub-Directory Integration
   try {
-    const projectRoot = resolveProjectRoot();
+    const projectRoot = resolveProjectRoot(options.project);
     const repoInfos = await getWorkspaceGitRepos(projectRoot, 4);
     if (repoInfos.length > 0) {
       const mainRepo = repoInfos.find((r) => r.relPath === '.') || repoInfos[0];
@@ -127,7 +127,7 @@ export async function doctorAction(options: { project?: string }): Promise<void>
   let configCount = 0;
   try {
     const homeDir = os.homedir();
-    const projectRoot = resolveProjectRoot();
+    const projectRoot = resolveProjectRoot(options.project);
     const candidatePaths = [
       path.join(homeDir, '.gemini', 'config', 'mcp_config.json'),
       path.join(projectRoot, '.cursor', 'mcp.json'),
@@ -151,7 +151,7 @@ export async function doctorAction(options: { project?: string }): Promise<void>
 
   // 6. Project Graph Integrity & Sub-Directory Cycle Audit
   try {
-    const projectRoot = resolveProjectRoot();
+    const projectRoot = resolveProjectRoot(options.project);
     const projectSlug = options.project || getProjectSlug();
     const db = getDb(projectSlug);
     if (db) {

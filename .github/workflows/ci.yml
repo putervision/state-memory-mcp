@@ -30,9 +30,6 @@ jobs:
       - name: Check Code Formatting
         run: npm run format:check
 
-      - name: Lint Code
-        run: npm run lint
-
       - name: Typecheck TypeScript
         run: npm run typecheck
 

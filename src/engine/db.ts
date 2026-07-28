@@ -72,9 +72,13 @@ function getRegistry(): Record<string, string> {
  */
 export function registerProject(name: string, projectPath: string): void {
   try {
+    const resolvedPath = path.resolve(projectPath);
+    if (resolvedPath === os.homedir()) {
+      return; // Never register home directory as a project root
+    }
     registryCache = null; // Invalidate cache
     const registry = getRegistry();
-    registry[name.toLowerCase()] = path.resolve(projectPath);
+    registry[name.toLowerCase()] = resolvedPath;
     const dir = path.dirname(REGISTRY_PATH);
     fs.mkdirSync(dir, { recursive: true });
 
@@ -101,12 +105,16 @@ export function getProjectFromRegistry(name: string): string | undefined {
   return registry[name.toLowerCase()];
 }
 
-// Resolve project root by walking up from CWD or using global registry
 /**
- * Resolves the absolute project root directory, walking up the tree or looking up in the global registry.
+ * Resolves the project root directory path.
+ * Priority order:
+ * 1. Registered path matching explicit `project` name parameter.
+ * 2. Longest registered project path that is a parent of `cwd` (excluding homedir).
+ * 3. Nearest ancestor directory containing `.git` or `.state-memory-mcp`.
+ * 4. Fallback to `cwd`.
  *
  * @param project - Optional project identifier.
- * @param cwd - The working directory to start walking up from (defaults to process.cwd()).
+ * @param cwd - The working directory to resolve from (defaults to process.cwd()).
  * @returns The resolved absolute project root path.
  */
 export function resolveProjectRoot(project?: string, cwd: string = process.cwd()): string {
@@ -120,14 +128,22 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
 
   const currentCwd = path.resolve(cwd);
 
-  // 2. Check if current CWD is a subdirectory of any registered project path
+  // 2. Check if current CWD is a subdirectory of any registered project path (excluding homedir)
   const registry = getRegistry();
+  let bestMatch: string | undefined;
   for (const [, projectPath] of Object.entries(registry)) {
-    if (currentCwd === projectPath || currentCwd.startsWith(projectPath + path.sep)) {
-      if (fs.existsSync(projectPath)) {
-        return projectPath;
+    const resolvedPath = path.resolve(projectPath);
+    if (resolvedPath === os.homedir()) continue;
+    if (currentCwd === resolvedPath || currentCwd.startsWith(resolvedPath + path.sep)) {
+      if (fs.existsSync(resolvedPath)) {
+        if (!bestMatch || resolvedPath.length > bestMatch.length) {
+          bestMatch = resolvedPath;
+        }
       }
     }
+  }
+  if (bestMatch) {
+    return bestMatch;
   }
 
   // 3. Fallback: walk up directory tree

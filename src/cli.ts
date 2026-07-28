@@ -356,7 +356,7 @@ program
   .option('--no-artifacts', 'Skip creating artifact nodes from hot files')
   .option('--prune-events <duration>', 'Prune event log history older than duration (e.g. 30d, 7d), off by default')
   .action(async (options) => {
-    const root = resolveProjectRoot();
+    const root = process.cwd();
     const commitsCount = parsePositiveInt(options.commits, '--commits', 30);
     await runInit(root, {
       fromGit: options.git !== false,

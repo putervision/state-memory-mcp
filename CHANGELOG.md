@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.8.2] - 2026-07-28
+
+### Fixes & Scaffolding Improvements
+- **Project Root Resolution Fix**: Fixed `resolveProjectRoot()` to ignore `os.homedir()` in prefix registry matching and select the longest matching sub-path, preventing home directory hijacking.
+- **`init` CLI Command Target Fix**: Fixed `state-memory-mcp init` to target `process.cwd()` directly when scaffolding data directories, `.gitignore`, `.agents/`, and IDE instruction files.
+- **Home Directory Registration Protection**: Added explicit check in `registerProject()` to prevent registering `os.homedir()` as a project root.
+- **In-Place Instruction Upgrades (`upsertInstructionBlock`)**: Enhanced `scaffoldInstructions`, `scaffoldGlobalRules`, and `scaffoldAgentsCustomizations` to parse and update marked instruction blocks (`<!-- state-memory-mcp:start -->` ... `<!-- state-memory-mcp:end -->`) in-place when re-running `init` or auto-scaffolding in existing projects.
+- **CLI `doctor` Command Project Parameter Fix**: Fixed `doctorAction` in `src/cli/commands/doctor.ts` to pass `options.project` to all `resolveProjectRoot()` calls, ensuring `-p` / `--project` parameter audits the specified project directory rather than falling back to `process.cwd()`.
+
 ## [0.8.1] - 2026-07-28
 
 ### Dual MCP Synergy & Unified Memory Architecture

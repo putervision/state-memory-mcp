@@ -1,6 +1,7 @@
 import { getDb, getProjectSlug, resolveProjectRoot } from './db.js';
 import { BaseNode, Edge, NodeType, NodeRow, EdgeRow } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
+import { VERSION } from '../utils/version.js';
 import { logger } from '../utils/logger.js';
 import { validatePath, loadPathConfig } from '../utils/path-validator.js';
 import { EventEngine } from './events.js';
@@ -28,6 +29,7 @@ const TYPE_COLORS: Record<NodeType, string> = {
   requirement: '#10b981',
   acceptance_criterion: '#f59e0b',
   contract: '#6366f1',
+  visual_state: '#14b8a6',
 };
 
 const EDGE_TYPE_COLORS: Record<string, string> = {
@@ -604,7 +606,7 @@ export function exportGraph(params: {
     result = JSON.stringify(
       {
         project: projectSlug,
-        version: '0.7.1',
+        version: VERSION,
         exported_at: new Date().toISOString(),
         audit_verification: auditProof,
         nodes,
@@ -630,6 +632,7 @@ export function exportGraph(params: {
       requirement: '"#a7f3d0"', // emerald
       acceptance_criterion: '"#fde68a"', // amber
       contract: '"#c7d2fe"', // indigo
+      visual_state: '"#99f6e4"', // teal
     };
 
     const escapeDot = (val: string) => val.replace(/"/g, '\\"');

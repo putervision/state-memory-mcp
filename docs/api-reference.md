@@ -1,6 +1,6 @@
-# `@putervision/state-memory-mcp` — API & Tool Reference (v0.7.1)
+# `@putervision/state-memory-mcp` — API & Tool Reference (v0.8.0)
 
-This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 58 Model Context Protocol (MCP) tools provided by `@putervision/state-memory-mcp`.
+This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 80 Model Context Protocol (MCP) tools provided by `@putervision/state-memory-mcp`.
 
 ---
 

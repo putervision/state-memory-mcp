@@ -328,7 +328,7 @@ export function validateGraph(
             .prepare(
               `
             SELECT 1 FROM edges
-            WHERE project = ? AND type = 'renders_state' AND (source_id = ? OR target_id = ?)
+            WHERE project = ? AND type IN ('renders_state', 'verifies_visual_state') AND (source_id = ? OR target_id = ?)
             LIMIT 1
           `
             )
@@ -344,9 +344,32 @@ export function validateGraph(
             addIssue(
               'unverified_ui',
               'warning',
-              `UI task "${row.title}" is completed but has no renders_state edge or visual state metadata associated.`,
+              `UI task "${row.title}" is completed but has no renders_state or verifies_visual_state edge or visual state metadata associated.`,
               [row.id],
-              `Attach visual snapshot metadata or link renders_state edge using vision-memory-mcp.`
+              `Attach visual snapshot metadata or link renders_state / verifies_visual_state edge using vision-memory-mcp.`
+            );
+          }
+
+          // Check if task is done but blocked by an unresolved visual state blocker
+          const activeVisualBlocker = db
+            .prepare(
+              `
+            SELECT e.target_id FROM edges e
+            JOIN nodes n ON e.target_id = n.id
+            WHERE e.project = ? AND e.source_id = ? AND e.type = 'blocked_by_visual_state'
+              AND n.status IN ('active', 'invalidated')
+            LIMIT 1
+          `
+            )
+            .get(params.project, row.id);
+
+          if (activeVisualBlocker) {
+            addIssue(
+              'unresolved_visual_blocker',
+              'error',
+              `Task "${row.title}" is marked done but has an unresolved blocked_by_visual_state relationship.`,
+              [row.id],
+              `Resolve visual blocker state before completing task.`
             );
           }
         }

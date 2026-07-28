@@ -9,7 +9,8 @@ export type NodeType =
   | 'spec'
   | 'requirement'
   | 'acceptance_criterion'
-  | 'contract';
+  | 'contract'
+  | 'visual_state';
 
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'blocked' | 'cancelled';
 export type DecisionStatus = 'proposed' | 'accepted' | 'rejected' | 'superseded';
@@ -22,6 +23,7 @@ export type SpecStatus = 'draft' | 'approved' | 'in_progress' | 'verified' | 'de
 export type RequirementStatus =
   'proposed' | 'accepted' | 'implemented' | 'verified' | 'rejected' | 'needs_review';
 export type AcceptanceCriterionStatus = 'unverified' | 'verified' | 'failing' | 'skipped';
+export type VisualStateStatus = 'active' | 'archived' | 'invalidated';
 
 export type NodeStatus =
   | TaskStatus
@@ -33,7 +35,8 @@ export type NodeStatus =
   | MilestoneStatus
   | SpecStatus
   | RequirementStatus
-  | AcceptanceCriterionStatus;
+  | AcceptanceCriterionStatus
+  | VisualStateStatus;
 
 export type StatePillar =
   | 'case_state'
@@ -57,6 +60,7 @@ export interface BaseNode {
   pillar?: StatePillar; // Seven Pillars of Compliant Agent State (Armstrong 2026)
   git_branch?: string; // Optional branch name for context isolation
   commit_hash?: string; // Optional commit hash for Git observations/tasks
+  version?: number; // Optimistic concurrency version
 }
 
 export type EdgeType =
@@ -78,7 +82,9 @@ export type EdgeType =
   | 'specifies'
   | 'violates'
   | 'drifts_from'
-  | 'visualizes_spec';
+  | 'visualizes_spec'
+  | 'blocked_by_visual_state'
+  | 'verifies_visual_state';
 
 export interface Edge {
   id: string; // ULID
@@ -135,6 +141,7 @@ export interface NodeRow {
   tags: string;
   created_at: string;
   updated_at: string;
+  version?: number;
 }
 
 export interface EdgeRow {

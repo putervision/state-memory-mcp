@@ -83,6 +83,7 @@ export class GraphEngine {
         tags: params.tags || [],
         created_at: now,
         updated_at: now,
+        version: 1,
       };
 
       EventEngine.logEvent(db, {
@@ -162,6 +163,7 @@ export class GraphEngine {
     metadata?: Record<string, unknown>;
     tags?: string[];
     session_id?: string | null;
+    expected_version?: number;
   }): BaseNode | null {
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
@@ -177,6 +179,15 @@ export class GraphEngine {
       }
 
       const { node } = existingResult;
+      const currentVersion = node.version || 1;
+
+      if (params.expected_version !== undefined && params.expected_version !== currentVersion) {
+        throw new Error(
+          `Concurrency conflict: Node ${params.id} has version ${currentVersion}, but expected version ${params.expected_version}.`
+        );
+      }
+
+      const nextVersion = currentVersion + 1;
       const now = getCurrentIsoString();
 
       const finalMetadata = params.metadata
@@ -195,10 +206,10 @@ export class GraphEngine {
 
       const stmt = db.prepare(`
         UPDATE nodes
-        SET title = ?, status = ?, metadata = ?, tags = ?, updated_at = ?
+        SET title = ?, status = ?, metadata = ?, tags = ?, updated_at = ?, version = ?
         WHERE id = ?
       `);
-      stmt.run(title, status, metadataStr, tagsStr, now, params.id);
+      stmt.run(title, status, metadataStr, tagsStr, now, nextVersion, params.id);
 
       if (row) {
         try {
@@ -229,6 +240,7 @@ export class GraphEngine {
         metadata: finalMetadata,
         tags,
         updated_at: now,
+        version: nextVersion,
       };
 
       EventEngine.logEvent(db, {

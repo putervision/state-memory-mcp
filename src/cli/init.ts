@@ -145,19 +145,13 @@ export async function runInit(
   }
 
   console.log('\n✅ state-memory-mcp initialized successfully!\n');
-
-  console.log('   For Claude Desktop, add the following to your config manually:');
-  console.log('   (macOS: ~/Library/Application Support/Claude/claude_desktop_config.json)');
-  console.log('   (Linux: ~/.config/Claude/claude_desktop_config.json)');
-  console.log('   (Windows: %APPDATA%\\Claude\\claude_desktop_config.json)\n');
-  console.log('   {');
-  console.log('     "mcpServers": {');
-  console.log('       "state-memory-mcp": {');
-  console.log('         "command": "state-memory-mcp",');
-  console.log('         "args": ["run"]');
-  console.log('       }');
-  console.log('     }');
-  console.log('   }\n');
+  console.log('   🎉 Next Steps:');
+  console.log(
+    '   1. Restart your IDE or Agent Manager (Cursor, VS Code, Antigravity, Claude Desktop).'
+  );
+  console.log(
+    '   2. Your AI agent will automatically detect state-memory-mcp and load project memory skills!\n'
+  );
 }
 
 /**

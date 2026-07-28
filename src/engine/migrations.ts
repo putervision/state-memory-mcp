@@ -274,6 +274,38 @@ export const migrations: Migration[] = [
       db.prepare('DROP INDEX IF EXISTS idx_nodes_updated_at').run();
     },
   },
+  // Version 10: Optimistic concurrency control (version column) & blackboard table
+  {
+    version: 10,
+    description: 'Optimistic concurrency versioning & agent blackboard store',
+    up: (db) => {
+      logger.info('Running migration v10: adding node version column and blackboard table...');
+      try {
+        db.prepare('ALTER TABLE nodes ADD COLUMN version INTEGER DEFAULT 1').run();
+      } catch (err: any) {
+        // Column may already exist
+      }
+      db.prepare(
+        `
+        CREATE TABLE IF NOT EXISTS blackboard (
+          id          TEXT PRIMARY KEY,
+          project     TEXT NOT NULL,
+          agent_id    TEXT NOT NULL DEFAULT 'unknown',
+          agent_role  TEXT DEFAULT 'coder',
+          topic       TEXT NOT NULL,
+          content     TEXT NOT NULL,
+          created_at  TEXT NOT NULL,
+          expires_at  TEXT
+        )
+      `
+      ).run();
+      db.prepare('CREATE INDEX IF NOT EXISTS idx_blackboard_project ON blackboard(project)').run();
+      db.prepare('CREATE INDEX IF NOT EXISTS idx_blackboard_topic ON blackboard(topic)').run();
+    },
+    down: (db) => {
+      db.prepare('DROP TABLE IF EXISTS blackboard').run();
+    },
+  },
 ];
 
 /**

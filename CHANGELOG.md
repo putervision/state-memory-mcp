@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.8.0] - 2026-07-28
+
+### Dual MCP Synergy & Unified Memory Architecture
+- **First-Class Bidirectional Linking**: Introduced `visual_state` node type and `renders_state`, `blocked_by_visual_state`, `verifies_visual_state` edge types. Implemented `link_visual_state` MCP tool for seamless cross-store linking.
+- **Unified Session & Trajectory Model**: Created `export_joint_trajectories` tool and CLI exporter interleaving workflow graph events with visual observation & outcome transitions chronologically for agent fine-tuning.
+- **Joint Agent Rules & Prompts**: Updated CLI scaffolding (`npx state-memory-mcp init --with-vision`) to output unified dual-memory instruction blocks in `.agents/AGENTS.md`, `.windsurfrules`, `.cursor/rules/`, and `CLAUDE.md`.
+- **Shared Observability & Synergy Metrics**: Added `get_synergy_metrics` tool for combined token-savings estimates, L1/L2/L3 visual cache hit rate correlation, and UI task verification health.
+- **Privacy & Governance Layer**: Standardized PII & secret redaction library (`src/utils/redact.ts`) masking API keys, JWT tokens, passwords, bearer headers, email addresses, and credit cards across text notes and node metadata.
+- **Enhanced Validation Engine**: Updated `validate_graph` to verify `renders_state` / `verifies_visual_state` edges for UI tasks and detect unresolved `blocked_by_visual_state` edges on completed tasks.
+
 ## [0.7.1] - 2026-07-27
 
 ### Maintenance & Registry Preparation

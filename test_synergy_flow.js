@@ -1,5 +1,4 @@
 import Database from 'better-sqlite3';
-import lancedb from '@lancedb/lancedb';
 import path from 'path';
 import fs from 'fs';
 
@@ -29,12 +28,13 @@ async function testSynergy() {
   console.log(`Created UI task: ${taskId} ("Align faction logos on homepage") marked as done.`);
 
   // 3. Run validation (Should fail/warn because it's a UI task marked done without visual verification)
-  const { validateGraph } = await import('./dist/index.js');
+  const { validateGraph } = await import('./dist/lib.js');
   let validation = validateGraph(db, { project: 'test-synergy-project' });
   console.log("Run validation (expected warning for unverified UI):");
   console.log(JSON.stringify(validation.issues.filter(i => i.check === 'unverified_ui'), null, 2));
 
   // 4. Ingest screenshot in vision-memory with the session_id as trace_id
+  const lancedb = await import('../vision-memory-mcp/node_modules/@lancedb/lancedb/dist/index.js');
   const vdb = await lancedb.connect(visionDbPath);
   const table = await vdb.openTable('visual_states');
 
@@ -64,6 +64,8 @@ async function testSynergy() {
   console.log(`Ingested VisualState into LanceDB: ${stateId} with trace_id: ${sessionId}`);
 
   // 5. Connect UI Task to VisualState using the new renders_state edge
+  db.prepare(`INSERT OR REPLACE INTO nodes (id, type, title, status, project, git_branch, created_at, updated_at, metadata, tags)
+              VALUES (?, 'visual_state', 'Aligned faction logos mockup', 'active', 'test-synergy-project', 'main', datetime('now'), datetime('now'), '{}', '[]')`).run(stateId);
   db.prepare(`INSERT OR REPLACE INTO edges (id, source_id, target_id, type, project, git_branch, created_at)
               VALUES ('edge-renders-1', ?, ?, 'renders_state', 'test-synergy-project', 'main', datetime('now'))`).run(taskId, stateId);
   console.log(`Connected task ${taskId} to visual state ${stateId} via 'renders_state' edge.`);
@@ -74,7 +76,7 @@ async function testSynergy() {
   console.log(JSON.stringify(validation.issues.filter(i => i.check === 'unverified_ui'), null, 2));
 
   // Cleanup test data
-  db.prepare(`DELETE FROM nodes WHERE id = ?`).run(taskId);
+  db.prepare(`DELETE FROM nodes WHERE id IN (?, ?)`).run(taskId, stateId);
   db.prepare(`DELETE FROM edges WHERE id = 'edge-renders-1'`).run();
   await table.delete(`id = '${stateId}'`);
   console.log("Cleaned up test data.");

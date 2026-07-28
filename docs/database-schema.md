@@ -128,8 +128,24 @@ Tracks database schema migration versions, migration timestamps, and integrity m
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `key` | `TEXT` | `PRIMARY KEY` | Metadata property key (e.g. `version`) |
-| `value` | `TEXT` | `NOT NULL` | Metadata property value (e.g. `9`) |
+| `value` | `TEXT` | `NOT NULL` | Metadata property value (e.g. `10`) |
 | `updated_at` | `TEXT` | `NOT NULL` | ISO 8601 UTC update timestamp |
+
+---
+
+### 8. `blackboard` Table
+Ephemeral multi-agent coordination message store with role-aware channels and TTL expiration.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | `TEXT` | `PRIMARY KEY` | Unique ULID message identifier |
+| `channel` | `TEXT` | `NOT NULL` | Coordination channel topic |
+| `sender_agent_id` | `TEXT` | `NOT NULL` | Agent ID of sender |
+| `sender_role` | `TEXT` | `NULL` | Agent role tag (`coder`, `reviewer`, `planner`) |
+| `message` | `TEXT` | `NOT NULL` | Ephemeral message body |
+| `project` | `TEXT` | `NOT NULL` | Project slug |
+| `created_at` | `TEXT` | `NOT NULL` | ISO 8601 UTC creation timestamp |
+| `expires_at` | `TEXT` | `NULL` | ISO 8601 UTC expiration timestamp |
 
 ---
 

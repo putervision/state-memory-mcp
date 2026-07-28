@@ -21,6 +21,7 @@ export class SessionEngine {
     params: {
       project: string;
       agent_id?: string;
+      agent_role?: string;
       metadata?: Record<string, unknown>;
     }
   ): { session_id: string } {
@@ -54,7 +55,8 @@ export class SessionEngine {
     const id = generateId();
     const started_at = getCurrentIsoString();
     const agent_id = params.agent_id || 'unknown';
-    const metadataStr = JSON.stringify(params.metadata || {});
+    const finalMetadata = { ...(params.metadata || {}), agent_role: params.agent_role || 'coder' };
+    const metadataStr = JSON.stringify(finalMetadata);
 
     db.prepare(
       `

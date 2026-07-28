@@ -15,12 +15,12 @@
       "sizes": ["128x128"]
     }
   ],
-  "version": "0.7.1",
+  "version": "0.8.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@putervision/state-memory-mcp",
-      "version": "0.7.1",
+      "version": "0.8.0",
       "transport": {
         "type": "stdio"
       }

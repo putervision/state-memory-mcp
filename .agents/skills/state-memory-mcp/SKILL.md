@@ -17,7 +17,7 @@ Before doing any coding or investigation, you MUST run this sequence:
 6. `list_nodes` — Find pending tasks, past decisions, or milestones.
 7. `trace_dependencies` — Trace what depends on or blocks a task.
 
-### 2. Complete 58 Tool Reference
+### 2. Complete 76 Tool Reference
 
 #### Node CRUD (4)
 | Tool | Key Inputs | Description |
@@ -108,6 +108,42 @@ Before doing any coding or investigation, you MUST run this sequence:
 | `scaffold_spec` | `title?` | Scaffold a standard feature specification template in `.specs/` and ingest into memory. |
 | `verify_requirement` | `criterion_id`, `status` | Mark acceptance criteria as verified/failing/skipped with optional observation proof link. |
 
+#### Time Travel & Cross-Memory Validation (3)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| `get_state_at_timestamp` | `timestamp` | Reconstruct exact node/edge state graph as of any past ISO timestamp. |
+| `revert_to_timestamp` | `timestamp` | Revert graph memory to an earlier state with audit event logging. |
+| `validate_memory_references` | `project`, `auto_heal?` | Audit external file paths & `file:///` URIs referenced in nodes and auto-heal broken links. |
+
+#### Velocity, Time-Series & Natural Language (3)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| `natural_language_query` | `query` | Intelligently parse natural language queries into structured graph operations. |
+| `velocity_analytics` | `window_days?` | Calculate task completion velocity, throughput, and average cycle time. |
+| `burndown_chart` | `window_days?` | Generate time-series burndown data points and estimated days remaining. |
+
+#### Multi-Agent Blackboard & Concurrency (2)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| `post_blackboard` | `channel`, `message`, `ttl_seconds?` | Post ephemeral coordination messages with role tags and TTL expiration. |
+| `read_blackboard` | `channel`, `agent_role?` | Read active non-expired blackboard messages. |
+
+#### External Integrations & VCS Sync (4)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| `export_issues` | `target_format` | Export graph tasks & blockers to GitHub Issues or Jira JSON format. |
+| `import_issues` | `issues` | Ingest external GitHub/Jira issues into state graph memory. |
+| `vcs_branch_sync` | `target_branch?` | Compare state nodes created or modified on the current git branch vs a target branch. |
+| `vcs_merge_resolution` | `source_branch`, `target_branch` | Detect and resolve graph conflicts when merging Git branches. |
+
+#### Maintenance, Compaction & Doctor (4)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| `compact_graph` | `prune_orphaned_edges?` | Reclaim SQLite storage, rebuild FTS indexes, and prune orphaned edges. |
+| `archive_completed_nodes` | `older_than_days?` | Flag completed tasks older than a threshold (default 30 days) as archived. |
+| `doctor_report` | `project` | Run health diagnostics on schema integrity, WAL mode, orphan edges, and stale nodes. |
+| `watch_graph_changes` | `since_timestamp?`, `session_id?` | Observe recent state graph mutations and event log entries. |
+
 #### Database Administration (5)
 | Tool | Key Inputs | Description |
 |------|------------|-------------|
@@ -165,7 +201,7 @@ If the project has no Plan or Milestone nodes:
 ### 5. CLI Commands Reference
 ```bash
 state-memory-mcp init          # Initialize in current project
-state-memory-mcp run           # Start the MCP server
+state-memory-mcp run           # Stdio MCP server (used by IDEs)
 state-memory-mcp inspect -p X  # ASCII table of project nodes
 state-memory-mcp metrics -p X  # ROI and token savings analytics
 state-memory-mcp view -p X     # Open 3D graph visualizer in browser

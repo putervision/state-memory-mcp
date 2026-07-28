@@ -13,6 +13,7 @@ export { SnapshotEngine } from './engine/snapshots.js';
 export { TrajectoryEngine } from './engine/trajectories.js';
 export { AnalyticsEngine } from './engine/analytics.js';
 export { auditProjectDb, findCycles } from './engine/audit.js';
+export { validateGraph } from './engine/validate.js';
 
 // Database & Scaffolding
 export { getDb, getReadOnlyDb, closeDb, closeAllDbs, getProjectSlug, registerProject } from './engine/db.js';

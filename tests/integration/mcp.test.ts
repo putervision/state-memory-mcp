@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { server } from '../../src/server.js';
@@ -8,11 +8,17 @@ describe('MCP Server Integration Tests', () => {
   let client: Client;
   const project = 'integration-test-project';
 
+  beforeEach(() => {
+    const db = getDb(project);
+    db.prepare('DELETE FROM edges WHERE project = ?').run(project);
+    db.prepare('DELETE FROM nodes WHERE project = ?').run(project);
+  });
+
   beforeAll(async () => {
     // Clear integration test DB tables
     const db = getDb(project);
-    db.prepare('DELETE FROM edges').run();
-    db.prepare('DELETE FROM nodes').run();
+    db.prepare('DELETE FROM edges WHERE project = ?').run(project);
+    db.prepare('DELETE FROM nodes WHERE project = ?').run(project);
 
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
@@ -39,9 +45,30 @@ describe('MCP Server Integration Tests', () => {
   it('should list available tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(58);
+    expect(tools.tools.length).toBe(79);
 
     const toolNames = tools.tools.map((t) => t.name);
+    expect(toolNames).toContain('link_visual_state');
+    expect(toolNames).toContain('export_joint_trajectories');
+    expect(toolNames).toContain('get_synergy_metrics');
+    expect(toolNames).toContain('natural_language_query');
+    expect(toolNames).toContain('post_blackboard');
+    expect(toolNames).toContain('read_blackboard');
+    expect(toolNames).toContain('plan_and_decompose_feature');
+    expect(toolNames).toContain('post_mortem_from_session');
+    expect(toolNames).toContain('get_state_at_timestamp');
+    expect(toolNames).toContain('revert_to_timestamp');
+    expect(toolNames).toContain('validate_memory_references');
+    expect(toolNames).toContain('velocity_analytics');
+    expect(toolNames).toContain('burndown_chart');
+    expect(toolNames).toContain('export_issues');
+    expect(toolNames).toContain('import_issues');
+    expect(toolNames).toContain('vcs_branch_sync');
+    expect(toolNames).toContain('vcs_merge_resolution');
+    expect(toolNames).toContain('compact_graph');
+    expect(toolNames).toContain('archive_completed_nodes');
+    expect(toolNames).toContain('doctor_report');
+    expect(toolNames).toContain('watch_graph_changes');
     expect(toolNames).toContain('bootstrap_session');
     expect(toolNames).toContain('complete_task');
     expect(toolNames).toContain('ingest_spec');

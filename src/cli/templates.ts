@@ -175,7 +175,7 @@ Before doing any coding or investigation, you MUST run this sequence:
 6. \`list_nodes\` — Find pending tasks, past decisions, or milestones.
 7. \`trace_dependencies\` — Trace what depends on or blocks a task.
 
-### 2. Complete 58 Tool Reference
+### 2. Complete 76 Tool Reference
 
 #### Node CRUD (4)
 | Tool | Key Inputs | Description |
@@ -266,6 +266,42 @@ Before doing any coding or investigation, you MUST run this sequence:
 | \`scaffold_spec\` | \`title?\` | Scaffold a standard feature specification template in \`.specs/\` and ingest into memory. |
 | \`verify_requirement\` | \`criterion_id\`, \`status\` | Mark acceptance criteria as verified/failing/skipped with optional observation proof link. |
 
+#### Time Travel & Cross-Memory Validation (3)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| \`get_state_at_timestamp\` | \`timestamp\` | Reconstruct exact node/edge state graph as of any past ISO timestamp. |
+| \`revert_to_timestamp\` | \`timestamp\` | Revert graph memory to an earlier state with audit event logging. |
+| \`validate_memory_references\` | \`project\`, \`auto_heal?\` | Audit external file paths & \`file:///\` URIs referenced in nodes and auto-heal broken links. |
+
+#### Velocity, Time-Series & Natural Language (3)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| \`natural_language_query\` | \`query\` | Intelligently parse natural language queries into structured graph operations. |
+| \`velocity_analytics\` | \`window_days?\` | Calculate task completion velocity, throughput, and average cycle time. |
+| \`burndown_chart\` | \`window_days?\` | Generate time-series burndown data points and estimated days remaining. |
+
+#### Multi-Agent Blackboard & Concurrency (2)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| \`post_blackboard\` | \`channel\`, \`message\`, \`ttl_seconds?\` | Post ephemeral coordination messages with role tags and TTL expiration. |
+| \`read_blackboard\` | \`channel\`, \`agent_role?\` | Read active non-expired blackboard messages. |
+
+#### External Integrations & VCS Sync (4)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| \`export_issues\` | \`target_format\` | Export graph tasks & blockers to GitHub Issues or Jira JSON format. |
+| \`import_issues\` | \`issues\` | Ingest external GitHub/Jira issues into state graph memory. |
+| \`vcs_branch_sync\` | \`target_branch?\` | Compare state nodes created or modified on the current git branch vs a target branch. |
+| \`vcs_merge_resolution\` | \`source_branch\`, \`target_branch\` | Detect and resolve graph conflicts when merging Git branches. |
+
+#### Maintenance, Compaction & Doctor (4)
+| Tool | Key Inputs | Description |
+|------|------------|-------------|
+| \`compact_graph\` | \`prune_orphaned_edges?\` | Reclaim SQLite storage, rebuild FTS indexes, and prune orphaned edges. |
+| \`archive_completed_nodes\` | \`older_than_days?\` | Flag completed tasks older than a threshold (default 30 days) as archived. |
+| \`doctor_report\` | \`project\` | Run health diagnostics on schema integrity, WAL mode, orphan edges, and stale nodes. |
+| \`watch_graph_changes\` | \`since_timestamp?\`, \`session_id?\` | Observe recent state graph mutations and event log entries. |
+
 #### Database Administration (5)
 | Tool | Key Inputs | Description |
 |------|------------|-------------|
@@ -323,7 +359,7 @@ If the project has no Plan or Milestone nodes:
 ### 5. CLI Commands Reference
 \`\`\`bash
 state-memory-mcp init          # Initialize in current project
-state-memory-mcp run           # Start the MCP server
+state-memory-mcp run           # Stdio MCP server (used by IDEs)
 state-memory-mcp inspect -p X  # ASCII table of project nodes
 state-memory-mcp metrics -p X  # ROI and token savings analytics
 state-memory-mcp view -p X     # Open 3D graph visualizer in browser
@@ -339,7 +375,7 @@ state-memory-mcp audit -p X    # Run integrity checks
  * Workspace-level AGENTS.md rules template for .agents/AGENTS.md.
  * Concise rules that tell agents how to use state-memory-mcp automatically.
  */
-export function getAgentsMdTemplate(projectSlug: string): string {
+export function getAgentsMdTemplate(projectSlug: string, withVision: boolean = true): string {
   return `
 <!-- state-memory-mcp:start -->
 # Workflow State Memory (state-memory-mcp)
@@ -351,28 +387,32 @@ ALWAYS update the state graph when performing work.
 1. **Start of session**: Call \`start_session(agent_id: "...")\`, then run \`get_project_summary\` and \`next_tasks\` BEFORE any coding.
 2. **Before work**: Create or find the task node, set status to \`in_progress\`.
 3. **During work**: Log decisions (\`add_node type: decision\`), blockers (\`add_node type: blocker\`), and notes (\`add_note\`).
-4. **After work**: Run \`validate_graph\`, set task status to \`done\`, create artifact nodes, and call \`end_session\`.
-5. **Initial Seeding**: If the project has no Plan or Milestone nodes, read the codebase and scaffold Plan, Milestone, and Decision nodes.
+4. **Visual Consistency (Dual Memory)**:
+   - For UI / layout tasks, capture visual evidence using \`vision-memory-mcp:analyze_screenshot\`.
+   - Link visual proof via \`link_visual_state(target_id: task_id, visual_state_id: vs_id, relationship: "renders_state")\`.
+   - Log visual blockers using \`create_visual_blocker\` or \`link_visual_state(..., relationship: "blocked_by_visual_state")\`.
+5. **After work**: Run \`validate_graph\`, set task status to \`done\`, create artifact nodes, and call \`end_session\`.
 
 ## Tool Priority Order
 1. \`start_session\` — track all mutations under a unique session
 2. \`get_project_summary\` — current state and progress
 3. \`next_tasks\` — query prioritized runnable tasks
-4. \`find_blockers\` — what's blocking progress
-5. \`validate_graph\` — check for cycle or logic anomalies
-6. \`trace_dependencies\` — understand task relationships
+4. \`link_visual_state\` — connect task/artifact nodes to visual states
+5. \`find_blockers\` — what's blocking progress
+6. \`validate_graph\` — check for cycle or logic anomalies
+7. \`export_joint_trajectories\` — export interleaved state + vision logs
 
 ## Node Types
-\`task\`, \`decision\`, \`artifact\`, \`plan\`, \`milestone\`, \`blocker\`, \`observation\`
+\`task\`, \`decision\`, \`artifact\`, \`plan\`, \`milestone\`, \`blocker\`, \`observation\`, \`visual_state\`
 
 ## Edge Types
-\`depends_on\`, \`blocks\`, \`produces\`, \`references\`, \`updates\`, \`contradicts\`, \`part_of\`, \`child_of\`, \`implements\`, \`decided_in\`
+\`depends_on\`, \`blocks\`, \`produces\`, \`references\`, \`updates\`, \`contradicts\`, \`part_of\`, \`child_of\`, \`implements\`, \`decided_in\`, \`renders_state\`, \`blocked_by_visual_state\`, \`verifies_visual_state\`
 
 ## Quick Reference
 - **Batch updates**: \`batch_update(ids: [...], status: "done")\`
 - **Quick notes**: \`add_note(text: "...", attach_to: node_id)\`
+- **Synergy metrics**: \`get_synergy_metrics()\`
 - **What changed**: \`what_changed(since: "2h")\` or \`what_changed(session_id: "...")\`
-- **Stale nodes**: \`get_stale_nodes(days: 7)\`
 
 > For the complete tool reference and workflow patterns, see the \`state-memory-mcp\` skill in \`.agents/skills/state-memory-mcp/SKILL.md\`.
 <!-- state-memory-mcp:end -->

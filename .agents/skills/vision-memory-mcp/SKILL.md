@@ -30,6 +30,10 @@ Whenever you capture a screenshot, examine a webpage, or need to verify a visual
 | `save_visual_snapshot` | `name`, `description`? | Save current visual memory states as a named checkpoint. |
 | `diff_visual_snapshots` | `snapshot_a_name`, `snapshot_b_name` | Compare two checkpoints to detect additions or visual regressions. |
 | `undo_last_visual_mutation` | `type`? ('state' \| 'transition' \| 'any') | Revert the last state ingestion or transition edge addition. |
+| `predict_next_action` | `current_state_id`, `goal_description`? | Predict best next UI action and target coordinates. |
+| `set_visual_spec` / `verify_visual_spec` | `name`, `screenshot` | Register and verify visual design contract baselines. |
+| `forget_state` | `state_id` | Purge a specific state and vector embedding for privacy. |
+| `export_visual_trajectories` | `git_branch`?, `format`? | Export multimodal trajectories for local model fine-tuning. |
 
 ### 3. Agent Permissions & Auto-Run Configuration
 To bypass confirmation dialogs when running CLI cache commands or reading/writing brain images, add these allows to your configuration:

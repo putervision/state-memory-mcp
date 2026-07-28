@@ -1,10 +1,8 @@
 # @putervision/state-memory-mcp
 
 [![npm version](https://img.shields.io/npm/v/@putervision/state-memory-mcp.svg)](https://www.npmjs.com/package/@putervision/state-memory-mcp)
-[![Build Status](https://github.com/putervision/state-memory-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/putervision/state-memory-mcp/actions/workflows/ci.yml)
 [![Website](https://img.shields.io/badge/Website-statememorymcp.com-6366f1.svg)](https://statememorymcp.com)
 [![License](https://img.shields.io/npm/l/@putervision/state-memory-mcp.svg)](https://github.com/putervision/state-memory-mcp/blob/main/LICENSE)
-[![Node.js Version](https://img.shields.io/node/v/@putervision/state-memory-mcp.svg)](https://nodejs.org)
 
 `@putervision/state-memory-mcp` is a zero-infrastructure, deterministic Model Context Protocol (MCP) server that provides AI agents with a structured, persistent graph for tracking workflow state—tasks, decisions, artifacts, plans, blockers, and their semantic relationships. Official Documentation & Interactive Demos: [statememorymcp.com](https://statememorymcp.com)
 
@@ -12,11 +10,41 @@ By using `@putervision/state-memory-mcp`, your AI coding assistant (such as Curs
 
 ---
 
+## ⚡ Quick Start & Installation
+
+> **Prerequisites**: Node.js **>= 18.0.0**
+
+```bash
+# Install globally
+npm install -g @putervision/state-memory-mcp
+
+# Navigate to your project directory
+cd your-project
+
+# Initialize — creates .state-memory-mcp/, updates .gitignore,
+# scaffolds IDE instructions and MCP configs for Cursor, Claude, Windsurf, etc.
+state-memory-mcp init
+
+# Done! Restart your IDE or Agent Manager (Cursor, VS Code, Antigravity, Claude) to activate.
+```
+
+### Alternative Installation Options
+
+```bash
+# Run directly via binary (after global install)
+state-memory-mcp run
+
+# Or install as a project dev dependency
+npm install --save-dev @putervision/state-memory-mcp
+```
+
+---
+
 ## Key Features
 
 1. **Deterministic State Memory**: No LLM in the loop; all operations are structured, deterministic, and fast.
 2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-memory-mcp/`) or globally.
-3. **58 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, cryptographic SHA-256 session audit verification (`verify_audit_chain`), state rollback/undo, compound workflow tools (`bootstrap_session`, `complete_task`, `batch_create_nodes`, `batch_add_edges`), selective field projections (`fields`), self-healing graph repair (`auto_fix`), dynamic resources, and workflow prompts.
+3. **80 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, natural language text-to-graph querying (`natural_language_query`), multi-agent optimistic CAS concurrency & blackboard store (`post_blackboard`, `read_blackboard`), atomic compound feature decomposition (`plan_and_decompose_feature`, `post_mortem_from_session`), time-travel history recovery (`get_state_at_timestamp`, `revert_to_timestamp`), cross-memory validation & auto-healing (`validate_memory_references`), velocity & burndown time-series analytics (`velocity_analytics`, `burndown_chart`), bidirectional issue sync (`export_issues`, `import_issues`), VCS branch sync & merge resolution (`vcs_branch_sync`, `vcs_merge_resolution`), automated compaction & historical archiving (`compact_graph`, `archive_completed_nodes`), health doctor & watcher (`doctor_report`, `watch_graph_changes`), value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, cryptographic SHA-256 session audit verification (`verify_audit_chain`), state rollback/undo, compound workflow tools (`bootstrap_session`, `complete_task`, `batch_create_nodes`, `batch_add_edges`), selective field projections (`fields`), self-healing graph repair (`auto_fix`), dynamic resources, and workflow prompts.
 4. **Interactive 3D HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed WebGL 3D Force-Directed Graph visualizer built with `3d-force-graph` / Three.js.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
@@ -24,6 +52,7 @@ By using `@putervision/state-memory-mcp`, your AI coding assistant (such as Curs
 8. **Event-Sourced Audit Trail**: Every node and edge mutation is logged to an append-only events table with before/after state snapshots, session attribution, and timestamps.
 9. **Session & Agent Tracking**: First-class session lifecycle with agent identity, enabling multi-agent collaboration and full provenance of who changed what.
 10. **Persistent Context Snapshots**: Save, list, and diff context snapshots across sessions to detect drift and answer "what changed since last time?"
+11. **Dual MCP Synergy**: Deep integration with `vision-memory-mcp` for unified text+visual trajectory tracking, automatic visual cache grounding, and visual state verification for UI tasks.
 
 ---
 
@@ -44,41 +73,6 @@ AI coding agents (like Cursor, Gemini, Claude, and Copilot) operate within stric
 
 ---
 
-## Quick Start
-
-> **Prerequisites**: Node.js **>= 18.0.0**
-
-```bash
-# Install globally
-npm install -g @putervision/state-memory-mcp
-
-# Navigate to your project
-cd your-project
-
-# Initialize — creates .state-memory-mcp/, updates .gitignore,
-# scaffolds IDE instructions and MCP configs
-state-memory-mcp init
-
-# Done! Your IDE now has MCP configs + agent instructions.
-```
-
----
-
-## Installation
-
-```bash
-# Global install (recommended)
-npm install -g @putervision/state-memory-mcp
-
-# Run directly via binary (after global install)
-state-memory-mcp run
-
-# Or install as a project dev dependency
-npm install --save-dev @putervision/state-memory-mcp
-```
-
----
-
 ## State Memory Concepts
 
 `state-memory-mcp` models your development workspace as a directed acyclic graph (DAG) where nodes represent development objects and edges represent their semantic relationships.
@@ -92,6 +86,7 @@ npm install --save-dev @putervision/state-memory-mcp
 5. **`milestone`**: Progress checkpoints representing a grouped set of related tasks (Status: `upcoming`, `in_progress`, `done`, `delayed`).
 6. **`blocker`**: Impediments or bugs preventing tasks from being completed (Status: `active`, `resolved`, `mitigated`).
 7. **`observation`**: Contextual findings, codebase notes, or runtime constraints recorded by the agent (Status: `active`, `archived`).
+8. **`visual_state`**: Represents a visual UI screenshot checkpoint via Dual MCP Synergy (Status: `active`, `archived`, `invalidated`).
 
 ### 🔗 Edge Relationships
 
@@ -104,7 +99,7 @@ Nodes are linked together to represent workflow connections:
 * `part_of` / `child_of`: Establishes hierarchical groupings (e.g., tasks belonging to milestones, milestones in plans).
 * `implements` / `decided_in`: Links tasks/artifacts to their design decisions or plans.
 * `extends` / `modifies`: Git commit trace relationships.
-* `renders_state`: Visual memory verification relationship.
+* `renders_state` / `blocked_by_visual_state` / `verifies_visual_state`: Visual memory cross-linking relationships.
 
 *Note: Cycle detection is automatically enforced. If an agent tries to link nodes in a loop (e.g. Task A blocking Task B which depends on Task A), the server immediately rejects the edge creation.*
 

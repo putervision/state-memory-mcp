@@ -7,10 +7,19 @@ import {
   CompleteTaskSchema,
   BatchCreateNodesSchema,
   BatchAddEdgesSchema,
+  PlanAndDecomposeFeatureSchema,
+  PostMortemFromSessionSchema,
+  ExportIssuesSchema,
+  ImportIssuesSchema,
+  ArchiveCompletedNodesSchema,
+  CompactGraphSchema,
 } from '../schema/schemas.js';
 import { batchUpdate, batchCreateNodes, batchAddEdges } from '../engine/batch.js';
 import { bootstrapSession } from '../engine/bootstrap.js';
 import { completeTask } from '../engine/complete-task.js';
+import { planAndDecomposeFeature, postMortemFromSession } from '../engine/compound-workflows.js';
+import { exportIssues, importIssues } from '../engine/issue-sync.js';
+import { archiveCompletedNodes, compactGraph } from '../engine/compaction.js';
 import { getChanges } from '../engine/changeset.js';
 import { GraphEngine } from '../engine/graph.js';
 import { EdgeEngine } from '../engine/edges.js';
@@ -18,6 +27,30 @@ import { getDb, getProjectSlug } from '../engine/db.js';
 import { parseArgs } from './helper.js';
 
 export const batchHandlers = {
+  compact_graph: (args: any) => {
+    const data = parseArgs(CompactGraphSchema, args);
+    return compactGraph(data);
+  },
+  archive_completed_nodes: (args: any) => {
+    const data = parseArgs(ArchiveCompletedNodesSchema, args);
+    return archiveCompletedNodes(data);
+  },
+  export_issues: (args: any) => {
+    const data = parseArgs(ExportIssuesSchema, args);
+    return exportIssues(data);
+  },
+  import_issues: (args: any) => {
+    const data = parseArgs(ImportIssuesSchema, args);
+    return importIssues(data);
+  },
+  plan_and_decompose_feature: (args: any) => {
+    const data = parseArgs(PlanAndDecomposeFeatureSchema, args);
+    return planAndDecomposeFeature(data);
+  },
+  post_mortem_from_session: (args: any) => {
+    const data = parseArgs(PostMortemFromSessionSchema, args);
+    return postMortemFromSession(data);
+  },
   batch_update: (args: any) => {
     const data = parseArgs(BatchUpdateSchema, args);
     const projectSlug = getProjectSlug(data.project);

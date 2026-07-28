@@ -16,9 +16,11 @@ You MUST update the graph as you work:
 - **Starting a session**: Always call `start_session(agent_id: "my-agent")` to track all mutations under a unique session.
 - **Starting a new task**: Create a node with `add_node(type: "task", title: "...", session_id: session_id)`.
 - **Making a design or implementation decision**: Document it with `add_node(type: "decision", title: "...", metadata: { "rationale": "..." }, session_id: session_id)`.
+- **Connecting UI tasks to visual states**: Use `link_visual_state(target_id: task_id, visual_state_id: vs_id, relationship: "renders_state")` or `blocked_by_visual_state`.
 - **Encountering a blocker**: Record the blocker with `add_node(type: "blocker", ..., session_id: session_id)` and connect it using `add_edge(type: "blocks", source_id: blocker_id, target_id: task_id, session_id: session_id)`.
 - **Adding observation notes**: Atomically log notes using `add_note(text: "...", attach_to: node_id)`.
 - **Batch updates**: Bulk update tasks/nodes using `batch_update(ids: ["..."], status: "done")`.
+- **Observability & Trajectories**: Check `get_synergy_metrics` for combined token savings & health, and `export_joint_trajectories` for interleaved fine-tuning datasets.
 - **Completing a task**: Update status to done using `update_node(id: task_id, status: "done", session_id: session_id)`.
 - **Creating/generating a new file**: Create an artifact node with `add_node(type: "artifact", ..., session_id: session_id)` and connect it using `add_edge(type: "produces", ..., session_id: session_id)`.
 

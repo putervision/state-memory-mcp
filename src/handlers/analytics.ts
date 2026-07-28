@@ -12,14 +12,59 @@ import {
   ValueMetricsSchema,
   NextTasksSchema,
   GetStaleNodesSchema,
+  NaturalLanguageQuerySchema,
+  ValidateMemoryReferencesSchema,
+  VelocityAnalyticsSchema,
+  BurndownChartSchema,
+  VCSBranchSyncSchema,
+  VCSMergeResolutionSchema,
+  DoctorReportSchema,
+  WatchGraphChangesSchema,
 } from '../schema/schemas.js';
 import { AnalyticsEngine } from '../engine/analytics.js';
 import { getNextTasks } from '../engine/work-queue.js';
 import { getStaleNodes } from '../engine/staleness.js';
+import { executeNLQuery } from '../engine/nl-query.js';
+import { validateMemoryReferences } from '../engine/cross-memory-validation.js';
+import { getVelocityAnalytics, getBurndownChart } from '../engine/velocity-analytics.js';
+import { vcsBranchSync, vcsMergeResolution } from '../engine/vcs-sync.js';
+import { getDoctorReport, watchGraphChanges } from '../engine/doctor-watcher.js';
 import { getDb, getProjectSlug } from '../engine/db.js';
 import { parseArgs } from './helper.js';
 
 export const analyticsHandlers = {
+  doctor_report: (args: any) => {
+    const data = parseArgs(DoctorReportSchema, args);
+    return getDoctorReport(data);
+  },
+  watch_graph_changes: (args: any) => {
+    const data = parseArgs(WatchGraphChangesSchema, args);
+    return watchGraphChanges(data);
+  },
+  vcs_branch_sync: (args: any) => {
+    const data = parseArgs(VCSBranchSyncSchema, args);
+    return vcsBranchSync(data);
+  },
+  vcs_merge_resolution: (args: any) => {
+    const data = parseArgs(VCSMergeResolutionSchema, args);
+    return vcsMergeResolution(data);
+  },
+  velocity_analytics: (args: any) => {
+    const data = parseArgs(VelocityAnalyticsSchema, args);
+    return getVelocityAnalytics(data);
+  },
+  burndown_chart: (args: any) => {
+    const data = parseArgs(BurndownChartSchema, args);
+    return getBurndownChart(data);
+  },
+  validate_memory_references: (args: any) => {
+    const data = parseArgs(ValidateMemoryReferencesSchema, args);
+    return validateMemoryReferences(data);
+  },
+  natural_language_query: (args: any) => {
+    const data = parseArgs(NaturalLanguageQuerySchema, args);
+    return executeNLQuery(data);
+  },
   trace_dependencies: (args: any) => {
     const data = parseArgs(TraceDependenciesSchema, args);
     return AnalyticsEngine.traceDependencies({

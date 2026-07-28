@@ -322,6 +322,7 @@ export const NodeTypeSchema = z.enum([
   'requirement',
   'acceptance_criterion',
   'contract',
+  'visual_state',
 ]);
 
 export const DEFAULT_STATUS_BY_TYPE: Record<NodeType, NodeStatus> = {
@@ -336,6 +337,7 @@ export const DEFAULT_STATUS_BY_TYPE: Record<NodeType, NodeStatus> = {
   requirement: 'accepted',
   acceptance_criterion: 'unverified',
   contract: 'draft',
+  visual_state: 'active',
 };
 
 export const MetadataSchema = z.record(z.unknown()).refine(
@@ -411,6 +413,8 @@ export const EdgeTypeSchema = z.enum([
   'violates',
   'drifts_from',
   'visualizes_spec',
+  'blocked_by_visual_state',
+  'verifies_visual_state',
 ]);
 
 export const AddEdgeSchema = z.object({
@@ -797,4 +801,121 @@ export const SubscribeContextChangesSchema = z.object({
 
 export const GetCognitiveLoadSchema = z.object({
   project: z.string().optional(),
+});
+
+export const NaturalLanguageQuerySchema = z.object({
+  project: z.string().optional(),
+  query: z.string().min(1, 'query is required'),
+  limit: z.number().optional(),
+});
+
+export const PostBlackboardSchema = z.object({
+  project: z.string().optional(),
+  agent_id: z.string().optional(),
+  agent_role: z.string().optional(),
+  topic: z.string().min(1, 'topic is required'),
+  content: z.string().min(1, 'content is required'),
+  ttl_seconds: z.number().optional(),
+});
+
+export const ReadBlackboardSchema = z.object({
+  project: z.string().optional(),
+  topic: z.string().optional(),
+  limit: z.number().optional(),
+});
+
+export const PlanAndDecomposeFeatureSchema = z.object({
+  project: z.string().optional(),
+  title: z.string().min(1, 'title is required'),
+  description: z.string().optional(),
+  milestone_title: z.string().optional(),
+  subtasks: z.array(
+    z.object({
+      title: z.string().min(1, 'subtask title is required'),
+      description: z.string().optional(),
+      depends_on_index: z.number().optional(),
+    })
+  ),
+});
+
+export const PostMortemFromSessionSchema = z.object({
+  project: z.string().optional(),
+  session_id: z.string().min(1, 'session_id is required'),
+  summary_title: z.string().optional(),
+});
+
+export const GetStateAtTimestampSchema = z.object({
+  project: z.string().optional(),
+  timestamp: z.string().min(1, 'timestamp is required'),
+});
+
+export const RevertToTimestampSchema = z.object({
+  project: z.string().optional(),
+  timestamp: z.string().min(1, 'timestamp is required'),
+  session_id: z.string().optional(),
+});
+
+export const ValidateMemoryReferencesSchema = z.object({
+  project: z.string().optional(),
+  auto_heal: z.boolean().optional(),
+});
+
+export const VelocityAnalyticsSchema = z.object({
+  project: z.string().optional(),
+  window_days: z.number().optional(),
+});
+
+export const BurndownChartSchema = z.object({
+  project: z.string().optional(),
+  days: z.number().optional(),
+});
+
+export const ExportIssuesSchema = z.object({
+  project: z.string().optional(),
+  format: z.enum(['github', 'jira', 'generic']).optional(),
+});
+
+export const ImportIssuesSchema = z.object({
+  project: z.string().optional(),
+  issues: z.array(
+    z.object({
+      external_id: z.string().min(1, 'external_id is required'),
+      title: z.string().min(1, 'title is required'),
+      body: z.string().optional(),
+      state: z.string().optional(),
+      labels: z.array(z.string()).optional(),
+    })
+  ),
+});
+
+export const VCSBranchSyncSchema = z.object({
+  project: z.string().optional(),
+  target_branch: z.string().optional(),
+});
+
+export const VCSMergeResolutionSchema = z.object({
+  project: z.string().optional(),
+  source_branch: z.string().min(1, 'source_branch is required'),
+  target_branch: z.string().min(1, 'target_branch is required'),
+  strategy: z.enum(['auto_accept', 'flag_conflicts']).optional(),
+});
+
+export const ArchiveCompletedNodesSchema = z.object({
+  project: z.string().optional(),
+  older_than_days: z.number().optional(),
+});
+
+export const CompactGraphSchema = z.object({
+  project: z.string().optional(),
+  prune_orphaned_edges: z.boolean().optional(),
+});
+
+export const DoctorReportSchema = z.object({
+  project: z.string().optional(),
+});
+
+export const WatchGraphChangesSchema = z.object({
+  project: z.string().optional(),
+  since_timestamp: z.string().optional(),
+  session_id: z.string().optional(),
 });

@@ -5,13 +5,24 @@ import {
   GetEventLogSchema,
   UndoLastSchema,
   PruneEventsSchema,
+  PostBlackboardSchema,
+  ReadBlackboardSchema,
 } from '../schema/schemas.js';
 import { SessionEngine } from '../engine/sessions.js';
 import { EventEngine } from '../engine/events.js';
+import { postBlackboard, readBlackboard } from '../engine/blackboard.js';
 import { getDb, getProjectSlug } from '../engine/db.js';
 import { parseArgs } from './helper.js';
 
 export const sessionHandlers = {
+  post_blackboard: (args: any) => {
+    const data = parseArgs(PostBlackboardSchema, args);
+    return postBlackboard(data);
+  },
+  read_blackboard: (args: any) => {
+    const data = parseArgs(ReadBlackboardSchema, args);
+    return readBlackboard(data);
+  },
   start_session: (args: any) => {
     const data = parseArgs(StartSessionSchema, args);
     const projectSlug = getProjectSlug(data.project);

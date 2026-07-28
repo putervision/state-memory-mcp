@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [0.8.0] - 2026-07-28
+## [0.8.1] - 2026-07-28
 
 ### Dual MCP Synergy & Unified Memory Architecture
 - **First-Class Bidirectional Linking**: Introduced `visual_state` node type and `renders_state`, `blocked_by_visual_state`, `verifies_visual_state` edge types. Implemented `link_visual_state` MCP tool for seamless cross-store linking.

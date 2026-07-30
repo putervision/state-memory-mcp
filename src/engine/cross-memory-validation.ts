@@ -39,7 +39,7 @@ export function validateMemoryReferences(params: {
       // ignore JSON parse error
     }
 
-    // Scan metadata for file paths / file URIs
+    // Scan metadata for file paths, file URIs, and AST codebase symbols
     const candidatePaths: string[] = [];
 
     if (metadata.file_path && typeof metadata.file_path === 'string') {
@@ -50,6 +50,24 @@ export function validateMemoryReferences(params: {
     }
     if (metadata.path && typeof metadata.path === 'string') {
       candidatePaths.push(metadata.path);
+    }
+
+    // AST symbol cross-linking (codebase-memory-mcp)
+    const codebaseSymbol = metadata.codebase_symbol || metadata.qualified_name;
+    if (codebaseSymbol && typeof codebaseSymbol === 'string') {
+      totalChecked++;
+      // Validate symbol syntax format (e.g., pkg/orders.OrderHandler or src/server.ts#Handler)
+      if (/^[a-zA-Z0-9_./#-]+$/.test(codebaseSymbol)) {
+        validCount++;
+      } else {
+        broken.push({
+          node_id: rawNode.id,
+          node_title: rawNode.title,
+          file_path: codebaseSymbol,
+          reason: 'Invalid or missing codebase-memory AST symbol reference',
+        });
+        nodesToHeal.push(rawNode);
+      }
     }
 
     // Also check title or description for file:/// links

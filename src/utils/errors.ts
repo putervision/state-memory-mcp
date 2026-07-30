@@ -1,8 +1,8 @@
 export class StateMemoryError extends Error {
   public readonly code: string;
-  public readonly details?: any;
+  public readonly details?: unknown;
 
-  constructor(message: string, code = 'INTERNAL_ERROR', details?: any) {
+  constructor(message: string, code = 'INTERNAL_ERROR', details?: unknown) {
     super(message);
     this.name = this.constructor.name;
     this.code = code;
@@ -12,13 +12,13 @@ export class StateMemoryError extends Error {
 }
 
 export class DatabaseError extends StateMemoryError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, 'DATABASE_ERROR', details);
   }
 }
 
 export class ValidationError extends StateMemoryError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: unknown) {
     super(message, 'VALIDATION_ERROR', details);
   }
 }

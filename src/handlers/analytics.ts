@@ -18,12 +18,14 @@ import {
   BurndownChartSchema,
   VCSBranchSyncSchema,
   VCSMergeResolutionSchema,
+  FindSimilarBlockersSchema,
+  AutoPruneStaleTasksSchema,
   DoctorReportSchema,
   WatchGraphChangesSchema,
 } from '../schema/schemas.js';
-import { AnalyticsEngine } from '../engine/analytics.js';
+import { AnalyticsEngine, findSimilarBlockers } from '../engine/analytics.js';
 import { getNextTasks } from '../engine/work-queue.js';
-import { getStaleNodes } from '../engine/staleness.js';
+import { getStaleNodes, autoPruneStaleTasks } from '../engine/staleness.js';
 import { executeNLQuery } from '../engine/nl-query.js';
 import { validateMemoryReferences } from '../engine/cross-memory-validation.js';
 import { getVelocityAnalytics, getBurndownChart } from '../engine/velocity-analytics.js';
@@ -75,6 +77,20 @@ export const analyticsHandlers = {
   find_blockers: (args: any) => {
     const data = parseArgs(FindBlockersSchema, args);
     return AnalyticsEngine.findBlockers(data);
+  },
+  find_similar_blockers: (args: any) => {
+    const data = parseArgs(FindSimilarBlockersSchema, args);
+    return findSimilarBlockers(data);
+  },
+  auto_prune_stale_tasks: (args: any) => {
+    const data = parseArgs(AutoPruneStaleTasksSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    const db = getDb(projectSlug);
+    return autoPruneStaleTasks(db, {
+      project: projectSlug,
+      older_than: data.older_than,
+      target_status: data.target_status,
+    });
   },
   find_blocked_tasks: (args: any) => {
     const data = parseArgs(FindBlockedTasksSchema, args);

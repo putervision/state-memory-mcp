@@ -9,7 +9,7 @@
  * @param fallback - Optional fallback value if JSON is null, invalid, or malformed.
  * @returns The parsed object or fallback value.
  */
-export function safeJsonParse<T = any>(jsonString: string | null | undefined, fallback: T): T {
+export function safeJsonParse<T = unknown>(jsonString: string | null | undefined, fallback: T): T {
   if (!jsonString) return fallback;
   try {
     return JSON.parse(jsonString);

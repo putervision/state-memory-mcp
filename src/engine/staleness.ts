@@ -109,3 +109,46 @@ export function getStaleNodes(
     count: total_count,
   };
 }
+
+export function autoPruneStaleTasks(
+  db: Database.Database,
+  params: {
+    project: string;
+    older_than?: string;
+    target_status?: string;
+  }
+): { pruned_count: number; updated_node_ids: string[] } {
+  const targetStatus = params.target_status || 'cancelled';
+  const staleInfo = getStaleNodes(db, {
+    project: params.project,
+    older_than: params.older_than || '7d',
+    status: 'in_progress',
+    limit: 100,
+  });
+
+  const updatedIds: string[] = [];
+
+  if (staleInfo.nodes.length > 0) {
+    const nowStr = new Date().toISOString();
+    for (const staleNode of staleInfo.nodes) {
+      const metaStr = JSON.stringify({
+        ...staleNode.metadata,
+        auto_pruned: true,
+        pruned_at: nowStr,
+        pruned_reason: `Task idle for ${staleNode.idle_duration}`,
+      });
+      db.prepare('UPDATE nodes SET status = ?, metadata = ?, updated_at = ? WHERE id = ?').run(
+        targetStatus,
+        metaStr,
+        nowStr,
+        staleNode.id
+      );
+      updatedIds.push(staleNode.id);
+    }
+  }
+
+  return {
+    pruned_count: updatedIds.length,
+    updated_node_ids: updatedIds,
+  };
+}

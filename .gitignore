@@ -16,3 +16,4 @@ temp/
 # vision-memory-mcp local database
 .vision-memory-mcp/
 .env
+.specs/user-authentication-feature-spec.md

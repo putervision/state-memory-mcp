@@ -219,7 +219,7 @@ export const migrations: Migration[] = [
       db.prepare('DROP TRIGGER IF EXISTS nodes_au').run();
     },
   },
-  // Version 8: Cryptographic SHA-256 Session Audit Hash Chaining (Armstrong 2026)
+  // Version 8: Cryptographic SHA-256 Session Audit Hash Chaining
   {
     version: 8,
     description: 'Cryptographic SHA-256 event audit hash chaining',

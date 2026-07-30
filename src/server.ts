@@ -447,6 +447,49 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: 'find_similar_blockers',
+        description: 'Semantic TF-IDF search over solved blockers and observations to discover past resolution patterns.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            query: {
+              type: 'string',
+              description: 'Natural language description of the problem or blocker.',
+            },
+            limit: {
+              type: 'number',
+              description: 'Maximum number of matching blocker nodes to return. Defaults to 10.',
+            },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'auto_prune_stale_tasks',
+        description: 'Automatically transition inactive in_progress tasks idle for longer than a specified threshold.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project: {
+              type: 'string',
+              description: 'Optional project identifier.',
+            },
+            older_than: {
+              type: 'string',
+              description: 'Inactivity duration threshold (e.g. 7d, 24h). Defaults to 7d.',
+            },
+            target_status: {
+              type: 'string',
+              description: 'Status to set pruned tasks to. Defaults to cancelled.',
+            },
+          },
+        },
+      },
+      {
         name: 'get_project_summary',
         description: 'Retrieve a high-level project summary: counts, status breakdowns, progress, decisions, and blockers.',
         inputSchema: {
@@ -1683,7 +1726,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         const isDestructive = ['remove_node', 'remove_edge', 'restore_project_db', 'import_graph', 'undo_last', 'prune_events'].includes(t.name);
         const isReadOnly = [
           'get_node', 'list_nodes', 'search_nodes', 'get_subgraph', 'trace_dependencies',
-          'find_blockers', 'get_project_summary', 'decision_trail', 'critical_path',
+          'find_blockers', 'find_similar_blockers', 'get_project_summary', 'decision_trail', 'critical_path',
           'impact_analysis', 'detect_contradictions', 'export_graph', 'query_graph', 'natural_language_query', 'read_blackboard', 'post_mortem_from_session', 'get_state_at_timestamp', 'validate_memory_references', 'velocity_analytics', 'burndown_chart', 'export_issues', 'vcs_branch_sync', 'doctor_report', 'watch_graph_changes',
           'backup_project_db', 'audit_project_db', 'get_context_snapshot',
           'find_related_decisions', 'find_blocked_tasks', 'value_metrics',

@@ -344,24 +344,30 @@ export const MetadataSchema = z.record(z.unknown()).refine(
   (val) => {
     try {
       const str = JSON.stringify(val);
-      return str.length <= 50000;
+      return str.length <= 512000;
     } catch {
       return false;
     }
   },
-  { message: 'Metadata must be a JSON-serializable object of max 50,000 characters stringified' }
+  {
+    message:
+      'Metadata must be a JSON-serializable object of max 500 KB (512,000 characters stringified)',
+  }
 );
 
 export const PropertiesSchema = z.record(z.unknown()).refine(
   (val) => {
     try {
       const str = JSON.stringify(val);
-      return str.length <= 50000;
+      return str.length <= 512000;
     } catch {
       return false;
     }
   },
-  { message: 'Properties must be a JSON-serializable object of max 50,000 characters stringified' }
+  {
+    message:
+      'Properties must be a JSON-serializable object of max 500 KB (512,000 characters stringified)',
+  }
 );
 
 export const AddNodeSchema = z.object({
@@ -500,6 +506,18 @@ export const FindBlockersSchema = z.object({
 
 export const GetProjectSummarySchema = z.object({
   project: z.string().optional(),
+});
+
+export const FindSimilarBlockersSchema = z.object({
+  project: z.string().optional(),
+  query: z.string().min(1, 'query is required'),
+  limit: z.number().optional().default(10),
+});
+
+export const AutoPruneStaleTasksSchema = z.object({
+  project: z.string().optional(),
+  older_than: z.string().optional().default('7d'),
+  target_status: z.string().optional().default('cancelled'),
 });
 
 export const DecisionTrailSchema = z.object({

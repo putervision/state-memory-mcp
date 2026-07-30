@@ -1,6 +1,6 @@
-# 📘 @putervision/state-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.8.2)
+# 📘 @putervision/state-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.9.0)
 
-This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 80 Model Context Protocol (MCP) tools provided by `@putervision/state-memory-mcp`.
+This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 81 Model Context Protocol (MCP) tools provided by `@putervision/state-memory-mcp`.
 
 ---
 
@@ -178,5 +178,33 @@ This document provides formal API specifications, parameter schemas, return shap
 {
   "project": "my-app",
   "since_event_id": 120
+}
+```
+
+---
+
+## 5. RAG & Automation Tools
+
+### `find_similar_blockers`
+- **Overview**: Semantic TF-IDF search over historical observations and resolved blockers to discover past resolution patterns.
+- **How to Leverage**: When encountering a tricky error or blocker, call `find_similar_blockers(query: "database pool timeout")` to retrieve solved blockers and past technical notes with similar resolution patterns.
+- **Request Payload**:
+```json
+{
+  "project": "my-app",
+  "query": "database connection pool timeout under load",
+  "limit": 5
+}
+```
+
+### `auto_prune_stale_tasks`
+- **Overview**: Automatically transitions inactive `in_progress` tasks idle beyond a specified duration threshold.
+- **How to Leverage**: Call `auto_prune_stale_tasks(older_than: "7d", target_status: "cancelled")` to keep task queues clean and prevent stale tasks from cluttering context.
+- **Request Payload**:
+```json
+{
+  "project": "my-app",
+  "older_than": "7d",
+  "target_status": "cancelled"
 }
 ```

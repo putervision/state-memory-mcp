@@ -7,6 +7,7 @@ import { DatabaseError } from '../utils/errors.js';
 import { parseDuration } from './staleness.js';
 import { resolveProjectRoot } from './db.js';
 import { loadProjectConfig } from './config.js';
+import { contextNotifier } from './notifications.js';
 
 export interface EventRecord {
   id: string;
@@ -27,7 +28,7 @@ export class EventEngine {
   static droppedEventCount = 0;
 
   /**
-   * Log a state transition event to the database with cryptographic SHA-256 hash chaining (Armstrong 2026)
+   * Log a state transition event to the database with cryptographic SHA-256 hash chaining
    */
   static logEvent(
     db: Database.Database,
@@ -114,6 +115,37 @@ export class EventEngine {
           timestamp,
           metaStr
         );
+      }
+
+      // Notify contextNotifier listeners and webhooks
+      contextNotifier.notify({
+        project: params.project,
+        eventType: params.event_type,
+        entityType: params.entity_type,
+        entityId: params.entity_id,
+        timestamp,
+        payload: params.after_state || params.before_state,
+      });
+
+      // Periodic check for automated event log retention (>100,000 records)
+      if (Math.random() < 0.02) {
+        try {
+          const countRow = db
+            .prepare('SELECT COUNT(*) as count FROM events WHERE project = ?')
+            .get(params.project) as { count?: number } | undefined;
+          if (countRow && (countRow.count || 0) > 100000) {
+            logger.info(
+              `Automated event retention: Pruning events older than 30d for project ${params.project}...`
+            );
+            EventEngine.pruneEvents(db, {
+              project: params.project,
+              older_than: '30d',
+              dry_run: false,
+            });
+          }
+        } catch {
+          // Ignore background auto-pruning error
+        }
       }
     } catch (err: any) {
       EventEngine.droppedEventCount++;

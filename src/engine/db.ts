@@ -88,7 +88,17 @@ export function registerProject(name: string, projectPath: string): void {
       encoding: 'utf-8',
       mode: 0o600,
     });
-    fs.renameSync(tempPath, REGISTRY_PATH);
+    try {
+      fs.renameSync(tempPath, REGISTRY_PATH);
+    } catch (renameErr) {
+      // Cross-platform fallback for Windows file locking edge cases
+      fs.copyFileSync(tempPath, REGISTRY_PATH);
+      try {
+        fs.unlinkSync(tempPath);
+      } catch {
+        // Ignore cleanup error
+      }
+    }
   } catch (e) {
     logger.error('Failed to register project in global registry:', e);
   }

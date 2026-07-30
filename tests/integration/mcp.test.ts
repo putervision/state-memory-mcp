@@ -45,9 +45,11 @@ describe('MCP Server Integration Tests', () => {
   it('should list available tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(79);
+    expect(tools.tools.length).toBe(81);
 
     const toolNames = tools.tools.map((t) => t.name);
+    expect(toolNames).toContain('find_similar_blockers');
+    expect(toolNames).toContain('auto_prune_stale_tasks');
     expect(toolNames).toContain('link_visual_state');
     expect(toolNames).toContain('export_joint_trajectories');
     expect(toolNames).toContain('get_synergy_metrics');

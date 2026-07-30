@@ -67,6 +67,8 @@ Append-only event sourcing audit ledger logging every node and edge mutation.
 | `project` | `TEXT` | `NOT NULL` | Project slug |
 | `timestamp` | `TEXT` | `NOT NULL` | ISO 8601 UTC timestamp |
 | `metadata` | `TEXT` | `NOT NULL DEFAULT '{}'` | Additional event provenance metadata |
+| `hash` | `TEXT` | `NULL` | SHA-256 cryptographic hash of event payload and preceding hash (migration v8) |
+| `prev_hash` | `TEXT` | `NULL` | Cryptographic hash of preceding event for tamper-evident chaining |
 
 #### Indexes:
 - `idx_events_project_timestamp` ON `events(project, timestamp DESC)`

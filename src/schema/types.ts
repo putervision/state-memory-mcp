@@ -12,6 +12,20 @@ export type NodeType =
   | 'contract'
   | 'visual_state';
 
+/** Branded nominal type for Node IDs */
+export type NodeId = string & { readonly __brand: unique symbol };
+
+/** Branded nominal type for Edge IDs */
+export type EdgeId = string & { readonly __brand: unique symbol };
+
+export function toNodeId(id: string): NodeId {
+  return id as NodeId;
+}
+
+export function toEdgeId(id: string): EdgeId {
+  return id as EdgeId;
+}
+
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'blocked' | 'cancelled';
 export type DecisionStatus = 'proposed' | 'accepted' | 'rejected' | 'superseded';
 export type ArtifactStatus = 'draft' | 'current' | 'outdated' | 'archived';
@@ -57,7 +71,7 @@ export interface BaseNode {
   metadata: Record<string, unknown>; // Extensible JSON blob
   tags: string[]; // Freeform tags for filtering
   project: string; // Project scope
-  pillar?: StatePillar; // Seven Pillars of Compliant Agent State (Armstrong 2026)
+  pillar?: StatePillar; // Seven Pillars of Compliant Agent State
   git_branch?: string; // Optional branch name for context isolation
   commit_hash?: string; // Optional commit hash for Git observations/tasks
   version?: number; // Optimistic concurrency version

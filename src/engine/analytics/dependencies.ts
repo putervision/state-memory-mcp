@@ -2,6 +2,7 @@ import { getDb, getProjectSlug } from '../db.js';
 import { BaseNode, NodeRow } from '../../schema/types.js';
 import { getCurrentBranch } from '../../utils/git.js';
 import { parseNodeRow } from '../row-mappers.js';
+import { searchTfidf } from '../tfidf.js';
 
 export interface DependencyTraceItem {
   node: BaseNode;
@@ -286,6 +287,7 @@ export function getProjectSummary(params: { project?: string }): {
     completed_tasks: number;
     pct: number;
   };
+  recommended_next_tools?: string[];
 } {
   const projectSlug = getProjectSlug(params.project);
   const db = getDb(projectSlug);
@@ -347,6 +349,20 @@ export function getProjectSummary(params: { project?: string }): {
   const completed = completed_tasks ? completed_tasks.count : 0;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
+  const recommended_next_tools: string[] = [];
+  if (active_blockers.length > 0) {
+    recommended_next_tools.push('find_blockers', 'add_note');
+  }
+  if (node_counts.task > 0) {
+    recommended_next_tools.push('complete_task', 'next_tasks');
+  }
+  if (node_counts.artifact > 0) {
+    recommended_next_tools.push('validate_memory_references');
+  }
+  if (node_counts.visual_state > 0 || (node_counts.acceptance_criterion || 0) > 0) {
+    recommended_next_tools.push('link_visual_state', 'verify_requirement');
+  }
+
   return {
     node_counts,
     status_breakdown,
@@ -357,5 +373,25 @@ export function getProjectSummary(params: { project?: string }): {
       completed_tasks: completed,
       pct,
     },
+    recommended_next_tools,
   };
+}
+
+export function findSimilarBlockers(params: {
+  project?: string;
+  query: string;
+  limit?: number;
+}): BaseNode[] {
+  const projectSlug = getProjectSlug(params.project);
+  const db = getDb(projectSlug);
+  const limit = params.limit !== undefined ? params.limit : 10;
+
+  const rows = db
+    .prepare(
+      `SELECT * FROM nodes WHERE project = ? AND (type = 'observation' OR type = 'blocker')`
+    )
+    .all(projectSlug) as NodeRow[];
+
+  const nodes = rows.map(parseNodeRow);
+  return searchTfidf(nodes, params.query, limit);
 }

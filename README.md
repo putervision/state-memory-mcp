@@ -44,7 +44,7 @@ npm install --save-dev @putervision/state-memory-mcp
 
 1. **Deterministic State Memory**: No LLM in the loop; all operations are structured, deterministic, and fast.
 2. **SQLite Storage**: Zero-infrastructure database persisted project-locally (under `.state-memory-mcp/`) or globally.
-3. **80 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, natural language text-to-graph querying (`natural_language_query`), multi-agent optimistic CAS concurrency & blackboard store (`post_blackboard`, `read_blackboard`), atomic compound feature decomposition (`plan_and_decompose_feature`, `post_mortem_from_session`), time-travel history recovery (`get_state_at_timestamp`, `revert_to_timestamp`), cross-memory validation & auto-healing (`validate_memory_references`), velocity & burndown time-series analytics (`velocity_analytics`, `burndown_chart`), bidirectional issue sync (`export_issues`, `import_issues`), VCS branch sync & merge resolution (`vcs_branch_sync`, `vcs_merge_resolution`), automated compaction & historical archiving (`compact_graph`, `archive_completed_nodes`), health doctor & watcher (`doctor_report`, `watch_graph_changes`), value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, cryptographic SHA-256 session audit verification (`verify_audit_chain`), state rollback/undo, compound workflow tools (`bootstrap_session`, `complete_task`, `batch_create_nodes`, `batch_add_edges`), selective field projections (`fields`), self-healing graph repair (`auto_fix`), dynamic resources, and workflow prompts.
+3. **81 Core MCP Tools**: Covers Node CRUD, relationship linking, circular dependency rejection, full-text search (FTS5), dependency path tracing, blocker analysis, semantic blocker RAG search (`find_similar_blockers`), automated staleness pruning (`auto_prune_stale_tasks`), natural language text-to-graph querying (`natural_language_query`), multi-agent optimistic CAS concurrency & blackboard store (`post_blackboard`, `read_blackboard`), atomic compound feature decomposition (`plan_and_decompose_feature`, `post_mortem_from_session`), time-travel history recovery (`get_state_at_timestamp`, `revert_to_timestamp`), cross-memory validation & auto-healing (`validate_memory_references`), velocity & burndown time-series analytics (`velocity_analytics`, `burndown_chart`), bidirectional issue sync (`export_issues`, `import_issues`), VCS branch sync & merge resolution (`vcs_branch_sync`, `vcs_merge_resolution`), automated compaction & historical archiving (`compact_graph`, `archive_completed_nodes`), health doctor & watcher (`doctor_report`, `watch_graph_changes`), value analytics, database administration utilities, template scaffolding, agent QoL context tools, session lifecycle tracking, event logging, cryptographic SHA-256 session audit verification (`verify_audit_chain`), state rollback/undo, compound workflow tools (`bootstrap_session`, `complete_task`, `batch_create_nodes`, `batch_add_edges`), selective field projections (`fields`), self-healing graph repair (`auto_fix`), dynamic resources, and workflow prompts.
 4. **Interactive 3D HTML Visualizer**: Easily export or view your project state graph in your browser using an interactive, dark-themed WebGL 3D Force-Directed Graph visualizer built with `3d-force-graph` / Three.js.
 5. **Safe SQL Querying**: Safe read-only SELECT querying against the database for advanced analytics.
 6. **Git Branch Awareness**: Dynamically tracks and filters states based on the checkout workspace Git branch.
@@ -598,3 +598,19 @@ By using this software, you acknowledge and agree that the authors and contribut
 ### Trademarks & Non-Affiliation Notice
 
 All product names, trademarks, service marks, logos, and brands (such as Cursor, Claude Code, OpenAI, Gemini, Windsurf, GitHub, and SQLite) referenced in this project and documentation are the property of their respective owners. References to third-party products, services, or companies are strictly for compatibility identification and descriptive purposes only, and do not constitute or imply endorsement, sponsorship, or affiliation with PuterVision LLC.
+
+---
+
+## ⚖️ PuterVision Legal & Usage Disclaimers
+
+> [!IMPORTANT]
+> **Data Privacy & Local Storage Guarantee**  
+> `state-memory-mcp` is designed and built by PuterVision LLC with a strict **local-first privacy architecture**. All task DAGs, decision records, session event logs, and visual state embeddings are stored 100% locally in your workspace's `.state-memory-mcp/state.db` SQLite database. No project data, code snippets, or workflow logs are ever transmitted, telemetry-tracked, or collected by PuterVision LLC.
+
+> [!WARNING]
+> **Third-Party AI Model & API Fees Disclaimer**  
+> `state-memory-mcp` is an open-source Model Context Protocol (MCP) server released under the MIT License. It interfaces with third-party LLM providers and coding clients (including Anthropic Claude, OpenAI GPT-4o, xAI Grok, Google Gemini, and Ollama). Using AI coding clients may incur API token usage fees billed directly by those respective providers. PuterVision LLC is not responsible for third-party API charges incurred while executing MCP agent sessions.
+
+> [!NOTE]
+> **Performance & ROI Estimates**  
+> Token savings ratios (up to 462×), execution latency reductions (up to 74%), and agent performance benchmarks cited in documentation are derived from controlled multi-turn software development benchmarks. Actual performance gains and token savings will vary depending on workspace size, LLM provider model choice, prompt frequency, and individual workflow complexity.

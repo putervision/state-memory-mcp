@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-07-29
+
+### Minor Version Bump & Release Hardening (81 Core MCP Tools)
+- **Tool Count Harmonization**: Standardized all documentation, manifests, and website artifacts to explicitly detail **81 Core MCP Tools**.
+- **Branded Type Safety**: Implemented compile-time `NodeId` and `EdgeId` nominal branded types and helper constructors (`toNodeId`, `toEdgeId`) in `src/schema/types.ts` to prevent argument order swapping across graph engines.
+- **Workflow Example Library**: Created `docs/examples/` containing step-by-step agent workflow guides for Spec-Driven Development (`feature-implementation.md`), blocker tracking and RAG (`debugging-workflow.md`), and post-mortems (`post-mortem-workflow.md`).
+- **Performance Benchmarking Test Suite**: Added 1,000+ node scalability and query performance benchmarks (`tests/performance/graph-traversal.test.ts`) enforcing sub-3.5s batch throughput SLAs.
+- **Security Hardening**: Enforced 500 KB (`512,000` chars) payload cap in custom `Schema<T>` validation; implemented SSRF URL validation restricting webhooks to `http:`/`https:` and blocking private IPs unless explicitly permitted; added cross-platform Windows registry lock guard.
+- **Multi-Memory Synergy & AST Linking**: Integrated `codebase-memory-mcp` AST symbol deep-linking in `validate_memory_references`; expanded `vision-memory-mcp` dual-memory trajectory alignment and SDD criteria verification.
+- **Agent RAG & Staleness Automation**: Added `find_similar_blockers` tool leveraging TF-IDF vector search over observations and resolved blockers; implemented `autoPruneStaleTasks` engine and `recommended_next_tools` generator in work queue responses.
+- **Database Scalability & Concurrency**: Tuned SQLite pragmas (`busy_timeout = 5000`, WAL mode, `synchronous = NORMAL`); added FTS5 fallback guards; implemented automated event log retention pruning (>100,000 records).
+
 ## [0.8.2] - 2026-07-28
 
 ### Fixes & Scaffolding Improvements
@@ -60,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.4] - 2026-07-24
 
 ### Added
-- **Cryptographic SHA-256 Event Chaining & Session Audit Verification** (Armstrong 2026, Section 8):
+- **Cryptographic SHA-256 Event Chaining & Session Audit Verification**:
   - Database migration `v8`: Added `hash` and `prev_hash` columns to the `events` table.
   - Implemented cryptographic event chaining: $H_n = \text{SHA-256}(H_{n-1} \parallel \text{event}_n)$ in `EventEngine.logEvent()`.
   - Added `verify_audit_chain` MCP tool and `EventEngine.verifyAuditChain()` method to mathematically verify non-repudiable log integrity and detect tampered or deleted events.

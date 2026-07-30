@@ -8,6 +8,7 @@ export interface NextTask {
   priority_reason: string;
   blocked_by: string[];
   blocks: string[];
+  recommended_next_tools?: string[];
 }
 
 export function getNextTasks(
@@ -18,7 +19,7 @@ export function getNextTasks(
     limit?: number;
     include_context?: boolean;
   }
-): { tasks: NextTask[]; summary: string } {
+): { tasks: NextTask[]; summary: string; recommended_next_tools: string[] } {
   const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch() || '*';
   const limit = params.limit !== undefined ? params.limit : 5;
 
@@ -100,11 +101,17 @@ export function getNextTasks(
       priorityReason = 'unblocked';
     }
 
+    const taskRecs: string[] = ['complete_task', 'add_note'];
+    if (task.title.toLowerCase().includes('ui') || task.title.toLowerCase().includes('layout')) {
+      taskRecs.push('link_visual_state', 'verify_requirement');
+    }
+
     nextTasksList.push({
       node: task,
       priority_reason: priorityReason,
       blocked_by: blockersList,
       blocks: blocksList,
+      recommended_next_tools: taskRecs,
     });
   }
 
@@ -129,8 +136,14 @@ export function getNextTasks(
   const blockingOthers = unblockedTasks.filter((t) => t.blocks.length > 0).length;
   const summary = `${totalUnblocked} unblocked tasks, ${blockingOthers} blocking others.`;
 
+  const globalRecs: string[] = ['complete_task', 'add_note', 'validate_graph'];
+  if (unblockedTasks.some((t) => t.node.title.toLowerCase().includes('ui'))) {
+    globalRecs.push('link_visual_state');
+  }
+
   return {
     tasks: paginatedTasks,
     summary,
+    recommended_next_tools: globalRecs,
   };
 }

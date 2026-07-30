@@ -1,6 +1,6 @@
 {
   "name": "@putervision/state-memory-mcp",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "keywords": [
     "mcp",
@@ -32,7 +32,7 @@
     "state-rollback",
     "undo-last"
   ],
-  "homepage": "https://putervision.github.io/state-memory-mcp",
+  "homepage": "https://statememorymcp.com",
   "bugs": {
     "url": "https://github.com/putervision/state-memory-mcp/issues"
   },

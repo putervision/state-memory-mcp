@@ -24,7 +24,7 @@ describe('System Doctor & Graph Health Watcher Engine', () => {
     const report = getDoctorReport({ project });
 
     expect(report.status).toBe('healthy');
-    expect(report.schema_version).toBe(10);
+    expect(report.schema_version).toBe(11);
     expect(report.total_nodes).toBe(1);
     expect(report.db_size_bytes).toBeGreaterThan(0);
   });

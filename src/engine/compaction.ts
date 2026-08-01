@@ -22,12 +22,11 @@ export function archiveCompletedNodes(params: {
     )
     .all(projectSlug, cutoffDate) as { id: string }[];
 
-  const archivedIds: string[] = [];
-  for (const node of eligibleNodes) {
-    db.prepare("UPDATE nodes SET metadata = json_set(metadata, '$.archived', 1) WHERE id = ?").run(
-      node.id
-    );
-    archivedIds.push(node.id);
+  const archivedIds = eligibleNodes.map((n) => n.id);
+  if (archivedIds.length > 0) {
+    db.prepare(
+      "UPDATE nodes SET metadata = json_set(metadata, '$.archived', 1) WHERE project = ? AND type = 'task' AND status = 'done' AND updated_at < ?"
+    ).run(projectSlug, cutoffDate);
   }
 
   return {

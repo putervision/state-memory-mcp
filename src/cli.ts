@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { logger } from './utils/logger.js';
 import { resolveProjectRoot } from './engine/db.js';
-import { runInit } from './cli/init.js';
+import { runInit, runInitGlobal } from './cli/init.js';
 import { VERSION } from './utils/version.js';
 import { inspectAction } from './cli/commands/inspect.js';
 import { doctorAction } from './cli/commands/doctor.js';
@@ -364,6 +364,24 @@ program
       createTasks: options.tasks !== false,
       createArtifacts: options.artifacts !== false,
       pruneEvents: options.pruneEvents,
+    });
+  });
+
+// Init-global command to re-initialize all registered projects in global index
+program
+  .command('init-global')
+  .description('Re-initialize state-memory-mcp across all projects registered in ~/.state-memory-mcp/projects.json')
+  .option('--clean-stale', 'Remove stale project registrations for paths that no longer exist on disk')
+  .option('--scan <dir>', 'Scan directory for unregistered state-memory-mcp project folders and register them before init')
+  .option('--no-git', 'Skip populating graph from git commit history')
+  .option('--commits <n>', 'Number of commits to analyze', '30')
+  .action(async (options) => {
+    const commitsCount = parsePositiveInt(options.commits, '--commits', 30);
+    await runInitGlobal({
+      cleanStale: options.cleanStale,
+      scan: options.scan,
+      fromGit: options.git !== false,
+      commits: commitsCount,
     });
   });
 

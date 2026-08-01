@@ -10,12 +10,12 @@
 ## Tables Overview
 
 ### 1. `nodes` Table
-Stores graph nodes representing workflow entities (`task`, `decision`, `artifact`, `plan`, `milestone`, `blocker`, `observation`).
+Stores graph nodes representing workflow entities (`task`, `decision`, `artifact`, `plan`, `milestone`, `blocker`, `observation`, `spec`, `requirement`, `acceptance_criterion`, `contract`, `visual_state`).
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | `id` | `TEXT` | `PRIMARY KEY` | Unique ULID identifier (26 chars) |
-| `type` | `TEXT` | `NOT NULL` | Node entity type (`task`, `decision`, `artifact`, `plan`, `milestone`, `blocker`, `observation`) |
+| `type` | `TEXT` | `NOT NULL` | Node entity type (`task`, `decision`, `artifact`, `plan`, `milestone`, `blocker`, `observation`, `spec`, `requirement`, `acceptance_criterion`, `contract`, `visual_state`) |
 | `title` | `TEXT` | `NOT NULL` | Short human-readable title/label |
 | `status` | `TEXT` | `NOT NULL` | Status string (`pending`, `in_progress`, `done`, `blocked`, `cancelled`, `accepted`, `draft`, `current`) |
 | `project` | `TEXT` | `NOT NULL` | Sanitized project slug |

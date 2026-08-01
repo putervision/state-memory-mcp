@@ -23,8 +23,8 @@ export function getNextTasks(
   const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch() || '*';
   const limit = params.limit !== undefined ? params.limit : 5;
 
-  // 1. Fetch nodes in the project (filtering for tasks and potential blockers)
-  let nodesSql = 'SELECT * FROM nodes WHERE project = ?';
+  // 1. Fetch nodes in the project (filtering specifically for tasks and blockers)
+  let nodesSql = "SELECT * FROM nodes WHERE project = ? AND type IN ('task', 'blocker')";
   const nodesArgs: any[] = [params.project];
   if (branch !== '*') {
     if (branch === null) {

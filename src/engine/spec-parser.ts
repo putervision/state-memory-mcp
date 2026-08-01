@@ -4,6 +4,8 @@ import * as path from 'path';
 import { GraphEngine } from './graph.js';
 import { EdgeEngine } from './edges.js';
 import { BaseNode, NodeType, EdgeType } from '../schema/types.js';
+import { validatePath, loadPathConfig } from '../utils/path-validator.js';
+import { resolveProjectRoot } from './db.js';
 import { logger } from '../utils/logger.js';
 
 export interface ParsedCriterion {
@@ -165,15 +167,14 @@ export function ingestSpecFile(
     session_id?: string;
   }
 ): { spec_node_id: string; requirements_count: number; criteria_count: number } {
-  const fullPath = path.resolve(params.filePath);
-  if (!fs.existsSync(fullPath)) {
-    throw new Error(`Specification file does not exist at path: ${params.filePath}`);
-  }
+  const projectRoot = resolveProjectRoot(params.project);
+  const pathConfig = loadPathConfig(projectRoot);
+  const validatedPath = validatePath(params.filePath, { ...pathConfig, mustExist: true });
 
-  const content = fs.readFileSync(fullPath, 'utf-8');
+  const content = fs.readFileSync(validatedPath, 'utf-8');
   let format = params.format || 'auto';
   if (format === 'auto') {
-    format = fullPath.endsWith('.feature') ? 'gherkin' : 'markdown';
+    format = validatedPath.endsWith('.feature') ? 'gherkin' : 'markdown';
   }
 
   const parsed = format === 'gherkin' ? parseGherkinSpec(content) : parseMarkdownSpec(content);

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { BaseNode } from '../schema/types.js';
 
 interface ScoredNode {
@@ -213,8 +214,36 @@ interface CachedCorpus {
   docWeightsList: Map<string, Map<string, number>>;
 }
 
+const MAX_CORPUS_CACHE_ENTRIES = 10;
+const MAX_TOKENIZED_NODES_ENTRIES = 2000;
+
 const corpusCache = new Map<string, CachedCorpus>();
 const tokenizedNodesCache = new Map<string, { tokens: string[]; updatedAt: string }>();
+
+export function clearTfidfCache(nodeId?: string) {
+  if (nodeId) {
+    tokenizedNodesCache.delete(nodeId);
+  } else {
+    tokenizedNodesCache.clear();
+    corpusCache.clear();
+  }
+}
+
+function setTokenizedNodeCache(id: string, value: { tokens: string[]; updatedAt: string }) {
+  if (tokenizedNodesCache.size >= MAX_TOKENIZED_NODES_ENTRIES) {
+    const oldestKey = tokenizedNodesCache.keys().next().value;
+    if (oldestKey) tokenizedNodesCache.delete(oldestKey);
+  }
+  tokenizedNodesCache.set(id, value);
+}
+
+function setCorpusCache(projectKey: string, corpus: CachedCorpus) {
+  if (corpusCache.size >= MAX_CORPUS_CACHE_ENTRIES) {
+    const oldestKey = corpusCache.keys().next().value;
+    if (oldestKey) corpusCache.delete(oldestKey);
+  }
+  corpusCache.set(projectKey, corpus);
+}
 
 function getOrTokenizeNode(node: BaseNode): string[] {
   const cached = tokenizedNodesCache.get(node.id);
@@ -229,7 +258,7 @@ function getOrTokenizeNode(node: BaseNode): string[] {
     extractMetadataText(node.metadata),
   ].join(' ');
   const tokens = tokenize(text);
-  tokenizedNodesCache.set(node.id, { tokens, updatedAt: node.updated_at || '' });
+  setTokenizedNodeCache(node.id, { tokens, updatedAt: node.updated_at || '' });
   return tokens;
 }
 
@@ -254,7 +283,9 @@ export function searchTfidf(nodes: BaseNode[], query: string, limit: number): Ba
       maxUpdatedAt = node.updated_at;
     }
   }
-  const fingerprint = `${project}:${N}:${maxUpdatedAt}:${sortedIds.join(',')}`;
+  const rawIdString = sortedIds.join(',');
+  const hash = crypto.createHash('sha256').update(rawIdString).digest('hex').substring(0, 16);
+  const fingerprint = `${project}:${N}:${maxUpdatedAt}:${hash}`;
 
   let corpus = corpusCache.get(project);
   if (!corpus || corpus.fingerprint !== fingerprint) {
@@ -269,36 +300,30 @@ export function searchTfidf(nodes: BaseNode[], query: string, limit: number): Ba
       for (const token of uniqueTokens) {
         dfMap.set(token, (dfMap.get(token) || 0) + 1);
       }
-
-      // Compute TF
-      const tf = new Map<string, number>();
-      for (const token of tokens) {
-        tf.set(token, (tf.get(token) || 0) + 1);
-      }
-      docTfs.set(node.id, tf);
     }
 
-    const getIdfVal = (term: string): number => {
-      const df = dfMap.get(term) || 0;
-      if (df === 0) return 0;
-      return Math.log(1 + N / df);
-    };
-
-    // Precompute document weights and norms
+    // 2. Compute TF-IDF vector weights for each document
     const docWeightsList = new Map<string, Map<string, number>>();
     const docNorms = new Map<string, number>();
 
     for (const node of nodes) {
-      const tfMap = docTfs.get(node.id)!;
-      const docWeights = new Map<string, number>();
-      let docNormSq = 0;
-
-      for (const [token, count] of tfMap.entries()) {
-        const idf = getIdfVal(token);
-        const weight = count * idf;
-        docWeights.set(token, weight);
-        docNormSq += weight * weight;
+      const tokens = getOrTokenizeNode(node);
+      const tfMap = new Map<string, number>();
+      for (const token of tokens) {
+        tfMap.set(token, (tfMap.get(token) || 0) + 1);
       }
+      docTfs.set(node.id, tfMap);
+
+      let docNormSq = 0;
+      const docWeights = new Map<string, number>();
+      for (const [token, tf] of tfMap.entries()) {
+        const df = dfMap.get(token) || 0;
+        const idf = Math.log(1 + N / df);
+        const tfidf = tf * idf;
+        docWeights.set(token, tfidf);
+        docNormSq += tfidf * tfidf;
+      }
+
       docWeightsList.set(node.id, docWeights);
       docNorms.set(node.id, Math.sqrt(docNormSq));
     }
@@ -310,7 +335,7 @@ export function searchTfidf(nodes: BaseNode[], query: string, limit: number): Ba
       docNorms,
       docWeightsList,
     };
-    corpusCache.set(project, corpus);
+    setCorpusCache(project, corpus);
   }
 
   const { dfMap, docTfs, docNorms, docWeightsList } = corpus;

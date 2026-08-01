@@ -68,39 +68,39 @@ export class QueryEngine {
     let total_count = 0;
 
     if (!skipRoot) {
-      let sql = `SELECT ${columns} FROM nodes WHERE project = ?`;
+      let whereClause = ' WHERE project = ?';
       const queryParams: any[] = [projectSlug];
 
       const branch = params.git_branch !== undefined ? params.git_branch : getCurrentBranch();
       if (branch !== '*') {
-        sql += ' AND git_branch = ?';
+        whereClause += ' AND git_branch = ?';
         queryParams.push(branch);
       }
 
       if (params.type) {
-        sql += ' AND type = ?';
+        whereClause += ' AND type = ?';
         queryParams.push(params.type);
       }
 
       if (params.status) {
-        sql += ' AND status = ?';
+        whereClause += ' AND status = ?';
         queryParams.push(params.status);
       }
 
       if (params.tags && params.tags.length > 0) {
         for (const tag of params.tags) {
-          sql += ` AND EXISTS (
+          whereClause += ` AND EXISTS (
             SELECT 1 FROM json_each(nodes.tags) WHERE value = ?
           )`;
           queryParams.push(tag);
         }
       }
 
-      const countSql = `SELECT COUNT(*) as total FROM (${sql})`;
+      const countSql = `SELECT COUNT(*) as total FROM nodes${whereClause}`;
       const countRow = db.prepare(countSql).get(...queryParams) as any;
       total_count += countRow ? countRow.total : 0;
 
-      const paginatedSql = sql + ' ORDER BY created_at DESC LIMIT ?';
+      const paginatedSql = `SELECT ${columns} FROM nodes${whereClause} ORDER BY created_at DESC LIMIT ?`;
       const rows = db.prepare(paginatedSql).all(...queryParams, perDbLimit) as NodeRow[];
       allNodes.push(...rows.map(parseNodeRow).map((n) => projectNodeFields(n, params.fields)));
     }

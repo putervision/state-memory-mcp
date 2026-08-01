@@ -258,15 +258,14 @@ describe('MCP Server Integration Tests', () => {
   });
 
   it('should return error for invalid tool arguments', async () => {
-    await expect(
-      client.callTool({
-        name: 'add_node',
-        arguments: {
-          project,
-          type: 'invalid-type',
-          title: '',
-        },
-      })
-    ).rejects.toThrow();
+    const res = await client.callTool({
+      name: 'add_node',
+      arguments: {
+        project,
+        type: 'invalid-type',
+        title: '',
+      },
+    });
+    expect(res.isError).toBe(true);
   });
 });

@@ -31,28 +31,74 @@ export function validatePath(filePath: string, project?: string): string {
   return validatePathCore(filePath, pathConfig);
 }
 
-const REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp-registry.json');
+const REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp', 'projects.json');
+const LEGACY_REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp-registry.json');
 
 let registryCache: { registry: Record<string, string>; timestamp: number } | null = null;
 const REGISTRY_TTL_MS = 2000; // 2 seconds TTL
+let hasCleanedTempRegistry = false;
 
-function getRegistry(): Record<string, string> {
+function cleanupTempRegistryFiles(): void {
+  if (hasCleanedTempRegistry) return;
+  hasCleanedTempRegistry = true;
+  try {
+    const home = path.dirname(REGISTRY_PATH);
+    if (!fs.existsSync(home)) return;
+    const prefix = 'projects.json.tmp.';
+    const files = fs.readdirSync(home);
+    for (const f of files) {
+      if (f.startsWith(prefix)) {
+        try {
+          fs.unlinkSync(path.join(home, f));
+          logger.debug(`Cleaned up orphaned registry temp file: ${f}`);
+        } catch {
+          // Ignore removal error
+        }
+      }
+    }
+  } catch (err: any) {
+    logger.debug(`Could not clean up temp registry files: ${err.message}`);
+  }
+}
+
+export function getRegistry(): Record<string, string> {
+  cleanupTempRegistryFiles();
   const now = Date.now();
   if (registryCache && now - registryCache.timestamp < REGISTRY_TTL_MS) {
     return registryCache.registry;
   }
 
   try {
-    if (fs.existsSync(REGISTRY_PATH)) {
-      const raw = fs.readFileSync(REGISTRY_PATH, 'utf-8');
+    const targetPath = fs.existsSync(REGISTRY_PATH)
+      ? REGISTRY_PATH
+      : fs.existsSync(LEGACY_REGISTRY_PATH)
+        ? LEGACY_REGISTRY_PATH
+        : null;
+
+    if (targetPath) {
+      const raw = fs.readFileSync(targetPath, 'utf-8');
       try {
         const registry = JSON.parse(raw) || {};
         registryCache = { registry, timestamp: now };
+
+        // Auto-migrate legacy registry file if needed
+        if (targetPath === LEGACY_REGISTRY_PATH && !fs.existsSync(REGISTRY_PATH)) {
+          try {
+            const dir = path.dirname(REGISTRY_PATH);
+            fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2), {
+              encoding: 'utf-8',
+              mode: 0o600,
+            });
+            logger.info(`Migrated legacy project registry to: ${REGISTRY_PATH}`);
+          } catch {}
+        }
+
         return registry;
       } catch (parseErr) {
-        logger.error('Corrupt registry file detected at:', REGISTRY_PATH, parseErr);
+        logger.error('Corrupt registry file detected at:', targetPath, parseErr);
         throw new DatabaseError(
-          `Registry file exists at "${REGISTRY_PATH}" but contains invalid JSON. Fix or remove it manually to prevent overwriting registered projects.`
+          `Registry file exists at "${targetPath}" but contains invalid JSON. Fix or remove it manually to prevent overwriting registered projects.`
         );
       }
     }
@@ -101,6 +147,34 @@ export function registerProject(name: string, projectPath: string): void {
     }
   } catch (e) {
     logger.error('Failed to register project in global registry:', e);
+  }
+}
+
+/**
+ * Removes a project entry from the global state-memory-mcp registry.
+ *
+ * @param name - The name of the project to unregister.
+ */
+export function unregisterProject(name: string): void {
+  try {
+    registryCache = null;
+    const registry = getRegistry();
+    delete registry[name.toLowerCase()];
+    const tempPath = `${REGISTRY_PATH}.tmp.${Math.random().toString(36).substring(2)}`;
+    fs.writeFileSync(tempPath, JSON.stringify(registry, null, 2), {
+      encoding: 'utf-8',
+      mode: 0o600,
+    });
+    try {
+      fs.renameSync(tempPath, REGISTRY_PATH);
+    } catch {
+      fs.copyFileSync(tempPath, REGISTRY_PATH);
+      try {
+        fs.unlinkSync(tempPath);
+      } catch {}
+    }
+  } catch (e) {
+    logger.error('Failed to unregister project from global registry:', e);
   }
 }
 
@@ -203,15 +277,18 @@ export function getBaseDir(projectRoot: string): string {
  * @returns The sanitized project slug containing only alphanumeric characters, dashes, and underscores.
  * @throws {DatabaseError} If the project name cannot be auto-detected because it resolves to the home directory.
  */
+export function sanitizeSlug(str: string): string {
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export function getProjectSlug(project?: string): string {
   if (project && project.trim() !== '') {
-    // Sanitize project name to be a safe slug (alphanumeric, dashes, underscores)
-    return project
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-_]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-+|-+$/g, '');
+    return sanitizeSlug(project);
   }
   const root = resolveProjectRoot(project);
 
@@ -228,19 +305,8 @@ export function getProjectSlug(project?: string): string {
   }
 
   const config = loadProjectConfig(root);
-  let name = '';
-  if (config.projectName) {
-    name = config.projectName;
-  } else {
-    name = path.basename(root);
-  }
-
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  const name = config.projectName || path.basename(root);
+  return sanitizeSlug(name);
 }
 
 // Get the directory where a project's database is stored
@@ -310,10 +376,8 @@ const MAX_CACHED_DBS = 5;
 const dbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 const readOnlyDbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 
-export function getEncryptionKey(projectRoot?: string): Buffer | null {
-  const keyStr =
-    process.env.STATE_MEMORY_ENCRYPTION_KEY ||
-    (projectRoot ? loadProjectConfig(projectRoot).encryptionKey : undefined);
+export function getEncryptionKey(_projectRoot?: string): Buffer | null {
+  const keyStr = process.env.STATE_MEMORY_ENCRYPTION_KEY;
   if (!keyStr) return null;
   return crypto.createHash('sha256').update(keyStr).digest();
 }
@@ -329,8 +393,8 @@ export function encryptPayload(dataStr: string, projectRoot?: string): string {
     const authTag = cipher.getAuthTag().toString('hex');
     return `ENC:${iv.toString('hex')}:${authTag}:${encrypted}`;
   } catch (err: any) {
-    logger.warn(`Failed to encrypt payload: ${err.message}`);
-    return dataStr;
+    logger.error(`Failed to encrypt payload: ${err.message}`);
+    throw new DatabaseError(`Payload encryption failed: ${err.message}`);
   }
 }
 
@@ -440,7 +504,9 @@ export function getDb(project?: string): Database.Database {
   const config = loadProjectConfig(projectRoot);
   const busyTimeout =
     config.busyTimeoutMs || parseInt(process.env.STATE_MEMORY_BUSY_TIMEOUT || '5000', 10);
-  const journalMode = process.env.STATE_MEMORY_WAL_MODE || 'WAL';
+  const rawJournalMode = (process.env.STATE_MEMORY_WAL_MODE || 'WAL').toUpperCase();
+  const ALLOWED_JOURNAL_MODES = ['WAL', 'DELETE', 'TRUNCATE', 'PERSIST', 'MEMORY', 'OFF'];
+  const journalMode = ALLOWED_JOURNAL_MODES.includes(rawJournalMode) ? rawJournalMode : 'WAL';
 
   // WAL mode, synchronous mode, and busy timeout
   db.pragma(`journal_mode = ${journalMode}`);

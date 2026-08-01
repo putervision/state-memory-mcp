@@ -12,12 +12,20 @@ export interface ParseResult<T> {
 export abstract class Schema<T> {
   isOptional: boolean = false;
   defaultValue?: T;
+  description?: string;
 
   protected clone(): this {
     return Object.assign(Object.create(Object.getPrototypeOf(this)), this);
   }
 
   abstract parse(val: unknown, path?: string): T;
+  abstract toJsonSchema(): any;
+
+  describe(desc: string): this {
+    const copy = this.clone();
+    copy.description = desc;
+    return copy;
+  }
 
   optional(): this {
     const copy = this.clone();
@@ -87,6 +95,13 @@ export class StringSchema extends Schema<string> {
     }
     return val;
   }
+
+  toJsonSchema(): any {
+    const s: any = { type: 'string' };
+    if (this.description) s.description = this.description;
+    if (this.defaultValue !== undefined) s.default = this.defaultValue;
+    return s;
+  }
 }
 
 export class NumberSchema extends Schema<number> {
@@ -122,6 +137,13 @@ export class NumberSchema extends Schema<number> {
     }
     return val;
   }
+
+  toJsonSchema(): any {
+    const s: any = { type: 'number' };
+    if (this.description) s.description = this.description;
+    if (this.defaultValue !== undefined) s.default = this.defaultValue;
+    return s;
+  }
 }
 
 export class BooleanSchema extends Schema<boolean> {
@@ -135,6 +157,13 @@ export class BooleanSchema extends Schema<boolean> {
       throw new Error(`${path} must be a boolean`);
     }
     return val;
+  }
+
+  toJsonSchema(): any {
+    const s: any = { type: 'boolean' };
+    if (this.description) s.description = this.description;
+    if (this.defaultValue !== undefined) s.default = this.defaultValue;
+    return s;
   }
 }
 
@@ -156,6 +185,13 @@ export class EnumSchema<U extends string> extends Schema<U> {
       throw new Error(`${path} must be one of: ${this.options.join(', ')}`);
     }
     return val as U;
+  }
+
+  toJsonSchema(): any {
+    const s: any = { type: 'string', enum: this.options };
+    if (this.description) s.description = this.description;
+    if (this.defaultValue !== undefined) s.default = this.defaultValue;
+    return s;
   }
 }
 
@@ -202,6 +238,15 @@ export class ArraySchema<I> extends Schema<I[]> {
     }
     return val.map((item, idx) => this.itemSchema.parse(item, `${path}[${idx}]`));
   }
+
+  toJsonSchema(): any {
+    const s: any = {
+      type: 'array',
+      items: this.itemSchema ? this.itemSchema.toJsonSchema() : {},
+    };
+    if (this.description) s.description = this.description;
+    return s;
+  }
 }
 
 export class RecordSchema<V> extends Schema<Record<string, V>> {
@@ -241,6 +286,15 @@ export class RecordSchema<V> extends Schema<Record<string, V>> {
       throw new Error(this.refineMessage || `${path} failed refinement validation`);
     }
     return result;
+  }
+
+  toJsonSchema(): any {
+    const s: any = {
+      type: 'object',
+      additionalProperties: this.valSchema ? this.valSchema.toJsonSchema() : true,
+    };
+    if (this.description) s.description = this.description;
+    return s;
   }
 }
 
@@ -285,11 +339,32 @@ export class ObjectSchema<T extends Record<string, Schema<any>>> extends Schema<
     }
     return result;
   }
+
+  toJsonSchema(): any {
+    const properties: Record<string, any> = {};
+    const required: string[] = [];
+    for (const [key, propSchema] of Object.entries(this.shape)) {
+      properties[key] = (propSchema as any).toJsonSchema();
+      if (!(propSchema as any).isOptional && (propSchema as any).defaultValue === undefined) {
+        required.push(key);
+      }
+    }
+    const s: any = { type: 'object', properties };
+    if (required.length > 0) s.required = required;
+    if (this.description) s.description = this.description;
+    return s;
+  }
 }
 
 export class UnknownSchema extends Schema<any> {
   parse(val: unknown): any {
     return val;
+  }
+
+  toJsonSchema(): any {
+    const s: any = {};
+    if (this.description) s.description = this.description;
+    return s;
   }
 }
 

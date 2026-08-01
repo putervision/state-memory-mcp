@@ -306,6 +306,20 @@ export const migrations: Migration[] = [
       db.prepare('DROP TABLE IF EXISTS blackboard').run();
     },
   },
+  // Version 11: Add staleness composite index
+  {
+    version: 11,
+    description: 'Staleness composite index optimization',
+    up: (db) => {
+      logger.info('Running migration v11: adding staleness composite index...');
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_nodes_project_updated_status ON nodes(project, updated_at, status)`
+      ).run();
+    },
+    down: (db) => {
+      db.prepare('DROP INDEX IF EXISTS idx_nodes_project_updated_status').run();
+    },
+  },
 ];
 
 /**

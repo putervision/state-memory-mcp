@@ -49,8 +49,8 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 4. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
 5. **Undo**: Call `undo_last_visual_mutation` to revert accidental state or edge ingestions.
 
-### 2. Tool Reference Summary
-* `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description.
+### 2. Tool Reference Summary (22 Core MCP Tools)
+* `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description and grounded elements.
 * `recall_memory`: Search visual memory by description query or base64 image query.
 * `record_outcome`: Save UI action execution outcomes and transitions between states.
 * `get_navigation_paths`: Find path between states using BFS navigation graph.
@@ -58,6 +58,16 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 * `get_session_context`: Fetch recent states, frequent states, and transitions.
 * `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
 * `undo_last_visual_mutation`: Revert the last visual mutation.
+* `create_visual_blocker`: Generate structured visual blocker payload for `state-memory-mcp`.
+* `predict_next_action`: Predict best next UI action and target coordinates based on transition success rates.
+* `batch_analyze_screenshots`: Process multiple screenshots in a single batch call.
+* `set_visual_spec` / `verify_visual_spec` / `get_visual_diff`: UI compliance testing and mockup verification.
+* `forget_state`: Purge a specific state and vector embedding from storage for privacy.
+* `export_visual_trajectories`: Export multimodal transition trajectories (JSON / LLaVA format) for fine-tuning.
+* `export_joint_trajectories`: Export interleaved visual observation transitions and workflow graph events.
+* `get_metrics`: Query real-time cache hit ratios, latency metrics, and token-savings estimates.
+* `export_snapshot` / `restore_snapshot`: Export and restore full standalone snapshot archives.
+* `wait_for_visual_state`: Poll for target visual state until present or timeout occurs.
 
 #### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:

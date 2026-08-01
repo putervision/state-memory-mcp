@@ -227,17 +227,22 @@ export class EventEngine {
     params: {
       project: string;
       node_id: string;
+      limit?: number;
+      offset?: number;
     }
   ): EventRecord[] {
+    const limit = params.limit ?? 500;
+    const offset = params.offset ?? 0;
     return db
       .prepare(
         `
         SELECT * FROM events 
         WHERE project = ? AND entity_id = ? AND entity_type = 'node' 
         ORDER BY rowid ASC
+        LIMIT ? OFFSET ?
       `
       )
-      .all(params.project, params.node_id) as EventRecord[];
+      .all(params.project, params.node_id, limit, offset) as EventRecord[];
   }
 
   /**
@@ -436,24 +441,29 @@ export class EventEngine {
     project: string
   ): { valid: boolean; total_events: number; corrupt_event_id?: string; message: string } {
     try {
-      const events = db
-        .prepare('SELECT * FROM events WHERE project = ? ORDER BY rowid ASC')
-        .all(project) as (EventRecord & { hash?: string; prev_hash?: string })[];
+      const countRow = db
+        .prepare('SELECT COUNT(*) as count FROM events WHERE project = ?')
+        .get(project) as { count: number } | undefined;
+      const totalEvents = countRow ? countRow.count : 0;
 
-      if (events.length === 0) {
+      if (totalEvents === 0) {
         return { valid: true, total_events: 0, message: 'No events logged for project.' };
       }
+
+      const eventIterator = db
+        .prepare('SELECT * FROM events WHERE project = ? ORDER BY rowid ASC')
+        .iterate(project) as Iterable<EventRecord & { hash?: string; prev_hash?: string }>;
 
       let expectedPrevHash = '0000000000000000000000000000000000000000000000000000000000000000';
       let verifiedCount = 0;
 
-      for (const ev of events) {
+      for (const ev of eventIterator) {
         if (!ev.hash) continue; // Skip legacy unhashed records
 
         if (ev.prev_hash && ev.prev_hash !== expectedPrevHash) {
           return {
             valid: false,
-            total_events: events.length,
+            total_events: totalEvents,
             corrupt_event_id: ev.id,
             message: `Audit chain break detected at event ${ev.id}: prev_hash mismatch.`,
           };
@@ -465,7 +475,7 @@ export class EventEngine {
         if (calculatedHash !== ev.hash) {
           return {
             valid: false,
-            total_events: events.length,
+            total_events: totalEvents,
             corrupt_event_id: ev.id,
             message: `Cryptographic SHA-256 hash mismatch at event ${ev.id}. Event data may have been tampered with.`,
           };
@@ -477,7 +487,7 @@ export class EventEngine {
 
       return {
         valid: true,
-        total_events: events.length,
+        total_events: totalEvents,
         message: `Cryptographic audit chain verified: ${verifiedCount} hashed events intact.`,
       };
     } catch (err: any) {

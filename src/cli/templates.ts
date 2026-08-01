@@ -359,6 +359,7 @@ If the project has no Plan or Milestone nodes:
 ### 5. CLI Commands Reference
 \`\`\`bash
 state-memory-mcp init          # Initialize in current project
+state-memory-mcp init-global     # Re-initialize across all projects in ~/.state-memory-mcp/projects.json
 state-memory-mcp run           # Stdio MCP server (used by IDEs)
 state-memory-mcp inspect -p X  # ASCII table of project nodes
 state-memory-mcp metrics -p X  # ROI and token savings analytics

@@ -1,4 +1,5 @@
 import { getDb, getProjectSlug } from '../engine/db.js';
+import { parseArgs } from './helper.js';
 import {
   IngestSpecSchema,
   ExportSpecSchema,
@@ -13,7 +14,7 @@ import { EdgeEngine } from '../engine/edges.js';
 
 export const specHandlers = {
   ingest_spec: (args: unknown) => {
-    const params = IngestSpecSchema.parse(args);
+    const params = parseArgs(IngestSpecSchema, args);
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
     return ingestSpecFile(db, {
@@ -24,7 +25,7 @@ export const specHandlers = {
   },
 
   export_spec: (args: unknown) => {
-    const params = ExportSpecSchema.parse(args);
+    const params = parseArgs(ExportSpecSchema, args);
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
     const content = exportSpecToFile(db, {
@@ -36,14 +37,14 @@ export const specHandlers = {
   },
 
   get_spec_compliance: (args: unknown) => {
-    const params = GetSpecComplianceSchema.parse(args);
+    const params = parseArgs(GetSpecComplianceSchema, args);
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
     return calculateSpecCompliance(db, projectSlug);
   },
 
   scaffold_spec: (args: unknown) => {
-    const params = ScaffoldSpecSchema.parse(args);
+    const params = parseArgs(ScaffoldSpecSchema, args);
     const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
     return scaffoldSpecTemplate(db, {
@@ -53,7 +54,7 @@ export const specHandlers = {
   },
 
   verify_requirement: (args: unknown) => {
-    const params = VerifyRequirementSchema.parse(args);
+    const params = parseArgs(VerifyRequirementSchema, args);
     const projectSlug = getProjectSlug(params.project);
     const status = params.status || 'verified';
     const updatedNode = GraphEngine.updateNode({

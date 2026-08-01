@@ -15,7 +15,7 @@ import { logger } from '../utils/logger.js';
  * @param index - The chronological index of the commit (0 being the newest).
  * @returns True if a task should be created, false otherwise.
  */
-let defaultAvoidWordsRegexp: RegExp | null = null;
+const DEFAULT_AVOID_WORDS_REGEXP = /\b(fix|complete|finish|done|close)\b/i;
 
 export function shouldCreateTask(
   commit: GitCommit,
@@ -31,10 +31,7 @@ export function shouldCreateTask(
   }
   let avoidWords: RegExp;
   if (!words) {
-    if (!defaultAvoidWordsRegexp) {
-      defaultAvoidWordsRegexp = new RegExp(`\\b(fix|complete|finish|done|close)\\b`, 'i');
-    }
-    avoidWords = defaultAvoidWordsRegexp;
+    avoidWords = DEFAULT_AVOID_WORDS_REGEXP;
   } else {
     const escapedWords = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
     avoidWords = new RegExp(`\\b(${escapedWords})\\b`, 'i');

@@ -12,7 +12,14 @@ import {
   getSkillTemplate,
   getAgentsMdTemplate,
 } from './templates.js';
-import { registerProject, getDb, getProjectSlug, getProjectDbDir } from '../engine/db.js';
+import {
+  registerProject,
+  getRegistry,
+  unregisterProject,
+  getDb,
+  getProjectSlug,
+  getProjectDbDir,
+} from '../engine/db.js';
 import { GraphEngine } from '../engine/graph.js';
 import { findGitRepos } from '../utils/git.js';
 import { scanGit } from '../engine/git-scanner.js';
@@ -465,4 +472,71 @@ export async function runAutoInit(root: string, projectSlug: string): Promise<vo
   } finally {
     console.log = originalLog;
   }
+}
+
+/**
+ * Re-initializes state-memory-mcp across all projects registered in the global index (~/.state-memory-mcp/projects.json).
+ */
+export async function runInitGlobal(options?: {
+  cleanStale?: boolean;
+  scan?: string;
+  fromGit?: boolean;
+  commits?: number;
+}): Promise<void> {
+  console.log('\n🌐 Running global init for all state-memory-mcp registered projects...\n');
+
+  if (options?.scan) {
+    const scanDir = path.resolve(options.scan);
+    if (fs.existsSync(scanDir)) {
+      console.log(`🔎 Scanning directory "${scanDir}" for state-memory-mcp projects...`);
+      const entries = fs.readdirSync(scanDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const projectPath = path.join(scanDir, entry.name);
+          const stateDir = path.join(projectPath, '.state-memory-mcp');
+          if (fs.existsSync(stateDir)) {
+            registerProject(entry.name, projectPath);
+          }
+        }
+      }
+    }
+  }
+
+  const registry = getRegistry();
+  const entries = Object.entries(registry);
+
+  if (entries.length === 0) {
+    console.log('  ⚠️  No registered projects found in ~/.state-memory-mcp/projects.json.');
+    console.log('  Run "state-memory-mcp init" in a project root first to register it.\n');
+    return;
+  }
+
+  console.log(`📋 Found ${entries.length} registered project(s) in global index.\n`);
+  let updatedCount = 0;
+  let skippedCount = 0;
+
+  for (const [name, projectPath] of entries) {
+    const resolvedPath = path.resolve(projectPath);
+    if (!fs.existsSync(resolvedPath)) {
+      console.log(`  ❌ [${name}] Path no longer exists: ${resolvedPath}`);
+      if (options?.cleanStale) {
+        unregisterProject(name);
+        console.log(`     🧹 Pruned stale registration for "${name}"`);
+      } else {
+        skippedCount++;
+      }
+      continue;
+    }
+
+    console.log(`  🔄 Re-initializing project "${name}" at ${resolvedPath}...`);
+    try {
+      await runInit(resolvedPath, options);
+      updatedCount++;
+    } catch (err: any) {
+      console.error(`  ⚠️  Failed to re-initialize "${name}": ${err.message}`);
+      skippedCount++;
+    }
+  }
+
+  console.log(`\n✅ Global init completed: ${updatedCount} updated, ${skippedCount} skipped.\n`);
 }

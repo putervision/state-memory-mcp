@@ -17,7 +17,6 @@ export const ProjectConfigSchema = z.object({
   accessMode: z.enum(['normal', 'read_only', 'audit_only']).optional(),
   allowedTools: z.array(z.string()).optional(),
   disallowedTools: z.array(z.string()).optional(),
-  encryptionKey: z.string().optional(),
 });
 
 export type ProjectConfig = {
@@ -33,7 +32,6 @@ export type ProjectConfig = {
   accessMode?: 'normal' | 'read_only' | 'audit_only';
   allowedTools?: string[];
   disallowedTools?: string[];
-  encryptionKey?: string;
 };
 
 const configCache = new Map<string, { config: ProjectConfig; timestamp: number }>();
@@ -57,6 +55,11 @@ function loadProjectConfigDirect(projectRoot: string): ProjectConfig {
     try {
       const raw = fs.readFileSync(configPath, 'utf-8');
       const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.encryptionKey) {
+        logger.warn(
+          `[DEPRECATION WARNING] Storing "encryptionKey" in ${configPath} is deprecated and unsafe. Use the STATE_MEMORY_ENCRYPTION_KEY environment variable instead.`
+        );
+      }
       const result = ProjectConfigSchema.safeParse(parsed);
       if (result.success && result.data) {
         logger.debug(`Loaded configuration from ${configPath}`);

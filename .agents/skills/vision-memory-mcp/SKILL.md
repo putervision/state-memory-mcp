@@ -44,6 +44,8 @@ To bypass confirmation dialogs when running CLI cache commands or reading/writin
 
 ### 4. CLI Commands Reference
 Run these commands in the terminal for management and analytics:
+* `vision-memory-mcp init [-y|--yes]`: Scaffold workspace .vision-memory-mcp/, .gitignore, .env, and IDE agent rules.
+* `vision-memory-mcp init-global`: Re-initialize across all projects registered in ~/.vision-memory-mcp/projects.json.
 * `vision-memory-mcp doctor`: Health check storage writability, sharp bindings, Node runtime, and sub-directory Git repos.
 * `vision-memory-mcp audit`: Audit sub-directory Git repos, submodules, database locations, and total visual states.
 * `vision-memory-mcp inspect`: Display stored visual states in an ASCII table.

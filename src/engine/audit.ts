@@ -25,7 +25,12 @@ export interface AuditReport {
 /**
  * In-memory cycle detection for dependency-like edges (depends_on, blocks, child_of)
  */
-export function findCycles(nodes: BaseNode[], edges: Edge[]): string[][] {
+export function findCycles(
+  nodes: BaseNode[],
+  edges: Edge[],
+  options?: { maxCycles?: number }
+): string[][] {
+  const maxCycles = options?.maxCycles !== undefined ? options.maxCycles : 50;
   const adj = new Map<string, string[]>();
   for (const n of nodes) {
     adj.set(n.id, []);
@@ -51,9 +56,11 @@ export function findCycles(nodes: BaseNode[], edges: Edge[]): string[][] {
   const parent = new Map<string, string>();
 
   function dfs(u: string) {
+    if (cycles.length >= maxCycles) return;
     visited.set(u, 'gray');
     const neighbors = adj.get(u) || [];
     for (const v of neighbors) {
+      if (cycles.length >= maxCycles) break;
       if (visited.get(v) === 'gray') {
         const cycle = [v];
         let curr = u;
@@ -72,6 +79,7 @@ export function findCycles(nodes: BaseNode[], edges: Edge[]): string[][] {
   }
 
   for (const n of nodes) {
+    if (cycles.length >= maxCycles) break;
     if (visited.get(n.id) === 'white') {
       dfs(n.id);
     }

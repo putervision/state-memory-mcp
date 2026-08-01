@@ -35,6 +35,12 @@ describe('Database Project Resolution Tests', () => {
       // Simulate .state-memory-mcp existing in the mock home directory
       if (
         typeof p === 'string' &&
+        (p.endsWith('projects.json') || p.endsWith('.state-memory-mcp-registry.json'))
+      ) {
+        return false;
+      }
+      if (
+        typeof p === 'string' &&
         (p === path.join(mockHomedir, '.state-memory-mcp') ||
           p.startsWith(path.join(mockHomedir, '.state-memory-mcp' + path.sep)))
       ) {

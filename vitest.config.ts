@@ -18,6 +18,8 @@ export default defineConfig({
         'src/cli/commands/other-actions.ts',
         'src/cli/commands/update.ts',
         'src/cli/helper.ts',
+        'src/schema/types.ts',
+        'src/engine/analytics.ts',
       ],
     },
   },

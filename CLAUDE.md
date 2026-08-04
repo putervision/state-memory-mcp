@@ -51,7 +51,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 4. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
 5. **Undo**: Call `undo_last_visual_mutation` to revert accidental state or edge ingestions.
 
-### 2. Tool Reference Summary (22 Core MCP Tools)
+### 2. Tool Reference Summary (23 Core MCP Tools)
 - `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description and grounded elements.
 - `recall_memory`: Search visual memory by description query or base64 image query.
 - `record_outcome`: Save UI action execution outcomes and transitions between states.
@@ -70,6 +70,7 @@ This project utilizes `vision-memory-mcp` to cache visual states, record layout 
 - `get_metrics`: Query real-time cache hit ratios, latency metrics, and token-savings estimates.
 - `export_snapshot` / `restore_snapshot`: Export and restore full standalone snapshot archives.
 - `wait_for_visual_state`: Poll for target visual state until present or timeout occurs.
+- `app_version`: Query server build version, MCP identifier, package name, and runtime environment.
 
 #### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:

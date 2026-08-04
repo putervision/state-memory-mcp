@@ -6,33 +6,44 @@ import { toolHandlers } from '../handlers/index.js';
 import { resolveProjectRoot } from '../engine/db.js';
 import { loadProjectConfig } from '../engine/config.js';
 
-function jsonSchemaToZodObject(schema: Record<string, any>): z.ZodObject<any> {
+function jsonSchemaToZod(prop: any): ZodTypeAny {
+  if (!prop) return z.record(z.string(), z.any());
+
+  if (prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0) {
+    return z.enum(prop.enum as [string, ...string[]]);
+  }
+
+  switch (prop.type) {
+    case 'string':
+      return z.string();
+    case 'number':
+      return z.number();
+    case 'boolean':
+      return z.boolean();
+    case 'array': {
+      if (prop.items) {
+        return z.array(jsonSchemaToZod(prop.items));
+      }
+      return z.array(z.record(z.string(), z.any()));
+    }
+    case 'object': {
+      if (prop.properties) {
+        return jsonSchemaToZodObject(prop);
+      }
+      return z.record(z.string(), z.any());
+    }
+    default:
+      return z.record(z.string(), z.any());
+  }
+}
+
+export function jsonSchemaToZodObject(schema: Record<string, any>): z.ZodObject<any> {
   const shape: Record<string, ZodTypeAny> = {};
   const properties = schema?.properties || {};
   const requiredFields = new Set<string>(schema?.required || []);
 
   for (const [key, prop] of Object.entries<any>(properties)) {
-    let fieldZod: ZodTypeAny;
-
-    if (prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0) {
-      fieldZod = z.enum(prop.enum as [string, ...string[]]);
-    } else if (prop.type === 'string') {
-      fieldZod = z.string();
-    } else if (prop.type === 'number') {
-      fieldZod = z.number();
-    } else if (prop.type === 'boolean') {
-      fieldZod = z.boolean();
-    } else if (prop.type === 'array') {
-      if (prop.items?.type === 'string') {
-        fieldZod = z.array(z.string());
-      } else {
-        fieldZod = z.array(z.any());
-      }
-    } else if (prop.type === 'object') {
-      fieldZod = z.record(z.string(), z.any());
-    } else {
-      fieldZod = z.any();
-    }
+    let fieldZod = jsonSchemaToZod(prop);
 
     if (prop.description) {
       fieldZod = fieldZod.describe(prop.description);

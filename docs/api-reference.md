@@ -1,6 +1,6 @@
-# 📘 @putervision/state-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.9.1)
+# 📘 @putervision/state-memory-mcp Formal API Reference & Leveraged Usage Guide (v0.9.3)
 
-This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 81 Model Context Protocol (MCP) tools provided by `@putervision/state-memory-mcp`.
+This document provides formal API specifications, parameter schemas, return shapes, JSON payloads, and practical leverage descriptions for all 82 Model Context Protocol (MCP) tools provided by `@putervision/state-memory-mcp`.
 
 ---
 
@@ -211,7 +211,7 @@ This document provides formal API specifications, parameter schemas, return shap
 
 ---
 
-## 6. Complete 81 MCP Tools Master Index
+## 6. Complete 82 MCP Tools Master Index
 
 | Tool Name | Category | Primary Inputs | Description |
 | :--- | :--- | :--- | :--- |
@@ -221,6 +221,7 @@ This document provides formal API specifications, parameter schemas, return shap
 | `bootstrap_session` | Session & Admin | `project`, `agent_id`, `task_limit` | Single-turn session start, context snapshot & next tasks. |
 | `get_project_summary` | Session & Admin | `project` | High-level metrics, progress %, and open blockers. |
 | `get_context_snapshot` | Session & Admin | `project` | Detailed graph snapshot for session context hydration. |
+| `app_version` | Session & Admin | `project` | Returns server version, package identity, and runtime environment. |
 | `add_node` | Node Operations | `type`, `title`, `project`, `status` | Creates a new node in the state graph. |
 | `update_node` | Node Operations | `id`, `project`, `title`, `status` | Modifies properties or status of an existing node. |
 | `get_node` | Node Operations | `id`, `project`, `include_edges` | Fetches node details and all connected edges. |

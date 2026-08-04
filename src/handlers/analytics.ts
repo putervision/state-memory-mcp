@@ -22,7 +22,9 @@ import {
   AutoPruneStaleTasksSchema,
   DoctorReportSchema,
   WatchGraphChangesSchema,
+  AppVersionSchema,
 } from '../schema/schemas.js';
+import { VERSION } from '../utils/version.js';
 import { AnalyticsEngine, findSimilarBlockers } from '../engine/analytics.js';
 import { getNextTasks } from '../engine/work-queue.js';
 import { getStaleNodes, autoPruneStaleTasks } from '../engine/staleness.js';
@@ -213,6 +215,21 @@ export const analyticsHandlers = {
       },
       paged_context_guarantee: 'Cv = { local SOP for v, vars required by v }',
       summary: `Active cognitive load for project "${projectSlug}": ICL = ${ICL.toFixed(1)}, ECL = ${ECL.toFixed(1)}. Extraneous load externalized to SQLite.`,
+    };
+  },
+  app_version: (args: any) => {
+    const data = parseArgs(AppVersionSchema, args);
+    const projectSlug = getProjectSlug(data.project);
+    return {
+      name: '@putervision/state-memory-mcp',
+      mcp_name: 'io.github.putervision/state-memory-mcp',
+      version: VERSION,
+      description:
+        'Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.',
+      project: projectSlug,
+      environment: {
+        node_version: process.version,
+      },
     };
   },
 };

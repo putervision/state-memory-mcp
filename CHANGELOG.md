@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.9.3] - 2026-08-03
+
+### Bug Fixes & Schema Validation
+- **VS Code MCP Tool Schema Compliance**: Fixed JSON Schema parameter generation in `src/tools/handlers.ts` by replacing `z.array(z.any())` fallback with recursive Zod schema construction (`jsonSchemaToZod()`). Resolves VS Code tool validation error (`Error: tool parameters array type must have items`) for array properties with object shapes (e.g. `subtasks` in `plan_and_decompose_feature`).
+- **`app_version` MCP Tool**: Added read-only `app_version` MCP tool returning package name, MCP identifier (`io.github.putervision/state-memory-mcp`), version string, server description, and runtime environment. Brings total tool count to **82 Core MCP Tools**.
+- **Comprehensive Tool Schema Audit**: Added unit tests in `tests/schema/full-tool-schema-audit.test.ts` verifying all 82 tool schemas conform strictly to Draft-07 / OpenAPI specs with non-empty `items` properties.
+- **Version Bump**: Bumped version to `0.9.3` across package.json, server.json, manifest.json, documentation, issue templates, and test fixtures.
+
+## [0.9.2] - 2026-08-03
+
+### Performance & Query Optimization
+- **Row Mapper Project Root Caching**: Added module-level project root cache in `src/engine/row-mappers.ts` to eliminate redundant `resolveProjectRoot()` filesystem lookups during bulk row parsing. Reduces 1,000-node query overhead from ~900ms to well under 600ms.
+- **Optimized Sort Comparator**: Replaced `Date` object instantiation in `listNodes` global sort with direct ISO 8601 string comparison, eliminating O(N log N) object allocations.
+
+### Maintenance
+- **Version Bump**: Bumped version to `0.9.2` across package.json, server.json, manifest.json, documentation, issue templates, and integration test fixtures.
+- **Audit Alignment**: Verified and documented resolution status of all critical (C1-C3), high (H3), and medium (M5) audit items from PLAN-8-1-26.
 
 ## [0.9.1] - 2026-08-01
 

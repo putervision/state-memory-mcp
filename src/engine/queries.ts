@@ -156,7 +156,9 @@ export class QueryEngine {
     }
 
     // Global sort by created_at DESC across all databases
-    allNodes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    allNodes.sort((a, b) =>
+      b.created_at > a.created_at ? 1 : b.created_at < a.created_at ? -1 : 0
+    );
 
     // Apply final offset and limit globally
     const paginatedNodes = allNodes.slice(offset, offset + limit);

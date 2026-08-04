@@ -1,12 +1,13 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.putervision/state-memory-mcp",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "title": "State Memory MCP",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "publisher": "PuterVision LLC",
   "license": "MIT",
   "websiteUrl": "https://statememorymcp.com",
+  "status": "active",
   "icons": [
     {
       "src": "https://putervision.github.io/state-memory-mcp/state-memory-icon.png",
@@ -18,14 +19,16 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/putervision/state-memory-mcp",
-    "source": "github"
+    "url": "https://github.com/putervision/state-memory-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/putervision/state-memory-mcp/issues"
   },
   "packages": [
     {
-      "registryType": "npm",
-      "identifier": "@putervision/state-memory-mcp",
-      "version": "0.9.1",
+      "registry": "npm",
+      "name": "@putervision/state-memory-mcp",
+      "version": "0.9.3",
       "transport": {
         "type": "stdio"
       },

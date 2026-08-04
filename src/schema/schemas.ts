@@ -800,6 +800,10 @@ export const AddNoteSchema = z.object({
   tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
 });
 
+export const AppVersionSchema = z.object({
+  project: z.string().optional(),
+});
+
 export const BootstrapSessionSchema = z.object({
   project: z.string().optional(),
   agent_id: z.string().optional(),

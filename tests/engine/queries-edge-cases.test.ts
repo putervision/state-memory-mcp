@@ -84,4 +84,51 @@ describe('Query Engine Edge Cases & Field Projections', () => {
     expect(res.nodes[0].title).toBe('Decision Projection');
     expect((res.nodes[0] as any).metadata).toBeUndefined();
   });
+
+  it('should handle FTS search query term sanitization on complex or quote-heavy terms', async () => {
+    GraphEngine.addNode({
+      project,
+      type: 'task',
+      title: 'Quoted "Term" Search Test',
+    });
+
+    const res = await QueryEngine.searchNodes({
+      project,
+      query: 'Quoted "Term"',
+      git_branch: '*',
+    });
+    expect(res.nodes.length).toBeGreaterThan(0);
+  });
+
+  it('should support TF-IDF search algorithm fallback', async () => {
+    GraphEngine.addNode({
+      project,
+      type: 'task',
+      title: 'TFIDF Keyword Matching Test',
+      tags: ['tfidf-test'],
+    });
+
+    const res = await QueryEngine.searchNodes({
+      project,
+      query: 'Keyword Matching',
+      algorithm: 'tfidf',
+      git_branch: '*',
+    });
+    expect(res.nodes.length).toBeGreaterThan(0);
+  });
+
+  it('should list nodes with include_subdirectories option', async () => {
+    GraphEngine.addNode({
+      project,
+      type: 'task',
+      title: 'Root Workspace Task',
+    });
+
+    const res = await QueryEngine.listNodes({
+      project,
+      include_subdirectories: true,
+      git_branch: '*',
+    });
+    expect(res.nodes.length).toBeGreaterThan(0);
+  });
 });

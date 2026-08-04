@@ -43,6 +43,7 @@ export const READ_ONLY_TOOLS = new Set([
   'export_spec',
   'export_joint_trajectories',
   'get_synergy_metrics',
+  'app_version',
 ]);
 
 export const DESTRUCTIVE_TOOLS = new Set([
@@ -1805,6 +1806,16 @@ export const toolDefinitions: ToolDefinition[] = [
     name: 'get_synergy_metrics',
     description:
       'Get combined dual-memory metrics: token savings, UI task verification ratio, and visual blocker health.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Optional project identifier.' },
+      },
+    },
+  },
+  {
+    name: 'app_version',
+    description: 'Get version, package name, MCP identifier, and server info of state-memory-mcp.',
     inputSchema: {
       type: 'object',
       properties: {

@@ -29,7 +29,7 @@ describe('All MCP Tools Dispatch Test Suite', () => {
     client = new Client(
       {
         name: 'all-tools-test-client',
-        version: '0.9.3',
+        version: '0.9.31',
       },
       {
         capabilities: {},

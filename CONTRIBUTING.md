@@ -7,7 +7,7 @@ Thank you for considering contributing to `state-memory-mcp`! We welcome bug fix
 ## Development Setup
 
 ### 1. Prerequisites
-- Node.js **>= 18.0.0**
+- Node.js **>= 18.18.0**
 - npm **>= 9.0.0**
 - git
 

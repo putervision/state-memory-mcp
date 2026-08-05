@@ -12,7 +12,7 @@
 
 ## ⚡ Quick Start & Installation
 
-> **Prerequisites**: Node.js **>= 20.0.0**
+> **Prerequisites**: Node.js **>= 18.18.0**
 
 ```bash
 # 1. Install globally

@@ -1,6 +1,6 @@
 {
   "name": "@putervision/state-memory-mcp",
-  "version": "0.9.31",
+  "version": "0.9.32",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "keywords": [
     "mcp",
@@ -88,6 +88,7 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:matrix": "bash scripts/test-matrix.sh",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -99,20 +100,20 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/better-sqlite3": "^7.6.10",
-    "@types/node": "^20.14.9",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@types/node": "^18.18.0",
+    "@vitest/coverage-v8": "~2.1.8",
     "eslint": "^10.8.0",
     "prettier": "^3.9.6",
     "tsup": "^8.1.0",
     "typescript": "^5.5.2",
     "typescript-eslint": "^8.63.0",
-    "vitest": "^4.1.10"
+    "vitest": "~2.1.8"
   },
   "overrides": {
     "@hono/node-server": "^2.0.5",
     "esbuild": "^0.28.1"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.18.0"
   }
 }

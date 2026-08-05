@@ -4,7 +4,7 @@ import { resolveProjectRoot } from './engine/db.js';
 import { runInit, runInitGlobal } from './cli/init.js';
 import { VERSION } from './utils/version.js';
 import { inspectAction } from './cli/commands/inspect.js';
-import { doctorAction } from './cli/commands/doctor.js';
+import { doctorAction, doctorGlobalAction } from './cli/commands/doctor.js';
 import { updateAction } from './cli/commands/update.js';
 import { subprojectsAction } from './cli/commands/subprojects.js';
 import {
@@ -497,7 +497,14 @@ program
   .command('doctor')
   .description('Run environment health checks (Node, SQLite, FTS5, storage permissions, git, graph integrity)')
   .option('-p, --project <name>', 'Project slug name')
+  .option('-g, --global', 'Audit health across all registered projects in ~/.state-memory-mcp/projects.json')
   .action(doctorAction);
+
+// Doctor-global command to run global multi-project health audit
+program
+  .command('doctor-global')
+  .description('Run global multi-project health audit across all registered projects in ~/.state-memory-mcp/projects.json')
+  .action(doctorGlobalAction);
 
 // Update command to update global npm package
 program

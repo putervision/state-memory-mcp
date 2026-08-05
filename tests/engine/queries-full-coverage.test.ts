@@ -57,6 +57,16 @@ describe('QueryEngine Extended Coverage', () => {
 
     expect(sub1.nodes.length).toBeGreaterThanOrEqual(1);
 
+    // Empty result when node_types filters out all returned nodes
+    const emptySub = QueryEngine.getSubgraph({
+      project,
+      root_id: n1.id,
+      depth: 1,
+      node_types: ['milestone'],
+    });
+    expect(emptySub.nodes).toEqual([]);
+    expect(emptySub.edges).toEqual([]);
+
     // Empty result when non-existent root_id throws Error or returns empty
     expect(() =>
       QueryEngine.getSubgraph({
@@ -65,5 +75,15 @@ describe('QueryEngine Extended Coverage', () => {
         depth: 1,
       })
     ).toThrow();
+  });
+
+  it('should fall back to TF-IDF when FTS search encounters malformed query syntax', async () => {
+    const res = await QueryEngine.searchNodes({
+      project,
+      query: 'Task AND OR NOT (',
+      algorithm: 'fts',
+    });
+    expect(res).toBeDefined();
+    expect(Array.isArray(res.nodes)).toBe(true);
   });
 });

@@ -45,6 +45,10 @@ state-memory-mcp audit --project my-project
 # Run environment health checks (Node, SQLite, FTS5, permissions, root & sub-directory git repos, graph integrity)
 state-memory-mcp doctor --project my-project
 
+# Run global multi-project health audit across all registered projects in ~/.state-memory-mcp/projects.json
+state-memory-mcp doctor-global [--clean-stale]
+state-memory-mcp doctor --global
+
 # Update state-memory-mcp globally to the latest version published on npm
 state-memory-mcp update
 

@@ -2,12 +2,119 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
-import { resolveProjectRoot, getProjectSlug, getDbPath, getDb } from '../../engine/db.js';
+import { resolveProjectRoot, getProjectSlug, getDbPath, getDb, getRegistry } from '../../engine/db.js';
 import { auditProjectDb } from '../../engine/audit.js';
 import { getWorkspaceGitRepos, findSubdirectoryMemoryDbs } from '../../engine/subdirectory-scanner.js';
 import { VERSION } from '../../utils/version.js';
 
-export async function doctorAction(options: { project?: string }): Promise<void> {
+export async function doctorGlobalAction(options: { cleanStale?: boolean } = {}): Promise<void> {
+  console.log(`🩺 Running state-memory-mcp v${VERSION} global multi-project health audit...\n`);
+  const registry = getRegistry();
+  const projectEntries = Object.entries(registry);
+
+  if (projectEntries.length === 0) {
+    console.log('📂 No registered projects found in ~/.state-memory-mcp/projects.json.');
+    console.log('💡 Tip: Run "state-memory-mcp init" inside a project directory to register it.\n');
+    return;
+  }
+
+  console.log(`Discovered ${projectEntries.length} registered project(s):\n`);
+
+  let healthyProjects = 0;
+  let missingProjects = 0;
+  let projectWarnings = 0;
+
+  const results: Array<{
+    slug: string;
+    root: string;
+    status: string;
+    nodes: number;
+    edges: number;
+    blockers: number;
+    details: string;
+  }> = [];
+
+  for (const [slug, rootPath] of projectEntries) {
+    const exists = fs.existsSync(rootPath);
+    if (!exists) {
+      missingProjects++;
+      results.push({
+        slug,
+        root: rootPath,
+        status: '❌ Missing Path',
+        nodes: 0,
+        edges: 0,
+        blockers: 0,
+        details: 'Project path does not exist on disk',
+      });
+      continue;
+    }
+
+    try {
+      const db = getDb(slug);
+      const audit = await auditProjectDb({ project: slug, includeSubdirectories: true });
+      const hasCycles = audit.cycles.length > 0;
+
+      const nodesRow = db.prepare('SELECT COUNT(*) as count FROM nodes').get() as { count: number };
+      const edgesRow = db.prepare('SELECT COUNT(*) as count FROM edges').get() as { count: number };
+      const blockersRow = db.prepare("SELECT COUNT(*) as count FROM nodes WHERE type = 'blocker' AND status != 'done'").get() as { count: number };
+
+      const nodeCount = nodesRow?.count || 0;
+      const edgeCount = edgesRow?.count || 0;
+      const blockerCount = blockersRow?.count || 0;
+
+      if (hasCycles) {
+        projectWarnings++;
+        results.push({
+          slug,
+          root: rootPath,
+          status: '⚠️ Graph Cycle',
+          nodes: nodeCount,
+          edges: edgeCount,
+          blockers: blockerCount,
+          details: `${audit.cycles.length} circular dependency cycle(s) detected`,
+        });
+      } else {
+        healthyProjects++;
+        results.push({
+          slug,
+          root: rootPath,
+          status: '✅ Healthy',
+          nodes: nodeCount,
+          edges: edgeCount,
+          blockers: blockerCount,
+          details: 'DB integrity clean',
+        });
+      }
+    } catch (err: any) {
+      projectWarnings++;
+      results.push({
+        slug,
+        root: rootPath,
+        status: '❌ DB Error',
+        nodes: 0,
+        edges: 0,
+        blockers: 0,
+        details: err.message,
+      });
+    }
+  }
+
+  for (const res of results) {
+    console.log(`• [${res.slug}] (${res.status})`);
+    console.log(`  Path: ${res.root}`);
+    console.log(`  Stats: ${res.nodes} nodes, ${res.edges} edges, ${res.blockers} active blockers`);
+    console.log(`  Notes: ${res.details}\n`);
+  }
+
+  console.log(`📊 Global Audit Summary: ${healthyProjects}/${projectEntries.length} projects healthy (${missingProjects} missing, ${projectWarnings} with warnings).`);
+}
+
+export async function doctorAction(options: { project?: string; global?: boolean; cleanStale?: boolean } = {}): Promise<void> {
+  if (options.global) {
+    return doctorGlobalAction(options);
+  }
+
   console.log(`🩺 Running state-memory-mcp v${VERSION} environment health check...\n`);
   let passCount = 0;
   let totalCount = 0;

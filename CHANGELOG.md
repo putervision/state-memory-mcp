@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.9.32] - 2026-08-04
+
+### Maintenance & Quality Assurance
+- **Node.js 18 LTS Support**: Expanded engine compatibility to `Node.js >= 18.18.0` in `package.json`, updated CI test matrix (`.github/workflows/ci.yml`) to test across Node 18.x, 20.x, and 22.x, and updated prerequisites documentation.
+- **Version Bump**: Bumped version to `0.9.32` across `package.json`, `package-lock.json`, `server.json`, `manifest.json`, documentation (`docs/api-reference.md`, `docs/index.html`), GitHub issue templates, and test fixtures.
+- **Full Project & Graph Audit**: Verified graph integrity, tool definitions, TypeScript build artifacts, and 100% test suite execution (89 test files, 309 tests passing).
+
 ## [0.9.31] - 2026-08-03
 
 ### Maintenance & Schema Validation

@@ -115,4 +115,51 @@ describe('Dual MCP Synergy & Interop Tests', () => {
     expect(metrics.state_memory).toBeDefined();
     expect(metrics.synergy_health).toBeDefined();
   });
+
+  it('should validate parameters and error handling in link_visual_state', () => {
+    expect(() =>
+      synergyHandlers.link_visual_state({
+        project: TEST_PROJECT,
+        target_id: '',
+        visual_state_id: 'vs-1',
+      })
+    ).toThrow();
+
+    expect(() =>
+      synergyHandlers.link_visual_state({
+        project: TEST_PROJECT,
+        target_id: 'non-existent-target-id',
+        visual_state_id: 'vs-1',
+      })
+    ).toThrow();
+  });
+
+  it('should link visual state with blocked_by_visual_state relationship', () => {
+    const task = GraphEngine.addNode({
+      project: TEST_PROJECT,
+      type: 'task',
+      title: 'Blocked task by visual state',
+      status: 'pending',
+    });
+
+    const res = synergyHandlers.link_visual_state({
+      project: TEST_PROJECT,
+      target_id: task.id || (task as any).node?.id,
+      visual_state_id: 'vs-blocker-1',
+      relationship: 'blocked_by_visual_state',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.relationship).toBe('blocked_by_visual_state');
+  });
+
+  it('should filter export_joint_trajectories by session_id', async () => {
+    const trajectories = await synergyHandlers.export_joint_trajectories({
+      project: TEST_PROJECT,
+      session_id: 'sess-12345',
+    });
+    expect(trajectories.session_id).toBe('sess-12345');
+    expect(Array.isArray(trajectories.steps)).toBe(true);
+  });
 });
+

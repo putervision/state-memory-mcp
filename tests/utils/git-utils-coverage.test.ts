@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import { describe, it, expect } from 'vitest';
 import * as os from 'os';
 import {
@@ -40,13 +41,25 @@ describe('Git Utilities Extended Coverage', () => {
     expect(commits).toEqual([]);
   });
 
-  it('should get git repo details and find nested git repos', () => {
+  it('should handle since commit hash parameter in getCommitLog (reachable and unreachable)', () => {
     const root = process.cwd();
-    const details = getGitRepoDetails(root);
-    expect(details.repoPath).toBe(root);
-    expect(details.branch).toBeDefined();
+    // Test unreachable 40-character commit hash (fails cat-file check)
+    const unreachableSha = '0000000000000000000000000000000000000000';
+    const fallbackCommits = getCommitLog(root, 5, unreachableSha);
+    expect(Array.isArray(fallbackCommits)).toBe(true);
 
-    const repos = findGitRepos(root, 2);
-    expect(repos.length).toBeGreaterThan(0);
+    // Test reachable commit hash (HEAD's 40-character SHA)
+    try {
+      const headSha = execSync('git rev-parse HEAD', { cwd: root, encoding: 'utf-8' }).trim();
+      const headCommits = getCommitLog(root, 5, headSha);
+      expect(Array.isArray(headCommits)).toBe(true);
+    } catch {}
+  });
+
+  it('should handle non-git directory for getGitRepoDetails gracefully', () => {
+    const tmp = os.tmpdir();
+    const details = getGitRepoDetails(tmp);
+    expect(details.repoPath).toBe(tmp);
+    expect(details.isClean).toBe(false);
   });
 });

@@ -817,6 +817,8 @@ export const CompleteTaskSchema = z.object({
   artifact_title: z.string().optional(),
   artifact_metadata: MetadataSchema.optional(),
   tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
+  visual_state_id: z.string().optional(),
+  visual_relationship: z.enum(['renders_state', 'verifies_visual_state']).optional(),
 });
 
 export const BatchCreateNodesSchema = z.object({

@@ -296,16 +296,12 @@ export function getProjectSummary(params: { project?: string }): {
   let countsSql = "SELECT type, COUNT(*) as count FROM nodes WHERE project = ?";
   let statusSql = "SELECT type, status, COUNT(*) as count FROM nodes WHERE project = ?";
   let recentDecisionsSql = "SELECT * FROM nodes WHERE project = ? AND type = 'decision'";
-  let totalTasksSql = "SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'task' AND status != 'cancelled'";
-  let completedTasksSql = "SELECT COUNT(*) as count FROM nodes WHERE project = ? AND type = 'task' AND status = 'done'";
 
   const args: any[] = [projectSlug];
   if (branch !== '*') {
     countsSql += " AND git_branch = ?";
     statusSql += " AND git_branch = ?";
     recentDecisionsSql += " AND git_branch = ?";
-    totalTasksSql += " AND git_branch = ?";
-    completedTasksSql += " AND git_branch = ?";
     args.push(branch);
   }
 
@@ -338,16 +334,19 @@ export function getProjectSummary(params: { project?: string }): {
   }
 
   const active_blockers = findBlockers({ project: projectSlug });
+  const recentDecisionsRows = db.prepare(recentDecisionsSql).all(...args) as NodeRow[];
+  const recent_decisions = recentDecisionsRows.map(parseNodeRow);
 
-  const decisionRows = db.prepare(recentDecisionsSql).all(...args) as NodeRow[];
-  const recent_decisions = decisionRows.map(parseNodeRow);
-
-  const total_tasks = db.prepare(totalTasksSql).get(...args) as any;
-  const completed_tasks = db.prepare(completedTasksSql).get(...args) as any;
-
-  const total = total_tasks ? total_tasks.count : 0;
-  const completed = completed_tasks ? completed_tasks.count : 0;
-  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  // Derive task completion metrics directly from status_breakdown without extra queries
+  const taskStatusMap = status_breakdown['task'] || {};
+  let total_tasks = 0;
+  for (const [status, cnt] of Object.entries(taskStatusMap)) {
+    if (status !== 'cancelled') {
+      total_tasks += cnt;
+    }
+  }
+  const completed_tasks = taskStatusMap['done'] || 0;
+  const pct = total_tasks > 0 ? Math.round((completed_tasks / total_tasks) * 100) : 0;
 
   const recommended_next_tools: string[] = [];
   if (active_blockers.length > 0) {
@@ -369,8 +368,8 @@ export function getProjectSummary(params: { project?: string }): {
     active_blockers,
     recent_decisions,
     progress: {
-      total_tasks: total,
-      completed_tasks: completed,
+      total_tasks,
+      completed_tasks,
       pct,
     },
     recommended_next_tools,

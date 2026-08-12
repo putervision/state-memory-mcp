@@ -26,7 +26,9 @@ Stores graph nodes representing workflow entities (`task`, `decision`, `artifact
 | `updated_at` | `TEXT` | `NOT NULL` | ISO 8601 UTC last update timestamp |
 
 #### Indexes:
+- `idx_nodes_project_type_status_branch` ON `nodes(project, type, status, git_branch)` (migration v12)
 - `idx_nodes_project_type_status` ON `nodes(project, type, status)`
+- `idx_nodes_project_updated_status` ON `nodes(project, updated_at, status)` (migration v11)
 - `idx_nodes_project_branch` ON `nodes(project, git_branch)`
 - `idx_nodes_created_at` ON `nodes(created_at DESC)`
 
@@ -48,6 +50,7 @@ Stores directed relationships connecting nodes.
 
 #### Indexes:
 - `idx_edges_source_target` ON `edges(source_id, target_id)`
+- `idx_edges_project_branch_type` ON `edges(project, git_branch, type)` (migration v12)
 - `idx_edges_project_type` ON `edges(project, type)`
 
 ---
@@ -71,9 +74,9 @@ Append-only event sourcing audit ledger logging every node and edge mutation.
 | `prev_hash` | `TEXT` | `NULL` | Cryptographic hash of preceding event for tamper-evident chaining |
 
 #### Indexes:
-- `idx_events_project_timestamp` ON `events(project, timestamp DESC)`
+- `idx_events_project_session` ON `events(project, session_id)` (migration v12)
+- `idx_events_project_timestamp` ON `events(project, timestamp DESC)` (migration v12)
 - `idx_events_entity` ON `events(entity_id)`
-- `idx_events_session` ON `events(session_id)`
 
 ---
 

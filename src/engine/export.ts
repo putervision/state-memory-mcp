@@ -1,6 +1,7 @@
 import { getDb, getProjectSlug, resolveProjectRoot } from './db.js';
 import { BaseNode, Edge, NodeType, NodeRow, EdgeRow } from '../schema/types.js';
 import { parseNodeRow, parseEdgeRow } from './row-mappers.js';
+import { DatabaseError } from '../utils/errors.js';
 import { VERSION } from '../utils/version.js';
 import { logger } from '../utils/logger.js';
 import { validatePath, loadPathConfig } from '../utils/path-validator.js';
@@ -580,6 +581,7 @@ export function exportGraph(params: {
   project?: string;
   format: 'json' | 'dot' | 'mermaid' | 'html';
   outputPath?: string;
+  force?: boolean;
 }): string {
   const projectSlug = getProjectSlug(params.project);
   const db = getDb(projectSlug);
@@ -587,6 +589,22 @@ export function exportGraph(params: {
   const nodeRows = db
     .prepare('SELECT * FROM nodes WHERE project = ? ORDER BY id ASC')
     .all(projectSlug) as NodeRow[];
+
+  const MAX_EXPORT_WARN = 10000;
+  const MAX_EXPORT_HARD = 50000;
+
+  if (nodeRows.length > MAX_EXPORT_HARD && !params.force) {
+    throw new DatabaseError(
+      `Export aborted: graph contains ${nodeRows.length} nodes (max: ${MAX_EXPORT_HARD}). ` +
+        'Pass force: true to override.'
+    );
+  }
+  if (nodeRows.length > MAX_EXPORT_WARN) {
+    logger.warn(
+      `Large export: ${nodeRows.length} nodes. Export memory and execution time may increase.`
+    );
+  }
+
   const edgeRows = db
     .prepare('SELECT * FROM edges WHERE project = ? ORDER BY id ASC')
     .all(projectSlug) as EdgeRow[];

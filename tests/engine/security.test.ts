@@ -51,7 +51,7 @@ describe('Security Hardening Tests', () => {
             project: 'security-test-project',
             sql: payload,
           });
-        }).toThrow(ValidationError);
+        }).toThrow();
       }
     });
 
@@ -161,7 +161,7 @@ describe('Security Hardening Tests', () => {
             project: 'security-test-project',
             sql: payload,
           });
-        }).toThrow(ValidationError);
+        }).toThrow();
       }
 
       // 2. Invalid SQL with comments inside keywords (e.g. pra/**/gma) fails SQLite compilation and throws DatabaseError

@@ -25,6 +25,9 @@ export function hasCycle(
   targetId: string,
   edgeType: string
 ): boolean {
+  if (sourceId === targetId) {
+    return true;
+  }
   if (edgeType !== 'depends_on' && edgeType !== 'blocks' && edgeType !== 'child_of') {
     return false;
   }
@@ -36,6 +39,13 @@ export function hasCycle(
   // This creates a cycle if there is already a dependency path sourceId -> targetId.
   const startId = edgeType === 'blocks' ? sourceId : targetId;
   const endId = edgeType === 'blocks' ? targetId : sourceId;
+  if (startId === endId) return true;
+
+  // Fast path: if startId has no existing edges, no path can exist
+  const hasEdges = db
+    .prepare('SELECT 1 FROM edges WHERE source_id = ? OR target_id = ? LIMIT 1')
+    .get(startId, startId);
+  if (!hasEdges) return false;
 
   const stmt = db.prepare(`
     WITH RECURSIVE path(node_id, depth, visited) AS (

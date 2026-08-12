@@ -44,7 +44,7 @@ state-memory-mcp init-global
 
 - **🧠 Deterministic State Memory**: Zero LLM in the loop for memory operations; fast, deterministic SQLite graph traversals.
 - **⚡ 82 Core MCP Tools**: Full CRUD, relationship linking, DAG cycle checks, FTS5 search, TF-IDF RAG, time-travel history rollback, Spec-Driven Development, and auto-healing validation.
-- **📉 Up to 462× Token Savings**: Offloads context to a local SQLite database, avoiding context bloat and linear prompt degradation.
+- **📉 Efficient Context Management**: Offloads context to a local SQLite database, helping reduce prompt context bloat and context window usage.
 - **🚀 67%–74% Latency Reduction**: Eliminates multi-step file scanning loops; agents retrieve unblocked tasks and blockers in milliseconds.
 - **🤝 Multi-Agent Blackboard**: Shared Context Store allowing parallel subagents to publish decisions, tasks, and blocker updates safely.
 - **🎨 Interactive 3D Visualizer**: Browser-based dark-mode 3D WebGL force-directed graph visualizer (`state-memory-mcp view`).

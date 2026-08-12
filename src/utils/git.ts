@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const branchCache = new Map<string, { branch: string | null; timestamp: number }>();
-const BRANCH_TTL_MS = 2000; // 2 seconds TTL
+const BRANCH_TTL_MS = 5000; // 5 seconds TTL
 
 export function getCurrentBranch(cwd: string = process.cwd()): string | null {
   if (process.env.STATE_MEMORY_MCP_DEFAULT_BRANCH) {

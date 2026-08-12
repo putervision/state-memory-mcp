@@ -194,6 +194,8 @@ export interface CompleteTaskParams {
   artifact_title?: string;
   artifact_metadata?: Record<string, unknown>;
   tags?: string[];
+  visual_state_id?: string;
+  visual_relationship?: 'renders_state' | 'verifies_visual_state';
 }
 
 export interface BatchNodeInput {

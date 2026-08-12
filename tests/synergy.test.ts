@@ -108,11 +108,13 @@ describe('Dual MCP Synergy & Interop Tests', () => {
 
     const trajectories = await synergyHandlers.export_joint_trajectories({ project: TEST_PROJECT });
     expect(trajectories.project).toBe(TEST_PROJECT);
+    expect(trajectories.vision_memory_status).toBeDefined();
     expect(Array.isArray(trajectories.steps)).toBe(true);
 
     const metrics = await synergyHandlers.get_synergy_metrics({ project: TEST_PROJECT });
     expect(metrics.project).toBe(TEST_PROJECT);
     expect(metrics.state_memory).toBeDefined();
+    expect(metrics.vision_memory?.status).toBeDefined();
     expect(metrics.synergy_health).toBeDefined();
   });
 
@@ -160,6 +162,29 @@ describe('Dual MCP Synergy & Interop Tests', () => {
     });
     expect(trajectories.session_id).toBe('sess-12345');
     expect(Array.isArray(trajectories.steps)).toBe(true);
+  });
+
+  it('should complete task and link visual_state_id in completeTask', async () => {
+    const { completeTask } = await import('../src/engine/complete-task.js');
+    const task = GraphEngine.addNode({
+      project: TEST_PROJECT,
+      type: 'task',
+      title: 'Task with visual proof completion',
+      status: 'pending',
+    });
+
+    const res = completeTask({
+      project: TEST_PROJECT,
+      task_id: task.id || (task as any).node?.id,
+      artifact_title: 'UI Verification Artifact',
+      visual_state_id: 'vs-complete-999',
+      visual_relationship: 'verifies_visual_state',
+    });
+
+    expect(res.task.status).toBe('done');
+    expect(res.artifact).toBeDefined();
+    expect(res.visual_edge).toBeDefined();
+    expect(res.visual_edge?.type).toBe('verifies_visual_state');
   });
 });
 

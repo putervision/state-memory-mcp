@@ -2,12 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
-import { resolveProjectRoot, getProjectSlug, getDbPath, getDb, getRegistry } from '../../engine/db.js';
+import { resolveProjectRoot, getProjectSlug, getDbPath, getDb, getRegistry, unregisterProject } from '../../engine/db.js';
 import { auditProjectDb } from '../../engine/audit.js';
 import { getWorkspaceGitRepos, findSubdirectoryMemoryDbs } from '../../engine/subdirectory-scanner.js';
 import { VERSION } from '../../utils/version.js';
 
 export async function doctorGlobalAction(options: { cleanStale?: boolean } = {}): Promise<void> {
+  const shouldCleanStale = Boolean(options?.cleanStale || process.argv.includes('--clean-stale'));
   console.log(`🩺 Running state-memory-mcp v${VERSION} global multi-project health audit...\n`);
   const registry = getRegistry();
   const projectEntries = Object.entries(registry);
@@ -23,6 +24,7 @@ export async function doctorGlobalAction(options: { cleanStale?: boolean } = {})
   let healthyProjects = 0;
   let missingProjects = 0;
   let projectWarnings = 0;
+  let cleanedCount = 0;
 
   const results: Array<{
     slug: string;
@@ -38,15 +40,31 @@ export async function doctorGlobalAction(options: { cleanStale?: boolean } = {})
     const exists = fs.existsSync(rootPath);
     if (!exists) {
       missingProjects++;
-      results.push({
-        slug,
-        root: rootPath,
-        status: '❌ Missing Path',
-        nodes: 0,
-        edges: 0,
-        blockers: 0,
-        details: 'Project path does not exist on disk',
-      });
+      if (shouldCleanStale) {
+        try {
+          unregisterProject(slug);
+          cleanedCount++;
+        } catch (_) {}
+        results.push({
+          slug,
+          root: rootPath,
+          status: '🧹 Cleaned Stale',
+          nodes: 0,
+          edges: 0,
+          blockers: 0,
+          details: 'Stale project path missing on disk; entry removed from registry',
+        });
+      } else {
+        results.push({
+          slug,
+          root: rootPath,
+          status: '❌ Missing Path',
+          nodes: 0,
+          edges: 0,
+          blockers: 0,
+          details: 'Project path does not exist on disk (run with --clean-stale to remove)',
+        });
+      }
       continue;
     }
 
@@ -107,7 +125,8 @@ export async function doctorGlobalAction(options: { cleanStale?: boolean } = {})
     console.log(`  Notes: ${res.details}\n`);
   }
 
-  console.log(`📊 Global Audit Summary: ${healthyProjects}/${projectEntries.length} projects healthy (${missingProjects} missing, ${projectWarnings} with warnings).`);
+  const cleanedMsg = shouldCleanStale && cleanedCount > 0 ? `, ${cleanedCount} stale entry/entries cleaned` : '';
+  console.log(`📊 Global Audit Summary: ${healthyProjects}/${projectEntries.length} projects healthy (${missingProjects} missing, ${projectWarnings} with warnings${cleanedMsg}).`);
 }
 
 export async function doctorAction(options: { project?: string; global?: boolean; cleanStale?: boolean } = {}): Promise<void> {

@@ -3,7 +3,34 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.10.0] - 2026-08-11
+
+### Added (Minor Version Release — 82 Core MCP Tools & Dual-Memory Synergy)
+- **Spec-Driven Development (SDD)**: Added spec ingestion, markdown export, spec compliance tracking, feature scaffolding, and acceptance criteria verification (`ingest_spec`, `export_spec`, `get_spec_compliance`, `scaffold_spec`, `verify_requirement`).
+- **Dual-Memory Synergy Suite**: Added visual memory state linking, joint multimodal trajectory exports, and dual-memory ROI metrics (`link_visual_state`, `export_joint_trajectories`, `get_synergy_metrics`).
+- **Single-Turn Visual Verification**: Enhanced `complete_task` (`CompleteTaskParams`, `CompleteTaskSchema`) with optional `visual_state_id` and `visual_relationship` parameters for direct visual evidence linking upon task completion.
+- **Connection Safety & Status Diagnostics**: Added `vision_memory_status` tracking (`connected`, `offline`, `schema_mismatch`) to `export_joint_trajectories` and `get_synergy_metrics`.
+- **Compound QoL Tools**: Added `plan_and_decompose_feature`, `post_mortem_from_session`, `find_similar_blockers`, `auto_prune_stale_tasks`, and `app_version` (bringing complete tool inventory to 82).
+- **Documentation & Claims Calibration**: Aligned all tool references, updated CLI command docs (`spec:ingest`, `spec:export`, `spec:matrix`), synchronized 12 Node Types and 21 Edge Types, and calibrated claims to modest context overhead statements.
+
+## [0.9.33] - 2026-08-11
+
+### Added & Security Hardening
+- **Database Schema Migration v12**: Added migration v12 with covering composite index `idx_nodes_project_type_status_branch ON nodes(project, type, status, git_branch)`, edge composite index `idx_edges_project_branch_type`, and event log composite indexes `idx_events_project_session` and `idx_events_project_timestamp`.
+- **SQL Injection Defense-in-Depth**: Implemented SQLite AST pre-compilation test (`db.prepare()`) in `src/engine/query-raw.ts` before query execution.
+- **Export Memory Limits**: Enforced 50,000 node export memory thresholds in `src/engine/export.ts` with `force: true` override.
+- **Encryption Key Validation**: Enforced minimum key length (>= 16 chars) in `src/engine/db.ts` with strict audit enforcement.
+- **Webhook Hardening**: Added token bucket rate limiting (10 webhooks/sec), 1MB maximum payload size limit, and `"schema_version": "1.0"` contract field in `src/engine/notifications.ts`.
+- **FTS Query Validation**: Enforced 500-character query limit and 50-token cap in `sanitizeFtsQuery()`.
+
+### Performance Optimizations
+- **TF-IDF Top-K Acceleration**: Optimized `searchTfidf()` in `src/engine/tfidf.ts` with top-K candidate buffer tracking to eliminate full array sort overhead.
+- **Registry I/O Optimization**: Moved `cleanupTempRegistryFiles()` to cache-miss path in `src/engine/db.ts`.
+- **`getProjectSummary` Query Reduction**: Derived task counts directly from status breakdown in `src/engine/analytics/dependencies.ts`, eliminating 2 full query executions per summary call.
+- **Fast-Path JSON Parsing**: Added `'{}'` and `'[]'` string checks in `src/engine/row-mappers.ts` to bypass `JSON.parse()` overhead.
+- **Cycle Detection Fast Path**: Added self-loop and zero-edge fast paths in `src/engine/edges.ts` before recursive CTE execution.
+- **Git Branch Cache TTL**: Increased `BRANCH_TTL_MS` to 5,000ms in `src/utils/git.ts`.
+
 ## [0.9.32] - 2026-08-04
 
 ### Maintenance & Quality Assurance

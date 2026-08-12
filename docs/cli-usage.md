@@ -54,6 +54,11 @@ state-memory-mcp update
 
 # Merge an external SQLite database into the current project database
 state-memory-mcp merge other-project.db --project my-project [--force]
+
+# Spec-Driven Development CLI Commands
+state-memory-mcp spec:ingest ./specs/feature.md --project my-project
+state-memory-mcp spec:export spec_node_id --format markdown --out spec.md
+state-memory-mcp spec:matrix --project my-project
 ```
 
 ---

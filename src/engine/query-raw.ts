@@ -40,6 +40,19 @@ export function queryGraph(params: {
     );
   }
 
+  // SQLite AST compilation pre-validation pass (defense-in-depth)
+  try {
+    const testStmt = readOnlyDb.prepare(cleanSql);
+    if (!testStmt.reader) {
+      throw new ValidationError(
+        'Write operations (INSERT, UPDATE, DELETE, DROP, etc.) are strictly prohibited.'
+      );
+    }
+  } catch (err: any) {
+    if (err instanceof ValidationError) throw err;
+    throw new DatabaseError(`SQL compilation failed: ${err.message}`);
+  }
+
   const forbiddenPattern =
     /\b(load_extension|writefile|readfile|attach|detach|fts3_tokenizer|pragma|sqlite_master|sqlite_schema)\b/i;
   const match = cleanSql.match(forbiddenPattern);

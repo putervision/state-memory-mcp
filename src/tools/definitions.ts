@@ -1625,7 +1625,7 @@ export const toolDefinitions: ToolDefinition[] = [
   {
     name: 'complete_task',
     description:
-      'Single-turn task completion: updates task status to done, optionally creates an artifact node, and links them via a produces relationship.',
+      'Single-turn task completion: updates task status to done, optionally creates an artifact node or links a visual memory state ID, and connects relationships.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1640,6 +1640,15 @@ export const toolDefinitions: ToolDefinition[] = [
           type: 'array',
           items: { type: 'string' },
           description: 'Optional tags for artifact.',
+        },
+        visual_state_id: {
+          type: 'string',
+          description: 'Optional visual state ID from vision memory to link as visual proof.',
+        },
+        visual_relationship: {
+          type: 'string',
+          enum: ['renders_state', 'verifies_visual_state'],
+          description: 'Edge type to connect task to visual state (default: renders_state).',
         },
       },
       required: ['task_id'],

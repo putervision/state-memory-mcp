@@ -62,11 +62,11 @@ function cleanupTempRegistryFiles(): void {
 }
 
 export function getRegistry(): Record<string, string> {
-  cleanupTempRegistryFiles();
   const now = Date.now();
   if (registryCache && now - registryCache.timestamp < REGISTRY_TTL_MS) {
     return registryCache.registry;
   }
+  cleanupTempRegistryFiles();
 
   try {
     const targetPath = fs.existsSync(REGISTRY_PATH)
@@ -376,9 +376,22 @@ const MAX_CACHED_DBS = 5;
 const dbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 const readOnlyDbCache = new Map<string, { db: Database.Database; lastUsed: number }>();
 
-export function getEncryptionKey(_projectRoot?: string): Buffer | null {
+export function getEncryptionKey(projectRoot?: string): Buffer | null {
   const keyStr = process.env.STATE_MEMORY_ENCRYPTION_KEY;
   if (!keyStr) return null;
+  if (keyStr.length < 16) {
+    logger.warn(
+      `[SECURITY WARNING] STATE_MEMORY_ENCRYPTION_KEY is weak (${keyStr.length} characters). A minimum of 16 characters is recommended.`
+    );
+    if (projectRoot) {
+      const config = loadProjectConfig(projectRoot);
+      if (config.strictAudit) {
+        throw new ValidationError(
+          `Encryption key must be at least 16 characters long when strictAudit is enabled (current: ${keyStr.length}).`
+        );
+      }
+    }
+  }
   return crypto.createHash('sha256').update(keyStr).digest();
 }
 

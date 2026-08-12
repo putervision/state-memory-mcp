@@ -320,6 +320,32 @@ export const migrations: Migration[] = [
       db.prepare('DROP INDEX IF EXISTS idx_nodes_project_updated_status').run();
     },
   },
+  // Version 12: Covering composite indexes for query acceleration and event logs
+  {
+    version: 12,
+    description: 'Covering composite indexes for nodes, edges, and event logs',
+    up: (db) => {
+      logger.info('Running migration v12: adding covering composite indexes...');
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_nodes_project_type_status_branch ON nodes(project, type, status, git_branch)`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_edges_project_branch_type ON edges(project, git_branch, type)`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_events_project_session ON events(project, session_id)`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_events_project_timestamp ON events(project, timestamp)`
+      ).run();
+    },
+    down: (db) => {
+      db.prepare('DROP INDEX IF EXISTS idx_nodes_project_type_status_branch').run();
+      db.prepare('DROP INDEX IF EXISTS idx_edges_project_branch_type').run();
+      db.prepare('DROP INDEX IF EXISTS idx_events_project_session').run();
+      db.prepare('DROP INDEX IF EXISTS idx_events_project_timestamp').run();
+    },
+  },
 ];
 
 /**

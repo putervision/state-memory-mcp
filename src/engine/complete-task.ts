@@ -7,6 +7,7 @@ export function completeTask(params: CompleteTaskParams): {
   task: BaseNode;
   artifact?: BaseNode;
   edge?: Edge;
+  visual_edge?: Edge;
 } {
   const projectSlug = getProjectSlug(params.project);
   const db = getDb(projectSlug);
@@ -20,6 +21,36 @@ export function completeTask(params: CompleteTaskParams): {
 
     if (!updatedTask) {
       throw new Error(`Task not found: ${params.task_id}`);
+    }
+
+    let visualEdge: Edge | undefined;
+    if (params.visual_state_id) {
+      let visualNode = GraphEngine.getNode({
+        project: projectSlug,
+        id: params.visual_state_id,
+        include_edges: false,
+      });
+
+      if (!visualNode) {
+        visualNode = GraphEngine.addNode({
+          project: projectSlug,
+          type: 'visual_state',
+          title: `Visual State ${params.visual_state_id}`,
+          status: 'active',
+          metadata: { visual_state_id: params.visual_state_id },
+        }) as any;
+      }
+
+      const visualNodeId = (visualNode as any).node
+        ? (visualNode as any).node.id
+        : (visualNode as any).id;
+
+      visualEdge = EdgeEngine.addEdge({
+        project: projectSlug,
+        source_id: params.task_id,
+        target_id: visualNodeId,
+        type: params.visual_relationship || 'renders_state',
+      });
     }
 
     if (params.artifact_title) {
@@ -43,11 +74,13 @@ export function completeTask(params: CompleteTaskParams): {
         task: updatedTask,
         artifact,
         edge,
+        visual_edge: visualEdge,
       };
     }
 
     return {
       task: updatedTask,
+      visual_edge: visualEdge,
     };
   })();
 }

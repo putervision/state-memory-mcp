@@ -273,12 +273,11 @@ export class QueryEngine {
 
     // FTS algorithm
     const sanitizeFtsQuery = (q: string): string => {
-      const trimmed = q.trim();
-      if (!trimmed) return '""';
-      return trimmed
-        .split(/\s+/)
-        .map((token) => `"${token.replace(/"/g, '""')}"`)
-        .join(' ');
+      const truncated = q.slice(0, 500).trim();
+      if (!truncated) return '""';
+      const tokens = truncated.split(/\s+/).filter(Boolean).slice(0, 50);
+      if (tokens.length === 0) return '""';
+      return tokens.map((token) => `"${token.replace(/"/g, '""')}"`).join(' ');
     };
 
     let ftsQuery = params.query;

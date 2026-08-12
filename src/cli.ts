@@ -498,13 +498,15 @@ program
   .description('Run environment health checks (Node, SQLite, FTS5, storage permissions, git, graph integrity)')
   .option('-p, --project <name>', 'Project slug name')
   .option('-g, --global', 'Audit health across all registered projects in ~/.state-memory-mcp/projects.json')
-  .action(doctorAction);
+  .option('--clean-stale', 'Remove stale/missing project entries from ~/.state-memory-mcp/projects.json during global audit')
+  .action((options, cmd) => doctorAction(cmd?.opts ? cmd.opts() : options));
 
 // Doctor-global command to run global multi-project health audit
 program
   .command('doctor-global')
   .description('Run global multi-project health audit across all registered projects in ~/.state-memory-mcp/projects.json')
-  .action(doctorGlobalAction);
+  .option('--clean-stale', 'Remove stale/missing project entries from ~/.state-memory-mcp/projects.json')
+  .action((options, cmd) => doctorGlobalAction(cmd?.opts ? cmd.opts() : options));
 
 // Update command to update global npm package
 program

@@ -112,6 +112,7 @@ export const synergyHandlers = {
     const projectRoot = resolveProjectRoot(args?.project);
     const visionDbDir = path.join(projectRoot, '.vision-memory-mcp');
     let visualStates: any[] = [];
+    let visionMemoryStatus: 'connected' | 'offline' | 'schema_mismatch' = 'offline';
 
     if (fs.existsSync(visionDbDir)) {
       try {
@@ -125,9 +126,12 @@ export const synergyHandlers = {
           if (sessionId) {
             visualStates = visualStates.filter((s: any) => s.trace_id === sessionId);
           }
+          visionMemoryStatus = 'connected';
+        } else {
+          visionMemoryStatus = 'schema_mismatch';
         }
       } catch (err) {
-        // Gracefully ignore if LanceDB isn't accessible directly
+        visionMemoryStatus = 'offline';
       }
     }
 
@@ -170,6 +174,7 @@ export const synergyHandlers = {
     return {
       session_id: sessionId || 'all',
       project: projectSlug,
+      vision_memory_status: visionMemoryStatus,
       total_steps: steps.length,
       steps,
     };
@@ -223,17 +228,24 @@ export const synergyHandlers = {
     const projectRoot = resolveProjectRoot(args?.project);
     const visionDbDir = path.join(projectRoot, '.vision-memory-mcp');
     let totalVisualStates = 0;
+    let visionMemoryStatus: 'connected' | 'offline' | 'schema_mismatch' = 'offline';
 
     if (fs.existsSync(visionDbDir)) {
       try {
         // @ts-expect-error - optional module
         const lancedb = await import('@lancedb/lancedb');
         const vdb = await lancedb.connect(visionDbDir);
-        if ((await vdb.tableNames()).includes('visual_states')) {
+        const tables = await vdb.tableNames();
+        if (tables.includes('visual_states')) {
           const table = await vdb.openTable('visual_states');
           totalVisualStates = await table.countRows();
+          visionMemoryStatus = 'connected';
+        } else {
+          visionMemoryStatus = 'schema_mismatch';
         }
-      } catch {}
+      } catch {
+        visionMemoryStatus = 'offline';
+      }
     }
 
     const uiVerificationRatio = completedTasks > 0 ? (uiVerifiedTasks / completedTasks) * 100 : 100;
@@ -248,10 +260,17 @@ export const synergyHandlers = {
         active_visual_blockers: activeVisualBlockers,
       },
       vision_memory: {
+        status: visionMemoryStatus,
         total_visual_states: totalVisualStates,
       },
       synergy_health:
-        activeVisualBlockers === 0 && uiVerificationRatio >= 80 ? 'EXCELLENT' : 'NEEDS_ATTENTION',
+        activeVisualBlockers === 0 &&
+        uiVerificationRatio >= 80 &&
+        visionMemoryStatus === 'connected'
+          ? 'EXCELLENT'
+          : visionMemoryStatus === 'offline'
+            ? 'DEGRADED_OFFLINE'
+            : 'NEEDS_ATTENTION',
     };
   },
 };

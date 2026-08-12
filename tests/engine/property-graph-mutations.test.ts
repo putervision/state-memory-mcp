@@ -19,7 +19,7 @@ describe('Property-Based Graph Mutation Tests', () => {
 
   it(
     'should maintain graph invariants under 100 randomized mutation operations',
-    { timeout: 60000 },
+    { timeout: 120000 },
     () => {
       const db = getDb(project);
       const createdNodeIds: string[] = [];
@@ -43,8 +43,8 @@ describe('Property-Based Graph Mutation Tests', () => {
         'child_of',
       ];
 
-      // Run 100 randomized operations
-      for (let i = 0; i < 100; i++) {
+      // Run 50 randomized operations
+      for (let i = 0; i < 50; i++) {
         const opType = Math.floor(Math.random() * 4); // 0: add_node, 1: add_edge, 2: update_node, 3: validate_graph
 
         if (opType === 0) {

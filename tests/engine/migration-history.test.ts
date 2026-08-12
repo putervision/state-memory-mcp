@@ -32,7 +32,7 @@ describe('Schema Migration History & Rollback Tests', () => {
     }
 
     const version = getMetaValue(db, 'version');
-    expect(version).toBe('11');
+    expect(version).toBe('12');
 
     // Assert schema tables exist
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as {
@@ -55,7 +55,7 @@ describe('Schema Migration History & Rollback Tests', () => {
       })();
     }
 
-    expect(getMetaValue(db, 'version')).toBe('11');
+    expect(getMetaValue(db, 'version')).toBe('12');
 
     // Rollback to v4
     const rolledBackVersion = rollbackMigration(db, 4);

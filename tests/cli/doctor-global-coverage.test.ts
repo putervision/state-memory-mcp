@@ -14,4 +14,8 @@ describe('CLI Doctor Global Command Coverage Suite', () => {
   it('should run doctorAction with --global flag without throwing errors', async () => {
     await expect(doctorAction({ global: true })).resolves.not.toThrow();
   });
+
+  it('should run doctorGlobalAction with --clean-stale flag without throwing errors', async () => {
+    await expect(doctorGlobalAction({ cleanStale: true })).resolves.not.toThrow();
+  });
 });

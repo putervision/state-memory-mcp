@@ -20,15 +20,19 @@ function getCachedProjectRoot(project?: string): string {
  */
 export function parseNodeRow(row: NodeRow): BaseNode {
   let metadata: Record<string, unknown> = {};
-  if (row.metadata) {
+  if (row.metadata && row.metadata !== '{}') {
     try {
       const root = getCachedProjectRoot(row.project);
       const dec = decryptPayload(row.metadata, root);
-      const parsed = JSON.parse(dec);
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        metadata = parsed;
+      if (dec === '{}') {
+        metadata = {};
       } else {
-        logger.warn(`Expected object for node metadata on node ${row.id}, got: ${typeof parsed}`);
+        const parsed = JSON.parse(dec);
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          metadata = parsed;
+        } else {
+          logger.warn(`Expected object for node metadata on node ${row.id}, got: ${typeof parsed}`);
+        }
       }
     } catch (err: any) {
       logger.warn(`Failed to parse node metadata for node ${row.id}: ${err.message}`);
@@ -36,7 +40,7 @@ export function parseNodeRow(row: NodeRow): BaseNode {
   }
 
   let tags: string[] = [];
-  if (row.tags) {
+  if (row.tags && row.tags !== '[]') {
     try {
       const parsed = JSON.parse(row.tags);
       if (Array.isArray(parsed)) {
@@ -71,15 +75,21 @@ export function parseNodeRow(row: NodeRow): BaseNode {
  */
 export function parseEdgeRow(row: EdgeRow): Edge {
   let properties: Record<string, unknown> = {};
-  if (row.properties) {
+  if (row.properties && row.properties !== '{}') {
     try {
       const root = getCachedProjectRoot(row.project);
       const dec = decryptPayload(row.properties, root);
-      const parsed = JSON.parse(dec);
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        properties = parsed;
+      if (dec === '{}') {
+        properties = {};
       } else {
-        logger.warn(`Expected object for edge properties on edge ${row.id}, got: ${typeof parsed}`);
+        const parsed = JSON.parse(dec);
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          properties = parsed;
+        } else {
+          logger.warn(
+            `Expected object for edge properties on edge ${row.id}, got: ${typeof parsed}`
+          );
+        }
       }
     } catch (err: any) {
       logger.warn(`Failed to parse edge properties for edge ${row.id}: ${err.message}`);

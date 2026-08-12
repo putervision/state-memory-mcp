@@ -105,6 +105,10 @@ export async function validateWebhookHostDns(urlStr: string): Promise<string | n
 }
 
 class ContextStoreNotifier extends EventEmitter {
+  private lastDispatchTimes: number[] = [];
+  private readonly MAX_DISPATCHES_PER_SEC = 10;
+  private readonly MAX_PAYLOAD_BYTES = 1024 * 1024; // 1MB limit
+
   constructor() {
     super();
     this.setMaxListeners(50);
@@ -127,6 +131,17 @@ class ContextStoreNotifier extends EventEmitter {
     const webhookUrl = process.env.STATE_MEMORY_WEBHOOK_URL;
     if (!webhookUrl) return;
 
+    // Token bucket rate limiting (max 10 dispatches per second)
+    const now = Date.now();
+    this.lastDispatchTimes = this.lastDispatchTimes.filter((t) => now - t < 1000);
+    if (this.lastDispatchTimes.length >= this.MAX_DISPATCHES_PER_SEC) {
+      logger.warn(
+        `Webhook dispatch rate limit exceeded (${this.MAX_DISPATCHES_PER_SEC}/sec). Dropping event.`
+      );
+      return;
+    }
+    this.lastDispatchTimes.push(now);
+
     const safeIp = await validateWebhookHostDns(webhookUrl);
     if (!safeIp) {
       logger.warn(`Rejected unsafe or unverified webhook URL: ${webhookUrl}`);
@@ -134,7 +149,24 @@ class ContextStoreNotifier extends EventEmitter {
     }
 
     try {
-      const payload = JSON.stringify(event);
+      const webhookPayloadObj = {
+        schema_version: '1.0',
+        server_version: VERSION,
+        ...event,
+      };
+
+      let payload = JSON.stringify(webhookPayloadObj);
+      if (Buffer.byteLength(payload) > this.MAX_PAYLOAD_BYTES) {
+        logger.warn(
+          `Webhook payload size (${Buffer.byteLength(payload)} bytes) exceeds limit (1MB). Truncating metadata.`
+        );
+        const truncatedEvent = {
+          ...webhookPayloadObj,
+          payload: { _truncated: true, message: 'Payload exceeded 1MB size threshold.' },
+        };
+        payload = JSON.stringify(truncatedEvent);
+      }
+
       const url = new URL(webhookUrl);
       const client = url.protocol === 'https:' ? https : http;
 

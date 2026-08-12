@@ -28,7 +28,7 @@
     "operatingSystem": "Cross-platform (Node.js >= 18)",
     "applicationCategory": "DeveloperApplication",
     "description": "Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI coding agents with a structured, persistent SQLite state graph for tracking tasks, decisions, blockers, and Spec-Driven Development.",
-    "softwareVersion": "0.9.32",
+    "softwareVersion": "0.10.0",
     "author": {
       "@type": "Organization",
       "name": "PuterVision LLC",
@@ -110,7 +110,7 @@
 
     <!-- Hero Section -->
     <section class="hero">
-      <span class="badge">Production Ready v0.9.32 • 82 Core MCP Tools</span>
+      <span class="badge">Production Ready v0.10.0 • 82 Core MCP Tools</span>
       <h1><img src="state-memory-icon.png" alt="State Memory Icon" class="hero-title-icon"><span class="hero-title-text">State Memory MCP</span></h1>
       <p>A zero-infrastructure, deterministic workflow state graph server for AI agents. Track tasks, design decisions,
         session histories, and blockers locally to supercharge agent context and eliminate memory bloat.</p>
@@ -169,7 +169,7 @@
             <div class="desc-box">
               <h4>📊 Tangible Developer Value & 3D Visualizer</h4>
               <p>
-                Reduces context bloat and API token costs by <strong>128× to 462×</strong> when utilizing compiled trajectory models. Features first-class Git branch awareness, auto-healing graph repair (`auto_fix`), and an interactive WebGL 3D Force-Directed Graph visualizer launched via `state-memory-mcp view`.
+                Reduces context bloat and prompt overhead by offloading history to a local SQLite database. Features first-class Git branch awareness, auto-healing graph repair (`auto_fix`), and an interactive WebGL 3D Force-Directed Graph visualizer launched via `state-memory-mcp view`.
               </p>
             </div>
           </div>
@@ -214,10 +214,9 @@
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
           <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
-            <span>📉</span> Massive Token Savings
+            <span>📉</span> Context Window Optimization
           </h3>
-          <p style="font-size: 0.9rem;">Keeps history in SQLite. Reduces API usage costs by <strong>128× to 462×</strong> when
-            utilizing compiled trajectory models.</p>
+          <p style="font-size: 0.9rem;">Keeps history in SQLite. Reduces API prompt context bloat by offloading active task graphs when operating across long sessions.</p>
         </div>
         <div class="card feature-card" style="border-color: rgba(99, 102, 241, 0.15);">
           <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">
@@ -456,10 +455,9 @@
         </div>
         <div class="card feature-card"
           style="text-align: center; border-color: rgba(34, 211, 238, 0.2); background: rgba(34, 211, 238, 0.02);">
-          <div style="font-size: 3rem; font-weight: 800; color: #22d3ee; margin-bottom: 0.5rem;">128x - 462x</div>
-          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Cost Savings</h3>
-          <p style="font-size: 0.9rem; color: var(--text-secondary);">Using trajectory event logs to compile procedures
-            into smaller, local models lowers API usage costs.</p>
+          <div style="font-size: 2.2rem; font-weight: 800; color: #22d3ee; margin-bottom: 0.5rem;">Optimized</div>
+          <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Context Usage</h3>
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">Offloading structured state to local storage helps reduce unnecessary prompt context overhead.</p>
         </div>
         <div class="card feature-card"
           style="text-align: center; border-color: rgba(167, 139, 250, 0.2); background: rgba(167, 139, 250, 0.02);">
@@ -749,7 +747,7 @@
             <span>📘</span> Formal MCP Tool API Reference
           </h3>
           <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
-            Formal OpenAPI & JSON-RPC 2.0 schema specifications, input parameter types, and example payloads for all 76 MCP tools.
+            Formal OpenAPI & JSON-RPC 2.0 schema specifications, input parameter types, and example payloads for all 82 MCP tools.
           </p>
           <a href="api-reference.md" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-weight: 600; font-size: 0.9rem; text-decoration: none;">View Formal API Reference &rarr;</a>
         </div>

@@ -398,12 +398,30 @@ export function searchTfidf(nodes: BaseNode[], query: string, limit: number): Ba
     }
 
     const similarity = dotProduct / (docNorm * queryNorm);
-    scoredNodes.push({ node, score: similarity });
+    if (similarity > 0) {
+      scoredNodes.push({ node, score: similarity });
+    }
   }
 
-  return scoredNodes
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((item) => item.node);
+  // Filter positive scores only
+  const positiveScored = scoredNodes.filter((item) => item.score > 0);
+
+  // Top-K extraction using min-heap principle to avoid sorting all N elements
+  if (positiveScored.length <= limit) {
+    return positiveScored.sort((a, b) => b.score - a.score).map((item) => item.node);
+  }
+
+  // Maintain top-limit candidates using insertion sort into fixed-size buffer
+  const topK: ScoredNode[] = [];
+  for (const item of positiveScored) {
+    if (topK.length < limit) {
+      topK.push(item);
+      topK.sort((a, b) => b.score - a.score);
+    } else if (item.score > topK[topK.length - 1].score) {
+      topK[topK.length - 1] = item;
+      topK.sort((a, b) => b.score - a.score);
+    }
+  }
+
+  return topK.map((item) => item.node);
 }

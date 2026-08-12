@@ -16,7 +16,12 @@ describe('v0.9.33 Dedicated Feature & Security Hardening Tests', () => {
   });
 
   describe('SQL AST Compiler Pre-Validation (S3)', () => {
-    const project = 'ast-test-proj';
+    let project: string;
+
+    beforeEach(() => {
+      project = 'ast-test-proj-' + Math.random().toString(36).substring(7);
+    });
+
     afterEach(() => closeDb(project));
 
     it('should pre-validate query compilation before execution', () => {
@@ -92,7 +97,12 @@ describe('v0.9.33 Dedicated Feature & Security Hardening Tests', () => {
   });
 
   describe('Webhook Rate Limiting & Schema Versioning (S2, S7, S9)', () => {
-    const project = 'webhook-test-proj';
+    let project: string;
+
+    beforeEach(() => {
+      project = 'webhook-test-proj-' + Math.random().toString(36).substring(7);
+    });
+
     afterEach(() => closeDb(project));
 
     it('should validate webhook URL safety correctly', () => {

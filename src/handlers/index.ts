@@ -6,9 +6,8 @@ import { sessionHandlers } from './session.js';
 import { snapshotHandlers } from './snapshot.js';
 import { batchHandlers } from './batch.js';
 import { specHandlers } from './spec.js';
-import { synergyHandlers } from './synergy.js';
 
-export const toolHandlers: Record<string, (args: any) => Promise<any> | any> = {
+export const toolHandlers: Record<string, (args: unknown) => Promise<unknown> | unknown> = {
   ...nodeHandlers,
   ...edgeHandlers,
   ...graphHandlers,
@@ -17,5 +16,4 @@ export const toolHandlers: Record<string, (args: any) => Promise<any> | any> = {
   ...snapshotHandlers,
   ...batchHandlers,
   ...specHandlers,
-  ...synergyHandlers,
 };

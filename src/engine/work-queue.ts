@@ -101,9 +101,9 @@ export function getNextTasks(
       priorityReason = 'unblocked';
     }
 
-    const taskRecs: string[] = ['complete_task', 'add_note'];
+    const taskRecs: string[] = ['manage_tasks:complete', 'manage_nodes:add_note'];
     if (task.title.toLowerCase().includes('ui') || task.title.toLowerCase().includes('layout')) {
-      taskRecs.push('link_visual_state', 'verify_requirement');
+      taskRecs.push('manage_edges:link_visual', 'manage_specs:verify');
     }
 
     nextTasksList.push({
@@ -136,9 +136,13 @@ export function getNextTasks(
   const blockingOthers = unblockedTasks.filter((t) => t.blocks.length > 0).length;
   const summary = `${totalUnblocked} unblocked tasks, ${blockingOthers} blocking others.`;
 
-  const globalRecs: string[] = ['complete_task', 'add_note', 'validate_graph'];
+  const globalRecs: string[] = [
+    'manage_tasks:complete',
+    'manage_nodes:add_note',
+    'run_diagnostics:validate',
+  ];
   if (unblockedTasks.some((t) => t.node.title.toLowerCase().includes('ui'))) {
-    globalRecs.push('link_visual_state');
+    globalRecs.push('manage_edges:link_visual');
   }
 
   return {

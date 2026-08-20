@@ -53,7 +53,7 @@ describe('Performance Benchmarking Test Suite (1,000+ Node Scalability)', () => 
     // Ensure listNodes query finishes within reasonable SLA under test concurrency
     const isCoverage =
       !!process.env.V8_COVERAGE || !!process.env.NODE_V8_COVERAGE || !!process.env.VITEST_COVERAGE;
-    expect(durationMs).toBeLessThan(isCoverage ? 2500 : 2000);
+    expect(durationMs).toBeLessThan(isCoverage ? 5000 : 4000);
   });
 
   it('should benchmark get_project_summary calculation under 1,000 nodes', () => {

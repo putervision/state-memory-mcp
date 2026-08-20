@@ -204,6 +204,11 @@ export function generateVisualizerHtml(
     .badge-milestone { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
     .badge-observation { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
     .badge-plan { background: rgba(236, 72, 153, 0.2); color: #f472b6; }
+    .badge-visual_state { background: rgba(20, 184, 166, 0.2); color: #2dd4bf; }
+    .badge-spec { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
+    .badge-requirement { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+    .badge-acceptance_criterion { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge-contract { background: rgba(244, 63, 94, 0.2); color: #fb7185; }
 
     .meta-item {
       display: flex;

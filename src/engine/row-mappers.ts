@@ -42,11 +42,17 @@ export function parseNodeRow(row: NodeRow): BaseNode {
   let tags: string[] = [];
   if (row.tags && row.tags !== '[]') {
     try {
-      const parsed = JSON.parse(row.tags);
-      if (Array.isArray(parsed)) {
-        tags = parsed;
+      const root = getCachedProjectRoot(row.project);
+      const dec = decryptPayload(row.tags, root);
+      if (dec === '[]') {
+        tags = [];
       } else {
-        logger.warn(`Expected array for node tags on node ${row.id}, got: ${typeof parsed}`);
+        const parsed = JSON.parse(dec);
+        if (Array.isArray(parsed)) {
+          tags = parsed;
+        } else {
+          logger.warn(`Expected array for node tags on node ${row.id}, got: ${typeof parsed}`);
+        }
       }
     } catch (err: any) {
       logger.warn(`Failed to parse node tags for node ${row.id}: ${err.message}`);

@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { VERSION } from '../../utils/version.js';
 
 export async function updateAction(options: any = {}) {
@@ -11,14 +11,14 @@ export async function updateAction(options: any = {}) {
   console.log(`\n🔄 Fetching and installing the latest version from npm registry...\n`);
 
   try {
-    execSync(`npm install -g ${pkgName}@latest`, {
+    execFileSync('npm', ['install', '-g', `${pkgName}@latest`], {
       encoding: 'utf-8',
       stdio: 'inherit'
     });
 
     let newVer = VERSION;
     try {
-      const checkOut = execSync(`${binaryName} --version`, {
+      const checkOut = execFileSync(binaryName, ['--version'], {
         encoding: 'utf-8'
       }).trim();
       if (checkOut) {
@@ -34,8 +34,17 @@ export async function updateAction(options: any = {}) {
     try {
       console.log(`\n🔄 Restarting active ${binaryName} server processes...`);
       const currentPid = process.pid;
-      const pgrepOut = execSync(`pgrep -f "${binaryName} run" || true`, { encoding: 'utf-8' }).trim();
-      const pids = pgrepOut.split('\n').map(p => parseInt(p.trim(), 10)).filter(p => p && !isNaN(p) && p !== currentPid);
+      let pgrepOut = '';
+      try {
+        pgrepOut = execFileSync('pgrep', ['-f', `${binaryName} run`], { encoding: 'utf-8' }).trim();
+      } catch {
+        // pgrep returns non-zero when no matching processes found
+        pgrepOut = '';
+      }
+      const pids = pgrepOut
+        .split('\n')
+        .map(p => parseInt(p.trim(), 10))
+        .filter(p => p && !isNaN(p) && p !== currentPid);
 
       if (pids.length > 0) {
         for (const pid of pids) {

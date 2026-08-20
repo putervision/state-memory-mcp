@@ -455,6 +455,9 @@ export async function scanGit(
       }
     }
 
+    // Check for modifications to spec files and mark spec nodes as stale
+    checkSpecFileChanges(db, projectSlug, mergedCommits);
+
     // Save the latest commit hash for this repo if new commits were actually found
     if (commits.length > 0) {
       const newestHash = commits[0].hash;

@@ -28,6 +28,25 @@ export class EventEngine {
   static droppedEventCount = 0;
 
   /**
+   * Cryptographically compute SHA-256 hash for an event over its complete preimage
+   */
+  static computeEventHash(params: {
+    prev_hash: string;
+    id: string;
+    session_id?: string | null;
+    event_type: string;
+    entity_type: string;
+    entity_id: string;
+    before_state?: string | null;
+    after_state?: string | null;
+    metadata?: string | null;
+    timestamp: string;
+  }): string {
+    const payload = `${params.prev_hash}|${params.id}|${params.session_id || ''}|${params.event_type}|${params.entity_type}|${params.entity_id}|${params.before_state || ''}|${params.after_state || ''}|${params.metadata || '{}'}|${params.timestamp}`;
+    return crypto.createHash('sha256').update(payload).digest('hex');
+  }
+
+  /**
    * Log a state transition event to the database with cryptographic SHA-256 hash chaining
    */
   static logEvent(
@@ -73,8 +92,18 @@ export class EventEngine {
         // Table may not have hash column yet on legacy DBs
       }
 
-      const payload = `${prevHash}|${id}|${params.event_type}|${params.entity_id}|${afterStr || ''}|${timestamp}`;
-      const hash = crypto.createHash('sha256').update(payload).digest('hex');
+      const hash = EventEngine.computeEventHash({
+        prev_hash: prevHash,
+        id,
+        session_id,
+        event_type: params.event_type,
+        entity_type: params.entity_type,
+        entity_id: params.entity_id,
+        before_state: beforeStr,
+        after_state: afterStr,
+        metadata: metaStr,
+        timestamp,
+      });
 
       try {
         db.prepare(
@@ -469,8 +498,18 @@ export class EventEngine {
           };
         }
 
-        const payload = `${ev.prev_hash || expectedPrevHash}|${ev.id}|${ev.event_type}|${ev.entity_id}|${ev.after_state || ''}|${ev.timestamp}`;
-        const calculatedHash = crypto.createHash('sha256').update(payload).digest('hex');
+        const calculatedHash = EventEngine.computeEventHash({
+          prev_hash: ev.prev_hash || expectedPrevHash,
+          id: ev.id,
+          session_id: ev.session_id,
+          event_type: ev.event_type,
+          entity_type: ev.entity_type,
+          entity_id: ev.entity_id,
+          before_state: ev.before_state,
+          after_state: ev.after_state,
+          metadata: ev.metadata,
+          timestamp: ev.timestamp,
+        });
 
         if (calculatedHash !== ev.hash) {
           return {

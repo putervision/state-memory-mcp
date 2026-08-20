@@ -31,8 +31,14 @@ export function validatePath(filePath: string, project?: string): string {
   return validatePathCore(filePath, pathConfig);
 }
 
-const REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp', 'projects.json');
+const DEFAULT_REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp', 'projects.json');
 const LEGACY_REGISTRY_PATH = path.join(os.homedir(), '.state-memory-mcp-registry.json');
+
+export function getRegistryPath(): string {
+  return process.env.STATE_MEMORY_REGISTRY_PATH || DEFAULT_REGISTRY_PATH;
+}
+
+const REGISTRY_PATH = DEFAULT_REGISTRY_PATH;
 
 let registryCache: { registry: Record<string, string>; timestamp: number } | null = null;
 const REGISTRY_TTL_MS = 2000; // 2 seconds TTL
@@ -42,7 +48,8 @@ function cleanupTempRegistryFiles(): void {
   if (hasCleanedTempRegistry) return;
   hasCleanedTempRegistry = true;
   try {
-    const home = path.dirname(REGISTRY_PATH);
+    const regPath = getRegistryPath();
+    const home = path.dirname(regPath);
     if (!fs.existsSync(home)) return;
     const prefix = 'projects.json.tmp.';
     const files = fs.readdirSync(home);
@@ -68,10 +75,11 @@ export function getRegistry(): Record<string, string> {
   }
   cleanupTempRegistryFiles();
 
+  const regPath = getRegistryPath();
   try {
-    const targetPath = fs.existsSync(REGISTRY_PATH)
-      ? REGISTRY_PATH
-      : fs.existsSync(LEGACY_REGISTRY_PATH)
+    const targetPath = fs.existsSync(regPath)
+      ? regPath
+      : !process.env.STATE_MEMORY_REGISTRY_PATH && fs.existsSync(LEGACY_REGISTRY_PATH)
         ? LEGACY_REGISTRY_PATH
         : null;
 
@@ -82,15 +90,15 @@ export function getRegistry(): Record<string, string> {
         registryCache = { registry, timestamp: now };
 
         // Auto-migrate legacy registry file if needed
-        if (targetPath === LEGACY_REGISTRY_PATH && !fs.existsSync(REGISTRY_PATH)) {
+        if (targetPath === LEGACY_REGISTRY_PATH && !fs.existsSync(regPath)) {
           try {
-            const dir = path.dirname(REGISTRY_PATH);
+            const dir = path.dirname(regPath);
             fs.mkdirSync(dir, { recursive: true });
-            fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2), {
+            fs.writeFileSync(regPath, JSON.stringify(registry, null, 2), {
               encoding: 'utf-8',
               mode: 0o600,
             });
-            logger.info(`Migrated legacy project registry to: ${REGISTRY_PATH}`);
+            logger.info(`Migrated legacy project registry to: ${regPath}`);
           } catch {}
         }
 
@@ -98,23 +106,22 @@ export function getRegistry(): Record<string, string> {
       } catch (parseErr) {
         logger.error('Corrupt registry file detected at:', targetPath, parseErr);
         throw new DatabaseError(
-          `Registry file exists at "${targetPath}" but contains invalid JSON. Fix or remove it manually to prevent overwriting registered projects.`
+          `Project registry file at ${targetPath} is corrupted: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`
         );
       }
     }
   } catch (e) {
     if (e instanceof DatabaseError) throw e;
-    logger.warn('Failed to read global registry:', e);
+    logger.warn('Failed to read global state-memory-mcp registry:', e);
   }
   return {};
 }
 
 /**
- * Registers a project name and path in the global state-memory-mcp registry.
+ * Registers a project directory in the global state-memory-mcp registry.
  *
  * @param name - The name of the project.
- * @param projectPath - The local path to the project root directory.
- * @returns void
+ * @param projectPath - The root filesystem path of the project.
  */
 export function registerProject(name: string, projectPath: string): void {
   try {
@@ -123,27 +130,39 @@ export function registerProject(name: string, projectPath: string): void {
       return; // Never register home directory as a project root
     }
     registryCache = null; // Invalidate cache
+    clearProjectRootCache();
     const registry = getRegistry();
     registry[name.toLowerCase()] = resolvedPath;
-    const dir = path.dirname(REGISTRY_PATH);
+    const regPath = getRegistryPath();
+    const dir = path.dirname(regPath);
     fs.mkdirSync(dir, { recursive: true });
 
     // Atomic write with Owner-only read/write permissions (0o600)
-    const tempPath = `${REGISTRY_PATH}.tmp.${Math.random().toString(36).substring(2)}`;
+    const tempPath = `${regPath}.tmp.${Math.random().toString(36).substring(2)}`;
     fs.writeFileSync(tempPath, JSON.stringify(registry, null, 2), {
       encoding: 'utf-8',
       mode: 0o600,
     });
     try {
-      fs.renameSync(tempPath, REGISTRY_PATH);
+      fs.renameSync(tempPath, regPath);
     } catch (renameErr) {
       // Cross-platform fallback for Windows file locking edge cases
-      fs.copyFileSync(tempPath, REGISTRY_PATH);
+      fs.copyFileSync(tempPath, regPath);
       try {
         fs.unlinkSync(tempPath);
       } catch {
         // Ignore cleanup error
       }
+    }
+
+    // Persist backup if working with primary default registry
+    if (!process.env.STATE_MEMORY_REGISTRY_PATH) {
+      try {
+        fs.writeFileSync(LEGACY_REGISTRY_PATH, JSON.stringify(registry, null, 2), {
+          encoding: 'utf-8',
+          mode: 0o600,
+        });
+      } catch {}
     }
   } catch (e) {
     logger.error('Failed to register project in global registry:', e);
@@ -158,19 +177,31 @@ export function registerProject(name: string, projectPath: string): void {
 export function unregisterProject(name: string): void {
   try {
     registryCache = null;
+    clearProjectRootCache();
     const registry = getRegistry();
     delete registry[name.toLowerCase()];
-    const tempPath = `${REGISTRY_PATH}.tmp.${Math.random().toString(36).substring(2)}`;
+    const regPath = getRegistryPath();
+    const tempPath = `${regPath}.tmp.${Math.random().toString(36).substring(2)}`;
     fs.writeFileSync(tempPath, JSON.stringify(registry, null, 2), {
       encoding: 'utf-8',
       mode: 0o600,
     });
     try {
-      fs.renameSync(tempPath, REGISTRY_PATH);
+      fs.renameSync(tempPath, regPath);
     } catch {
-      fs.copyFileSync(tempPath, REGISTRY_PATH);
+      fs.copyFileSync(tempPath, regPath);
       try {
         fs.unlinkSync(tempPath);
+      } catch {}
+    }
+
+    // Persist backup if working with primary default registry
+    if (!process.env.STATE_MEMORY_REGISTRY_PATH) {
+      try {
+        fs.writeFileSync(LEGACY_REGISTRY_PATH, JSON.stringify(registry, null, 2), {
+          encoding: 'utf-8',
+          mode: 0o600,
+        });
       } catch {}
     }
   } catch (e) {
@@ -189,6 +220,16 @@ export function getProjectFromRegistry(name: string): string | undefined {
   return registry[name.toLowerCase()];
 }
 
+interface RootCacheEntry {
+  path: string;
+  expires: number;
+}
+const projectRootCache = new Map<string, RootCacheEntry>();
+
+export function clearProjectRootCache(): void {
+  projectRootCache.clear();
+}
+
 /**
  * Resolves the project root directory path.
  * Priority order:
@@ -202,15 +243,25 @@ export function getProjectFromRegistry(name: string): string | undefined {
  * @returns The resolved absolute project root path.
  */
 export function resolveProjectRoot(project?: string, cwd: string = process.cwd()): string {
+  const currentCwd = path.resolve(cwd);
+  const cacheKey = `${project || ''}:::${currentCwd}`;
+  const now = Date.now();
+  const cached = projectRootCache.get(cacheKey);
+  if (cached && cached.expires > now) {
+    return cached.path;
+  }
+
+  let result = currentCwd;
+
   // 1. Try resolving via project parameter lookup in global registry
   if (project) {
     const registeredPath = getProjectFromRegistry(project);
     if (registeredPath && fs.existsSync(registeredPath)) {
-      return registeredPath;
+      result = registeredPath;
+      projectRootCache.set(cacheKey, { path: result, expires: now + 2000 });
+      return result;
     }
   }
-
-  const currentCwd = path.resolve(cwd);
 
   // 2. Check if current CWD is a subdirectory of any registered project path (excluding homedir)
   const registry = getRegistry();
@@ -227,7 +278,9 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
     }
   }
   if (bestMatch) {
-    return bestMatch;
+    result = bestMatch;
+    projectRootCache.set(cacheKey, { path: result, expires: now + 2000 });
+    return result;
   }
 
   // 3. Fallback: walk up directory tree
@@ -239,7 +292,9 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
     const hasStateMemory = !isHome && fs.existsSync(path.join(current, '.state-memory-mcp'));
 
     if (hasGit || hasStateMemory) {
-      return current;
+      result = current;
+      projectRootCache.set(cacheKey, { path: result, expires: now + 2000 });
+      return result;
     }
     const parent = path.dirname(current);
     if (parent === current) {
@@ -247,7 +302,9 @@ export function resolveProjectRoot(project?: string, cwd: string = process.cwd()
     }
     current = parent;
   }
-  return currentCwd; // default to cwd if none found
+
+  projectRootCache.set(cacheKey, { path: result, expires: now + 2000 });
+  return result;
 }
 
 // Get the base directory for storing state-memory-mcp databases
@@ -411,13 +468,29 @@ export function encryptPayload(dataStr: string, projectRoot?: string): string {
   }
 }
 
-export function decryptPayload(dataStr: string, projectRoot?: string): string {
+export function decryptPayload(dataStr: string, projectRoot?: string, strict?: boolean): string {
   if (!dataStr || !dataStr.startsWith('ENC:')) return dataStr;
+  const isStrict = strict ?? process.env.STATE_MEMORY_DECRYPT_STRICT !== 'false';
   const key = getEncryptionKey(projectRoot);
-  if (!key) return dataStr;
+  if (!key) {
+    if (isStrict) {
+      throw new DatabaseError(
+        'Payload is encrypted (ENC:...) but no encryption key is configured for project'
+      );
+    }
+    logger.warn('Payload is encrypted (ENC:...) but no encryption key is configured');
+    return dataStr;
+  }
   try {
     const parts = dataStr.split(':');
-    if (parts.length !== 4) return dataStr;
+    if (parts.length !== 4) {
+      if (isStrict) {
+        throw new DatabaseError(
+          'Malformed encrypted payload format: expected ENC:iv:authTag:ciphertext'
+        );
+      }
+      return dataStr;
+    }
     const iv = Buffer.from(parts[1], 'hex');
     const authTag = Buffer.from(parts[2], 'hex');
     const encryptedText = parts[3];
@@ -428,6 +501,11 @@ export function decryptPayload(dataStr: string, projectRoot?: string): string {
     return decrypted;
   } catch (err: any) {
     logger.warn(`Failed to decrypt payload: ${err.message}`);
+    if (isStrict) {
+      throw new DatabaseError(
+        `Failed to decrypt payload: ${err.message}. Ensure STATE_MEMORY_ENCRYPTION_KEY matches the encryption key used to create the data.`
+      );
+    }
     return dataStr;
   }
 }
@@ -517,6 +595,8 @@ export function getDb(project?: string): Database.Database {
   const config = loadProjectConfig(projectRoot);
   const busyTimeout =
     config.busyTimeoutMs || parseInt(process.env.STATE_MEMORY_BUSY_TIMEOUT || '5000', 10);
+  const mmapBytes =
+    config.mmapSizeBytes || parseInt(process.env.STATE_MEMORY_MMAP_SIZE || '134217728', 10);
   const rawJournalMode = (process.env.STATE_MEMORY_WAL_MODE || 'WAL').toUpperCase();
   const ALLOWED_JOURNAL_MODES = ['WAL', 'DELETE', 'TRUNCATE', 'PERSIST', 'MEMORY', 'OFF'];
   const journalMode = ALLOWED_JOURNAL_MODES.includes(rawJournalMode) ? rawJournalMode : 'WAL';
@@ -526,6 +606,9 @@ export function getDb(project?: string): Database.Database {
   db.pragma('synchronous = NORMAL');
   db.pragma(`busy_timeout = ${busyTimeout}`);
   db.pragma('foreign_keys = ON');
+  db.pragma('cache_size = -20000');
+  db.pragma(`mmap_size = ${mmapBytes}`);
+  db.pragma('trusted_schema = OFF');
 
   // Initialize schema
   initializeSchema(db);
@@ -537,7 +620,7 @@ export function getDb(project?: string): Database.Database {
 
 /**
  * Opens or retrieves a cached read-only better-sqlite3 database connection for the given project.
- * Enforces busy_timeout and load_extension security policies.
+ * Enforces busy_timeout, trusted_schema, query_only, and load_extension security policies.
  *
  * @param project - Optional project identifier.
  * @returns The active read-only better-sqlite3 Database instance.
@@ -578,10 +661,21 @@ export function getReadOnlyDb(project?: string): Database.Database {
     throw new ValidationError(`Database file not found at: ${dbPath}`);
   }
 
+  const projectRoot = resolveProjectRoot(project);
+  const config = loadProjectConfig(projectRoot);
+  const busyTimeout =
+    config.busyTimeoutMs || parseInt(process.env.STATE_MEMORY_BUSY_TIMEOUT || '5000', 10);
+  const mmapBytes =
+    config.mmapSizeBytes || parseInt(process.env.STATE_MEMORY_MMAP_SIZE || '134217728', 10);
+
   const db = new Database(dbPath, { readonly: true });
-  db.pragma('busy_timeout = 5000');
+  db.pragma('query_only = ON');
+  db.pragma(`busy_timeout = ${busyTimeout}`);
   db.pragma('foreign_keys = ON');
   db.pragma('enable_load_extension = 0');
+  db.pragma('cache_size = -20000');
+  db.pragma(`mmap_size = ${mmapBytes}`);
+  db.pragma('trusted_schema = OFF');
 
   readOnlyDbCache.set(projectSlug, { db, lastUsed: Date.now() });
   return db;

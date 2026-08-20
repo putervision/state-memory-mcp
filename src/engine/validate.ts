@@ -469,3 +469,155 @@ export function validateGraph(
     fixed_count: fixedCount,
   };
 }
+
+export interface DedupeGroup {
+  type: string;
+  title: string;
+  git_branch?: string;
+  canonical_id: string;
+  duplicate_ids: string[];
+}
+
+export interface DedupeResult {
+  project: string;
+  duplicate_groups_found: number;
+  duplicate_nodes_count: number;
+  merged: boolean;
+  groups: DedupeGroup[];
+}
+
+export function dedupeGraph(
+  db: Database.Database,
+  params: {
+    project: string;
+    apply?: boolean;
+  }
+): DedupeResult {
+  const project = params.project;
+  const apply = params.apply ?? false;
+
+  const rows = db
+    .prepare(
+      `
+    SELECT id, type, title, status, git_branch, created_at, version
+    FROM nodes
+    WHERE project = ?
+    ORDER BY type, title, git_branch, created_at ASC
+  `
+    )
+    .all(project) as Array<{
+    id: string;
+    type: string;
+    title: string;
+    status: string;
+    git_branch?: string;
+    created_at: string;
+    version: number;
+  }>;
+
+  const map = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const key = `${r.type}:::${r.title}:::${r.git_branch || ''}`;
+    if (!map.has(key)) {
+      map.set(key, []);
+    }
+    map.get(key)!.push(r);
+  }
+
+  const groups: DedupeGroup[] = [];
+  let duplicateNodesCount = 0;
+
+  for (const [, items] of map.entries()) {
+    if (items.length > 1) {
+      const canonical =
+        items.find((i) => i.status === 'done' || i.status === 'accepted') || items[0];
+      const dupes = items.filter((i) => i.id !== canonical.id);
+
+      groups.push({
+        type: canonical.type,
+        title: canonical.title,
+        git_branch: canonical.git_branch,
+        canonical_id: canonical.id,
+        duplicate_ids: dupes.map((d) => d.id),
+      });
+
+      duplicateNodesCount += dupes.length;
+
+      if (apply) {
+        db.transaction(() => {
+          for (const dupe of dupes) {
+            // Re-point edges where source_id = dupe.id to canonical.id
+            const outbound = db
+              .prepare('SELECT * FROM edges WHERE source_id = ?')
+              .all(dupe.id) as any[];
+            for (const edge of outbound) {
+              if (edge.target_id === canonical.id) {
+                db.prepare('DELETE FROM edges WHERE id = ?').run(edge.id);
+              } else {
+                const existing = db
+                  .prepare(
+                    'SELECT 1 FROM edges WHERE project = ? AND source_id = ? AND target_id = ? AND type = ?'
+                  )
+                  .get(project, canonical.id, edge.target_id, edge.type);
+                if (existing) {
+                  db.prepare('DELETE FROM edges WHERE id = ?').run(edge.id);
+                } else {
+                  db.prepare('UPDATE edges SET source_id = ? WHERE id = ?').run(
+                    canonical.id,
+                    edge.id
+                  );
+                }
+              }
+            }
+
+            // Re-point edges where target_id = dupe.id to canonical.id
+            const inbound = db
+              .prepare('SELECT * FROM edges WHERE target_id = ?')
+              .all(dupe.id) as any[];
+            for (const edge of inbound) {
+              if (edge.source_id === canonical.id) {
+                db.prepare('DELETE FROM edges WHERE id = ?').run(edge.id);
+              } else {
+                const existing = db
+                  .prepare(
+                    'SELECT 1 FROM edges WHERE project = ? AND source_id = ? AND target_id = ? AND type = ?'
+                  )
+                  .get(project, edge.source_id, canonical.id, edge.type);
+                if (existing) {
+                  db.prepare('DELETE FROM edges WHERE id = ?').run(edge.id);
+                } else {
+                  db.prepare('UPDATE edges SET target_id = ? WHERE id = ?').run(
+                    canonical.id,
+                    edge.id
+                  );
+                }
+              }
+            }
+
+            // Remove dupe from nodes & nodes_fts
+            const row = db.prepare('SELECT rowid FROM nodes WHERE id = ?').get(dupe.id) as
+              { rowid: number } | undefined;
+            db.prepare('DELETE FROM nodes WHERE id = ?').run(dupe.id);
+            if (row) {
+              try {
+                db.prepare(
+                  `INSERT INTO nodes_fts(nodes_fts, rowid, title, metadata, tags) VALUES ('delete', ?, ?, '', '')`
+                ).run(row.rowid, dupe.title);
+              } catch {
+                // ignore FTS deletion error
+              }
+            }
+          }
+        })();
+      }
+    }
+  }
+
+  return {
+    project,
+    duplicate_groups_found: groups.length,
+    duplicate_nodes_count: duplicateNodesCount,
+    merged: apply,
+    groups,
+  };
+}

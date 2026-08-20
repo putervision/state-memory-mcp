@@ -19,9 +19,9 @@ Steps to reproduce the behavior:
 A clear and concise description of what you expected to happen.
 
 ## Environment & Versions
-- Node.js Version: `node -v`
-- Operating System: `Linux / macOS / Windows`
-- state-memory-mcp Version: `v0.9.33`
+- OS: [e.g. Linux x64, macOS Apple Silicon, Windows 11]
+- Node.js Version: [e.g. 20.11.0]
+- `@putervision/state-memory-mcp` Version: [e.g. 1.0.0]
 - MCP Client / IDE: `Cursor / Antigravity / Claude Code / VS Code`
 
 ## Error Logs / Context

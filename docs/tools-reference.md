@@ -1,158 +1,182 @@
-# Tool Reference (82 Tools), Resources & Prompts
+# 🧰 State-Memory-MCP Tool Reference (v1.0.0 — 13 Consolidated Tools)
 
-`state-memory-mcp` exposes 82 Core MCP Tools across 9 structured operational categories, along with standard MCP read-only Resources and dynamic Prompts.
-
----
-
-## 82 Core MCP Tools Reference
-
-### 🚀 High-Level Compound Workflow Tools (4 Tools)
-* **`bootstrap_session`**: Single-turn session initialization combining session tracking (`start_session`), context snapshot generation, and top unblocked tasks retrieval.
-  * Inputs: `project`, `agent_id`, `metadata`, `task_limit`.
-* **`complete_task`**: Single-turn task completion that updates task status to `'done'`, optionally creates a produced `'artifact'` node, and links them via a `'produces'` relationship.
-  * Inputs: `task_id`, `artifact_title`, `artifact_metadata`, `tags`, `project`.
-* **`batch_create_nodes`**: Atomically creates multiple nodes in a single transaction with SQLite FTS5 search index synchronization.
-  * Inputs: `nodes`, `project`.
-* **`batch_add_edges`**: Atomically creates multiple edge relationships with DAG cycle checks (`hasCycle`) and transaction rollback on failure.
-  * Inputs: `edges`, `project`.
-
-### 🟢 Node & Relationship Management (6 Tools)
-* **`add_node`**: Creates a node (`task`, `decision`, `artifact`, `plan`, `observation`, `blocker`, `milestone`).
-  * Inputs: `type`, `title`, `project`, `status`, `metadata`, `tags`.
-* **`update_node`**: Modifies properties (title, status, metadata, tags) of an existing node.
-  * Inputs: `id`, `project`, `title`, `status`, `metadata`, `tags`.
-* **`get_node`**: Fetches a node's details and all inbound/outbound relationships.
-  * Inputs: `id`, `project`, `include_edges`.
-* **`remove_node`**: Deletes a node and automatically cascades deletions to all connected edges.
-  * Inputs: `id`, `project`.
-* **`add_edge`**: Links two nodes with a typed relationship (`depends_on`, `blocks`, `produces`, `references`, `decided_in`, `updates`, `contradicts`, `part_of`, `implements`, `child_of`, `extends`, `modifies`, `renders_state`). Cycles are rejected for directed dependency types.
-  * Inputs: `source_id`, `target_id`, `type`, `project`, `properties`.
-* **`remove_edge`**: Deletes a specific relationship between two nodes.
-  * Inputs: `source_id`, `target_id`, `type`, `project`.
-
-### 🔍 Search & Querying (4 Tools)
-* **`list_nodes`**: Returns lists of nodes matching filters with support for selective field projection (`fields`), compact mode, pagination, tags, and branch tracking.
-  * Inputs: `type`, `status`, `tags`, `project`, `limit`, `offset`, `compact`, `git_branch`, `fields`, `pretty_print`.
-* **`search_nodes`**: Performs fast full-text search (FTS5) or TF-IDF cosine similarity search across title, metadata, and tags with field projection (`fields`).
-  * Inputs: `query`, `type`, `status`, `limit`, `algorithm`, `fields`, `pretty_print`, `project`.
-* **`get_subgraph`**: Extracts a node and its N-hop neighbor nodes and connecting relationships with field projection (`fields`).
-  * Inputs: `root_id`, `depth`, `edge_types`, `node_types`, `fields`, `pretty_print`, `project`.
-* **`query_graph`**: Executes safe, read-only SELECT SQL queries against the underlying database. Sanitized to block dangerous SQLite functions.
-  * Inputs: `sql`, `params`, `project`.
-
-### 🧠 Advanced Analytics & Tracing (8 Tools)
-* **`trace_dependencies`**: Computes recursive upstream (requirements) or downstream (dependents) dependency chains.
-  * Inputs: `node_id`, `direction`, `edge_types`, `max_depth`, `project`.
-* **`find_blockers`**: Lists active blocker nodes and the tasks/milestones they block.
-  * Inputs: `node_id`, `include_transitive`, `project`.
-* **`get_project_summary`**: Provides a high-level project summary containing node breakdowns, task completion progress, recent decisions, and active blockers.
-  * Inputs: `project`.
-* **`decision_trail`**: Traces the historical chain of decisions that led to a given state (updates/contradicts).
-  * Inputs: `node_id`, `project`.
-* **`critical_path`**: Computes the longest chain of uncompleted tasks leading to a milestone (minimum set of tasks that must finish).
-  * Inputs: `milestone_id`, `project`.
-* **`impact_analysis`**: Calculates the downstream blast radius if a node is modified or deleted.
-  * Inputs: `node_id`, `project`.
-* **`detect_contradictions`**: Scans the project for logical flaws (e.g. completed tasks that still have active blockers, contradicting accepted decisions).
-  * Inputs: `project`.
-* **`value_metrics`**: Computes estimated time and token savings, graph density, orphan count, decision reuse rate, task velocity, and active blocker ages. Returns both structured JSON and a formatted Markdown report.
-  * Inputs: `project`.
-
-### 🤖 Agent QoL & Templates (4 Tools)
-* **`get_context_snapshot`**: Dual-format context snapshot returning structured JSON data (blockers, pending tasks) and pre-rendered Markdown for quick agent prompting.
-  * Inputs: `project`.
-* **`find_related_decisions`**: Finds all decisions that affected a given artifact node (directly or via milestones).
-  * Inputs: `artifact_id`, `project`.
-* **`find_blocked_tasks`**: Finds all tasks blocked directly or transitively by a decision node.
-  * Inputs: `decision_id`, `project`.
-* **`scaffold_template`**: Automates scaffolding of standard development workflows. Supported templates: `fdd` (Feature-Driven Development design/build milestones & tasks) and `rfc` (Request for Comments author/review/decision loop).
-  * Inputs: `template`, `name`, `project`.
-
-### 🛡️ Administration & Backups (6 Tools)
-* **`export_graph`**: Exports project graph to JSON, DOT, Mermaid flowchart, or interactive HTML formats.
-  * Inputs: `format`, `project`.
-* **`import_graph`**: Bulk loads nodes and edges from external files.
-  * Inputs: `nodes`, `edges`, `project`.
-* **`backup_project_db`**: Creates an online SQLite database backup file along with an integrity SHA-256 checksum file.
-  * Inputs: `outputPath`, `project`.
-* **`restore_project_db`**: Restores the database from a backup file, checking the structural SQLite integrity and matching the SHA-256 checksum file.
-  * Inputs: `backupPath`, `project`.
-* **`audit_project_db`**: Audits database structure, foreign key constraints, orphaned edges, cycles, and logical contradictions.
-  * Inputs: `project`.
-* **`merge_project_db`**: Safely merges two project databases, keeping the newer node (based on `updated_at`) and validating circular dependencies.
-  * Inputs: `sourcePath`, `force`, `project`.
-
-### ⏱️ Event Sourcing & Trajectories (9 Tools)
-* **`start_session`**: Starts a tracking session for mutations.
-  * Inputs: `agent_id`, `project`, `metadata`.
-* **`end_session`**: Concludes an active session.
-  * Inputs: `session_id`, `project`.
-* **`get_event_log`**: Retrieves mutation event logs.
-  * Inputs: `session_id`, `entity_id`, `event_type`, `since`, `until`, `limit`, `offset`, `project`.
-* **`get_node_history`**: Fetches modification history for a specific node.
-  * Inputs: `node_id`, `project`.
-* **`undo_last`**: Undoes the last mutation event on a specific node.
-  * Inputs: `node_id`, `project`.
-* **`save_snapshot`**: Saves a full static graph snapshot.
-  * Inputs: `session_id`, `project`.
-* **`list_snapshots`**: Lists saved snapshots.
-  * Inputs: `limit`, `project`.
-* **`diff_snapshots`**: Computes changes (added, removed, status/property changes) between two snapshots.
-  * Inputs: `snapshot_id_a`, `snapshot_id_b`, `project`.
-* **`export_trajectories`**: Exports trajectories in JSONL format for agent training.
-  * Inputs: `session_id`, `since`, `until`, `limit`, `offset`, `project`.
-
-### ⚡ Batch & Staleness Utilities (8 Tools)
-* **`batch_update`**: Executes atomic batch node updates (status, metadata, tags).
-  * Inputs: `ids`, `status`, `metadata`, `tags`, `project`.
-* **`next_tasks`**: Suggests next runnable tasks based on priority, blocker status, branch, and field projection (`fields`).
-  * Inputs: `git_branch`, `limit`, `include_context`, `fields`, `pretty_print`, `project`.
-* **`what_changed`**: Reports graph changeset diffs since a session start or timestamp.
-  * Inputs: `since`, `since_session`, `git_branch`, `project`.
-* **`get_stale_nodes`**: Identifies nodes that have been inactive/untouched for longer than a given threshold.
-  * Inputs: `older_than`, `status`, `type`, `git_branch`, `limit`, `project`.
-* **`validate_graph`**: Validates the graph for structural anomalies with self-healing auto-fix option (`auto_fix: true`).
-  * Inputs: `checks`, `auto_fix`, `project`.
-* **`prune_events`**: Prunes event logs older than a threshold while preserving entity states.
-  * Inputs: `older_than`, `dry_run`, `preserve_types`, `project`.
-* **`add_note`**: Atomically creates an observation note and references an existing node.
-  * Inputs: `text`, `attach_to`, `tags`, `project`.
-* **`app_version`**: Returns server package name, MCP identifier string, build version, server description, and runtime environment.
-  * Inputs: `project` (optional).
+`@putervision/state-memory-mcp` exposes **13 domain-oriented MCP tools** (≤ 15 tools) that use action parameters to provide complete graph lifecycle management, dependency analysis, Spec-Driven Development, and multimodal synergy.
 
 ---
 
-## MCP Resources & Prompts
+## Tool Directory Index
 
-`state-memory-mcp` is fully compliant with the Model Context Protocol specification, exposing read-only data resources, dynamic URI templates, and reusable prompt templates.
+| # | Tool Name | Description | Key Actions |
+|---|---|---|---|
+| 1 | **[`manage_nodes`](#1-manage_nodes)** | Graph node CRUD, search, and batch mutations | `create`, `update`, `get`, `remove`, `list`, `search`, `batch_create`, `batch_update`, `add_note` |
+| 2 | **[`manage_edges`](#2-manage_edges)** | Semantic graph edges and visual state linking | `add`, `remove`, `batch_add`, `link_visual` |
+| 3 | **[`manage_sessions`](#3-manage_sessions)** | Agent session lifecycle and context bootstrapping | `start`, `end`, `list`, `bootstrap` |
+| 4 | **[`manage_tasks`](#4-manage_tasks)** | Task scheduling, blockers, and stale pruning | `next`, `complete`, `find_blocked`, `find_stale`, `find_blockers`, `find_similar_blockers`, `auto_prune` |
+| 5 | **[`manage_snapshots`](#5-manage_snapshots)** | Checkpoints, history, and time-travel rollback | `save`, `list`, `diff`, `get_state`, `revert`, `undo`, `get_history` |
+| 6 | **[`manage_specs`](#6-manage_specs)** | Spec-Driven Development (SDD) & template scaffolding | `scaffold`, `ingest`, `export`, `compliance`, `verify`, `decompose_feature`, `template` |
+| 7 | **[`manage_database`](#7-manage_database)** | Physical SQLite maintenance, backups, and Git VCS sync | `backup`, `restore`, `audit`, `merge`, `branch_diff`, `branch_merge` |
+| 8 | **[`manage_data`](#8-manage_data)** | Bulk export & import of graphs, issues, and trajectories | `export_graph`, `export_issues`, `export_trajectories`, `export_joint_trajectories`, `export_synergy_metrics`, `import_graph`, `import_issues`, `import_spec` |
+| 9 | **[`query_graph`](#9-query_graph)** | Graph traversal, dependency tracing, and queries | `subgraph`, `trace`, `raw`, `natural_language` |
+| 10 | **[`get_analytics`](#10-get_analytics)** | Velocity, burndown, cognitive load, and decision trails | `summary`, `velocity`, `burndown`, `value_metrics`, `cognitive_load`, `critical_path`, `context_snapshot`, `decision_trail`, `find_related_decisions`, `contradictions` |
+| 11 | **[`get_events`](#11-get_events)** | Cryptographic audit ledger and session post-mortems | `log`, `changelog`, `post_mortem` |
+| 12 | **[`run_diagnostics`](#12-run_diagnostics)** | Health reports, validation, compaction, and version info | `validate`, `doctor`, `check_refs`, `audit_chain`, `compact`, `archive`, `prune_events`, `version` |
+| 13 | **[`use_blackboard`](#13-use_blackboard)** | Asynchronous multi-agent notice board | `post`, `read` |
 
-### 📁 Resources & Templates
+---
 
-Resources provide direct read-only context to LLMs. `state-memory-mcp` registers the following resources under the `state-memory:///` URI scheme:
+## Detailed Tool Specifications
 
-* **`state-memory:///{project}/summary`**: Returns the structured project summary (counts, task progress, recent decisions).
-* **`state-memory:///{project}/blockers`**: Returns the list of all active blockers and their affected nodes.
-* **`state-memory:///{project}/tasks/next`**: Returns top unblocked runnable tasks.
-* **`state-memory:///{project}/node/{id}`**: Returns individual node details and connected relationships.
-* **`state-memory:///{project}/metrics`**: Returns project velocity and value creation metrics.
-* **`state-memory:///{project}/decisions`**: Returns the log of recent accepted decisions.
-* **`state-memory:///{project}/graph.json`**: Returns a full node/edge database export as raw JSON.
+### 1. `manage_nodes`
+Manage workflow graph nodes.
+- **Actions**:
+  - `create`: Add a node (`type`, `title`, `status?`, `metadata?`, `tags?`).
+  - `update`: Update node properties (`id`, `title?`, `status?`, `metadata?`, `tags?`, `expected_version?`).
+  - `get`: Fetch single node with optional inbound/outbound edges (`id`, `include_edges?`).
+  - `remove`: Delete node and its connected edges (`id`).
+  - `list`: Filter nodes (`type?`, `status?`, `git_branch?`, `limit?`, `compact?`).
+  - `search`: Search nodes using full-text or vector TF-IDF (`query`, `algorithm?`, `type?`, `status?`).
+  - `batch_create`: Atomic insertion of multiple node objects (`nodes: [...]`).
+  - `batch_update`: Atomic update of multiple node IDs (`ids: [...]`, `status?`, `metadata?`, `tags?`).
+  - `add_note`: Log quick observation node and optionally attach to target node (`text`, `attach_to?`, `tags?`).
 
-### 💬 Prompts
+---
 
-Prompts are reusable workflow templates that streamline agent interactions:
+### 2. `manage_edges`
+Manage typed relationships between graph nodes.
+- **Actions**:
+  - `add`: Create edge relationship (`source_id`, `target_id`, `type`, `properties?`).
+  - `remove`: Delete specific edge relationship (`source_id`, `target_id`, `type`).
+  - `batch_add`: Atomic creation of multiple edge relationships (`edges: [...]`).
+  - `link_visual`: Link task or artifact to visual memory state ID (`target_id`, `visual_state_id`, `relationship?`, `visual_description?`, `source_url?`).
 
-* **`session-start`**: Generates a startup workspace overview, outlining the project summary, active blockers, and immediate pending tasks.
-  * Arguments: `project` (optional).
-* **`handover-summary`**: Generates context summary for agent-to-agent session handoffs and recent event logs.
-  * Arguments: `project` (optional).
-* **`task-decomposition`**: Guides model through decomposing a milestone into a task DAG with dependency links.
-  * Arguments: `milestone_title` (required), `project` (optional).
-* **`post-mortem`**: Prompts post-mortem analysis of stale/cancelled tasks and decision record updates.
-  * Arguments: `project` (optional).
-* **`plan-feature`**: Prompts the agent to plan out a new feature, guiding milestone creation, task decomposition, dependency mapping, and design decisions.
-  * Arguments: `feature_name` (required), `project` (optional).
-* **`review-decisions`**: Prompts the agent to review the decision log and logical contradictions audit, recommending improvements or fixes.
-  * Arguments: `project` (optional).
-* **`triage-blockers`**: Triages active blockers, helping to analyze the critical path and devise mitigation strategies.
-  * Arguments: `project` (optional).
+---
+
+### 3. `manage_sessions`
+Manage agent tracking sessions.
+- **Actions**:
+  - `start`: Start session tracking (`agent_id`, `metadata?`).
+  - `end`: Conclude tracking session (`session_id?`, `agent_id?`).
+  - `list`: List sessions (`limit?`, `active_only?`).
+  - `bootstrap`: Single-turn session start with context snapshot and prioritized tasks (`agent_id?`, `task_limit?`).
+
+---
+
+### 4. `manage_tasks`
+Task prioritization, execution, and blocker management.
+- **Actions**:
+  - `next`: Get prioritized runnable tasks (`limit?`, `include_context?`, `git_branch?`).
+  - `complete`: Mark task done and create artifact/visual links (`task_id`, `artifact_title?`, `visual_state_id?`).
+  - `find_blocked`: Find tasks blocked by decision (`decision_id`).
+  - `find_stale`: Identify untouched or idle tasks (`older_than?`, `status?`).
+  - `find_blockers`: Query active blockers for a node (`node_id`, `include_transitive?`).
+  - `find_similar_blockers`: TF-IDF RAG search for similar resolved blockers (`query`, `threshold?`).
+  - `auto_prune`: Automatically transition stale in-progress tasks to target status (`older_than?`, `target_status?`).
+
+---
+
+### 5. `manage_snapshots`
+Graph checkpoints and time travel.
+- **Actions**:
+  - `save`: Save graph checkpoint (`session_id?`, `force?`).
+  - `list`: View saved snapshots (`limit?`).
+  - `diff`: Compare two snapshot states (`snapshot_id_a`, `snapshot_id_b`).
+  - `get_state`: Query graph state at ISO timestamp (`timestamp`).
+  - `revert`: Roll back graph to ISO timestamp (`timestamp`).
+  - `undo`: Undo last mutation on a node (`node_id`).
+  - `get_history`: Audit history for a node (`node_id`).
+
+---
+
+### 6. `manage_specs`
+Spec-Driven Development (SDD) & workflow templates.
+- **Actions**:
+  - `scaffold`: Generate feature spec template in `.specs/` (`title`).
+  - `ingest`: Parse PRD or Gherkin file into graph nodes (`file_path`, `format?`).
+  - `export`: Export spec node back to file (`spec_id`, `format?`).
+  - `compliance`: Compute requirement verification coverage matrix.
+  - `verify`: Mark acceptance criterion verified (`criterion_id`, `status?`, `observation_id?`).
+  - `decompose_feature`: Decompose feature into plan/milestone/subtasks (`title`, `description?`, `subtasks?`).
+  - `template`: Scaffold FDD or RFC template (`template: "fdd" | "rfc"`, `name`).
+
+---
+
+### 7. `manage_database`
+Database maintenance, backups, and Git VCS state sync.
+- **Actions**:
+  - `backup`: Online SQLite database backup (`outputPath`).
+  - `restore`: Restore database from backup file (`backupPath`, `force?`).
+  - `audit`: Foreign key and integrity checks.
+  - `merge`: Merge external SQLite state database (`sourcePath`, `force?`).
+  - `branch_diff`: Diff graph state across git branches (`target_branch`).
+  - `branch_merge`: Resolve branch state merge conflicts (`source_branch`, `target_branch`, `resolution_strategy`).
+
+---
+
+### 8. `manage_data`
+Bulk import and export operations.
+- **Actions**:
+  - `export_graph`: Export graph in JSON, DOT, Mermaid, or HTML format (`format?`).
+  - `export_issues`: Export tasks to GitHub or Jira JSON format (`format?`).
+  - `export_trajectories`: Export agent trajectories as JSONL (`limit?`, `session_id?`, `since?`, `until?`).
+  - `export_joint_trajectories`: Export interleaved state + visual trajectories (`limit?`, `session_id?`).
+  - `export_synergy_metrics`: Retrieve dual-memory synergy and ROI metrics.
+  - `import_graph`: Bulk import nodes and edges (`nodes: [...]`, `edges: [...]`, `force?`).
+  - `import_issues`: Bulk import external issues (`issues: [...]`).
+  - `import_spec`: Import PRD or Gherkin spec (`file_path`, `format?`).
+
+---
+
+### 9. `query_graph`
+Graph topology and query capabilities.
+- **Actions**:
+  - `subgraph`: Fetch N-hop neighborhood around root node (`root_id`, `depth?`).
+  - `trace`: Trace dependency paths upstream/downstream with cycle detection (`node_id`, `direction?`, `max_depth?`).
+  - `raw`: Safe read-only SELECT query against SQLite (`sql`, `params?`).
+  - `natural_language`: Execute natural language query (`query`).
+
+---
+
+### 10. `get_analytics`
+Workflow analytics, metrics, and decision lineages.
+- **Actions**:
+  - `summary`: Overview of nodes, edges, active blockers, and progress.
+  - `velocity`: Task completion velocity and duration stats (`window_days?`).
+  - `burndown`: Time-series remaining task estimates (`days?`).
+  - `value_metrics`: Token savings, ROI, and efficiency calculations.
+  - `cognitive_load`: Intrinsic (ICL) and Extraneous (ECL) load metrics.
+  - `critical_path`: Longest chain of unfinished tasks to milestone (`milestone_id?`).
+  - `context_snapshot`: Single-call overview for agent alignment.
+  - `decision_trail`: Trace decision lineage upstream and downstream (`node_id`).
+  - `find_related_decisions`: Find decisions referencing an artifact (`artifact_id`).
+  - `contradictions`: Audit conflicting decisions and invalid states.
+
+---
+
+### 11. `get_events`
+Event audit ledger and post-mortems.
+- **Actions**:
+  - `log`: Query append-only event ledger (`session_id?`, `since?`, `until?`, `limit?`).
+  - `changelog`: Structured graph diff since timestamp or session (`since?`, `since_session?`, `git_branch?`).
+  - `post_mortem`: Generate structured markdown post-mortem report for session (`session_id?`).
+
+---
+
+### 12. `run_diagnostics`
+Health checks, integrity validation, compaction, and metadata.
+- **Actions**:
+  - `validate`: Graph validation checks for cycles, orphans, dangling edges (`checks?`).
+  - `doctor`: Comprehensive health report for SQLite, schema, and storage.
+  - `check_refs`: Validate file paths and code symbols (`auto_heal?`).
+  - `audit_chain`: Verify cryptographic SHA-256 event hash integrity.
+  - `compact`: Reclaim SQLite storage space and vacuum (`prune_orphaned_edges?`).
+  - `archive`: Archive old completed tasks (`older_than_days?`).
+  - `prune_events`: Permanently prune historical events (`older_than?`, `dry_run?`, `preserve_types?`). *Requires `STATE_MEMORY_ADMIN_MODE=true`*.
+  - `version`: Retrieve server and runtime environment version metadata.
+
+---
+
+### 13. `use_blackboard`
+Multi-agent notice board.
+- **Actions**:
+  - `post`: Post notice to shared topic (`topic`, `content`, `agent_id?`, `agent_role?`, `ttl_seconds?`).
+  - `read`: Read active non-expired blackboard notices (`topic?`, `limit?`).

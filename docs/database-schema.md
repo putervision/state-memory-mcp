@@ -120,10 +120,10 @@ Full-Text Search index over node `title`, `metadata`, and `tags`.
 - `metadata`
 - `tags`
 
-Automatically kept in sync with `nodes` via SQLite triggers:
-- `nodes_ai` (AFTER INSERT)
-- `nodes_ad` (AFTER DELETE)
-- `nodes_au` (AFTER UPDATE)
+#### Encryption & Search Behavior:
+When payload encryption is enabled via `STATE_MEMORY_ENCRYPTION_KEY`, the primary `nodes` table stores AES-256-GCM encrypted ciphertext payloads (`ENC:iv:authTag:ciphertext`), while `nodes_fts` maintains an unencrypted derived full-text search index over the plaintext node titles, metadata attributes, and tags. This architecture enables fast sub-millisecond full-text search and prefix matching via `manage_nodes(action: "search")` without requiring decrypt-on-scan overhead.
+
+Explicit application-level synchronization is maintained in `GraphEngine` across `addNode`, `updateNode`, `removeNode`, and `dedupeGraph` operations.
 
 ---
 

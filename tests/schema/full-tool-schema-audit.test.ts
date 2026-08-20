@@ -4,8 +4,8 @@ import { jsonSchemaToZodObject } from '../../src/tools/handlers.js';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 describe('Comprehensive Tool Schema Audit (Draft-07 & VS Code MCP Compliance)', () => {
-  it('should verify all 81 tools have valid inputSchema structures and no property defects', () => {
-    expect(toolDefinitions.length).toBeGreaterThanOrEqual(80);
+  it('should verify all 13 consolidated tools have valid inputSchema structures and no property defects', () => {
+    expect(toolDefinitions.length).toBe(13);
 
     const violations: string[] = [];
     const toolNameSet = new Set<string>();

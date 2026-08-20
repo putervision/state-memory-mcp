@@ -19,13 +19,13 @@ export function decisionTrail(params: { project?: string; node_id: string }): {
   const upstreamTrail = db
     .prepare(
       `
-    WITH RECURSIVE trail(node_id) AS (
-      SELECT ?
+    WITH RECURSIVE trail(node_id, depth) AS (
+      SELECT ?, 0
       UNION
-      SELECT e.target_id
+      SELECT e.target_id, t.depth + 1
       FROM trail t
       JOIN edges e ON e.source_id = t.node_id
-      WHERE e.type = 'updates'
+      WHERE e.type = 'updates' AND t.depth < 50
     )
     SELECT node_id FROM trail
   `
@@ -35,13 +35,13 @@ export function decisionTrail(params: { project?: string; node_id: string }): {
   const downstreamTrail = db
     .prepare(
       `
-    WITH RECURSIVE trail(node_id) AS (
-      SELECT ?
+    WITH RECURSIVE trail(node_id, depth) AS (
+      SELECT ?, 0
       UNION
-      SELECT e.source_id
+      SELECT e.source_id, t.depth + 1
       FROM trail t
       JOIN edges e ON e.target_id = t.node_id
-      WHERE e.type = 'updates'
+      WHERE e.type = 'updates' AND t.depth < 50
     )
     SELECT node_id FROM trail
   `

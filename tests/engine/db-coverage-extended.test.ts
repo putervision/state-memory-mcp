@@ -36,8 +36,9 @@ describe('Database Engine Extended Coverage', () => {
     const decrypted = decryptPayload(encrypted);
     expect(decrypted).toBe(plain);
 
-    // Test decrypting invalid enc string fallback
-    expect(decryptPayload('ENC:invalid:parts')).toBe('ENC:invalid:parts');
+    // Test decrypting invalid enc string: strict mode throws, non-strict returns fallback
+    expect(() => decryptPayload('ENC:invalid:parts')).toThrow();
+    expect(decryptPayload('ENC:invalid:parts', undefined, false)).toBe('ENC:invalid:parts');
 
     process.env.STATE_MEMORY_ENCRYPTION_KEY = originalEnv;
   });

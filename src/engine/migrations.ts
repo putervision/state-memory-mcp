@@ -176,7 +176,7 @@ export const migrations: Migration[] = [
       );
       try {
         db.prepare(
-          `ALTER TABLE nodes ADD COLUMN commit_hash TEXT GENERATED ALWAYS AS (json_extract(metadata, '$.commit_hash')) VIRTUAL`
+          `ALTER TABLE nodes ADD COLUMN commit_hash TEXT GENERATED ALWAYS AS (json_extract(CASE WHEN json_valid(metadata) THEN metadata ELSE '{}' END, '$.commit_hash')) VIRTUAL`
         ).run();
       } catch (err: any) {
         logger.debug(`Could not add commit_hash column (it may already exist): ${err.message}`);

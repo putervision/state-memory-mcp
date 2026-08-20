@@ -1,6 +1,6 @@
 {
   "name": "@putervision/state-memory-mcp",
-  "version": "0.10.0",
+  "version": "1.0.0",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "keywords": [
     "mcp",
@@ -45,7 +45,7 @@
     "access": "public"
   },
   "license": "MIT",
-  "author": "PuterVision LLC",
+  "author": "PuterVision",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -73,7 +73,8 @@
     "CONTRIBUTING.md",
     "SECURITY.md",
     "server.json",
-    "manifest.json"
+    "manifest.json",
+    "glama.json"
   ],
   "scripts": {
     "build": "tsup",
@@ -112,6 +113,7 @@
   "overrides": {
     "@hono/node-server": "^2.0.5",
     "esbuild": "^0.28.1",
+    "nanoid": "^3.3.18",
     "vite": "^6.0.0"
   },
   "engines": {

@@ -1,132 +1,86 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import {
-  BatchUpdateSchema,
-  WhatChangedSchema,
-  AddNoteSchema,
-  BootstrapSessionSchema,
+  NextTasksSchema,
   CompleteTaskSchema,
-  BatchCreateNodesSchema,
-  BatchAddEdgesSchema,
-  PlanAndDecomposeFeatureSchema,
-  PostMortemFromSessionSchema,
-  ExportIssuesSchema,
-  ImportIssuesSchema,
-  ArchiveCompletedNodesSchema,
-  CompactGraphSchema,
+  FindBlockedTasksSchema,
+  GetStaleNodesSchema,
+  FindBlockersSchema,
+  FindSimilarBlockersSchema,
+  AutoPruneStaleTasksSchema,
 } from '../schema/schemas.js';
-import { batchUpdate, batchCreateNodes, batchAddEdges } from '../engine/batch.js';
-import { bootstrapSession } from '../engine/bootstrap.js';
 import { completeTask } from '../engine/complete-task.js';
-import { planAndDecomposeFeature, postMortemFromSession } from '../engine/compound-workflows.js';
-import { exportIssues, importIssues } from '../engine/issue-sync.js';
-import { archiveCompletedNodes, compactGraph } from '../engine/compaction.js';
-import { getChanges } from '../engine/changeset.js';
-import { GraphEngine } from '../engine/graph.js';
-import { EdgeEngine } from '../engine/edges.js';
+import { getNextTasks } from '../engine/work-queue.js';
+import { getStaleNodes, autoPruneStaleTasks } from '../engine/staleness.js';
+import { AnalyticsEngine, findSimilarBlockers } from '../engine/analytics.js';
 import { getDb, getProjectSlug } from '../engine/db.js';
 import { parseArgs } from './helper.js';
 
 export const batchHandlers = {
-  compact_graph: (args: any) => {
-    const data = parseArgs(CompactGraphSchema, args);
-    return compactGraph(data);
-  },
-  archive_completed_nodes: (args: any) => {
-    const data = parseArgs(ArchiveCompletedNodesSchema, args);
-    return archiveCompletedNodes(data);
-  },
-  export_issues: (args: any) => {
-    const data = parseArgs(ExportIssuesSchema, args);
-    return exportIssues(data);
-  },
-  import_issues: (args: any) => {
-    const data = parseArgs(ImportIssuesSchema, args);
-    return importIssues(data);
-  },
-  plan_and_decompose_feature: (args: any) => {
-    const data = parseArgs(PlanAndDecomposeFeatureSchema, args);
-    return planAndDecomposeFeature(data);
-  },
-  post_mortem_from_session: (args: any) => {
-    const data = parseArgs(PostMortemFromSessionSchema, args);
-    return postMortemFromSession(data);
-  },
-  batch_update: (args: any) => {
-    const data = parseArgs(BatchUpdateSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return batchUpdate(db, {
-      project: projectSlug,
-      ids: data.ids,
-      status: data.status,
-      metadata: data.metadata,
-      tags: data.tags,
-    });
-  },
-  bootstrap_session: (args: any) => {
-    const data = parseArgs(BootstrapSessionSchema, args);
-    return bootstrapSession(data);
-  },
-  complete_task: (args: any) => {
-    const data = parseArgs(CompleteTaskSchema, args);
-    return completeTask(data);
-  },
-  batch_create_nodes: (args: any) => {
-    const data = parseArgs(BatchCreateNodesSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return batchCreateNodes(db, {
-      project: projectSlug,
-      nodes: data.nodes,
-    });
-  },
-  batch_add_edges: (args: any) => {
-    const data = parseArgs(BatchAddEdgesSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return batchAddEdges(db, {
-      project: projectSlug,
-      edges: data.edges,
-    });
-  },
-  what_changed: (args: any) => {
-    const data = parseArgs(WhatChangedSchema, args);
-    if (!data.since && !data.since_session) {
+  manage_tasks: (args: unknown) => {
+    const action = (args as any)?.action;
+    if (!action) {
       throw new McpError(
         ErrorCode.InvalidParams,
-        'Either since or since_session parameter must be provided'
+        'Parameter "action" is required for manage_tasks.'
       );
     }
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return getChanges(db, {
-      project: projectSlug,
-      since: data.since,
-      since_session: data.since_session,
-      git_branch: data.git_branch,
-    });
-  },
-  add_note: (args: any) => {
-    const data = parseArgs(AddNoteSchema, args);
-    const projectSlug = getProjectSlug(data.project);
-    const db = getDb(projectSlug);
-    return db.transaction(() => {
-      const node = GraphEngine.addNode({
-        project: projectSlug,
-        type: 'observation',
-        title: data.text.slice(0, 200),
-        metadata: { full_text: data.text },
-        tags: data.tags,
-      });
-      if (data.attach_to) {
-        EdgeEngine.addEdge({
+
+    switch (action) {
+      case 'next': {
+        const data = parseArgs(NextTasksSchema, args);
+        const projectSlug = getProjectSlug(data.project);
+        const db = getDb(projectSlug);
+        return getNextTasks(db, {
           project: projectSlug,
-          source_id: node.id,
-          target_id: data.attach_to,
-          type: 'references',
+          git_branch: data.git_branch,
+          limit: data.limit,
+          include_context: data.include_context,
         });
       }
-      return node;
-    })();
+      case 'complete': {
+        const data = parseArgs(CompleteTaskSchema, args);
+        return completeTask(data);
+      }
+      case 'find_blocked': {
+        const data = parseArgs(FindBlockedTasksSchema, args);
+        return AnalyticsEngine.findBlockedTasks(data);
+      }
+      case 'find_stale': {
+        const data = parseArgs(GetStaleNodesSchema, args);
+        const projectSlug = getProjectSlug(data.project);
+        const db = getDb(projectSlug);
+        return getStaleNodes(db, {
+          project: projectSlug,
+          older_than: data.older_than,
+          status: data.status,
+          type: data.type,
+          git_branch: data.git_branch,
+          limit: data.limit,
+        });
+      }
+      case 'find_blockers': {
+        const data = parseArgs(FindBlockersSchema, args);
+        return AnalyticsEngine.findBlockers(data);
+      }
+      case 'find_similar_blockers': {
+        const data = parseArgs(FindSimilarBlockersSchema, args);
+        return findSimilarBlockers(data);
+      }
+      case 'auto_prune': {
+        const data = parseArgs(AutoPruneStaleTasksSchema, args);
+        const projectSlug = getProjectSlug(data.project);
+        const db = getDb(projectSlug);
+        return autoPruneStaleTasks(db, {
+          project: projectSlug,
+          older_than: data.older_than,
+          target_status: data.target_status,
+        });
+      }
+      default:
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `Invalid action "${action}" for manage_tasks. Supported actions: next, complete, find_blocked, find_stale, find_blockers, find_similar_blockers, auto_prune.`
+        );
+    }
   },
 };

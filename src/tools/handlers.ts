@@ -1,65 +1,84 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { z, ZodTypeAny } from 'zod';
-import { toolDefinitions, READ_ONLY_TOOLS, DESTRUCTIVE_TOOLS } from './definitions.js';
+import { z } from 'zod';
+import {
+  toolDefinitions,
+  READ_ONLY_TOOLS,
+  READ_ONLY_ACTIONS,
+  DESTRUCTIVE_TOOLS,
+  DESTRUCTIVE_ACTIONS,
+} from './definitions.js';
 import { toolHandlers } from '../handlers/index.js';
 import { resolveProjectRoot } from '../engine/db.js';
 import { loadProjectConfig } from '../engine/config.js';
+import { LEGACY_TOOL_MAP, translateLegacyCall } from './compat-shim.js';
+import { resolveAction, generateToolActionGuidance } from '../engine/advisor.js';
 
-function jsonSchemaToZod(prop: any): ZodTypeAny {
-  if (!prop) return z.record(z.string(), z.any());
-
-  if (prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0) {
-    return z.enum(prop.enum as [string, ...string[]]);
+export function jsonSchemaToZod(schema: any): z.ZodTypeAny {
+  if (!schema || typeof schema !== 'object') {
+    return z.any();
   }
 
-  switch (prop.type) {
-    case 'string':
-      return z.string();
-    case 'number':
-      return z.number();
-    case 'boolean':
-      return z.boolean();
-    case 'array': {
-      if (prop.items) {
-        return z.array(jsonSchemaToZod(prop.items));
-      }
-      return z.array(z.record(z.string(), z.any()));
+  if (schema.type === 'string') {
+    if (schema.enum && Array.isArray(schema.enum) && schema.enum.length > 0) {
+      return z.enum(schema.enum as [string, ...string[]]);
     }
-    case 'object': {
-      if (prop.properties) {
-        return jsonSchemaToZodObject(prop);
-      }
-      return z.record(z.string(), z.any());
-    }
-    default:
-      return z.record(z.string(), z.any());
+    return z.string();
   }
+
+  if (schema.type === 'number') {
+    return z.number();
+  }
+
+  if (schema.type === 'boolean') {
+    return z.boolean();
+  }
+
+  if (schema.type === 'array') {
+    const itemSchema = schema.items ? jsonSchemaToZod(schema.items) : z.any();
+    return z.array(itemSchema);
+  }
+
+  if (schema.type === 'object') {
+    if (!schema.properties) {
+      return z.record(z.any());
+    }
+    const shape: Record<string, z.ZodTypeAny> = {};
+    const properties = schema.properties || {};
+    const required = new Set(schema.required || []);
+
+    for (const [key, propSchema] of Object.entries(properties)) {
+      let zodProp: z.ZodTypeAny;
+      if (key === 'action') {
+        zodProp = z.string().optional();
+      } else {
+        zodProp = jsonSchemaToZod(propSchema);
+      }
+      if ((propSchema as any).description) {
+        zodProp = zodProp.describe((propSchema as any).description);
+      }
+      if (!required.has(key) || key === 'action') {
+        zodProp = zodProp.optional();
+      }
+      shape[key] = zodProp;
+    }
+
+    return z.object(shape).passthrough();
+  }
+
+  return z.any();
 }
 
-export function jsonSchemaToZodObject(schema: Record<string, any>): z.ZodObject<any> {
-  const shape: Record<string, ZodTypeAny> = {};
-  const properties = schema?.properties || {};
-  const requiredFields = new Set<string>(schema?.required || []);
-
-  for (const [key, prop] of Object.entries<any>(properties)) {
-    let fieldZod = jsonSchemaToZod(prop);
-
-    if (prop.description) {
-      fieldZod = fieldZod.describe(prop.description);
-    }
-
-    if (!requiredFields.has(key)) {
-      fieldZod = fieldZod.optional();
-    }
-
-    shape[key] = fieldZod;
+export function jsonSchemaToZodObject(schema: any): z.ZodObject<any> {
+  const zod = jsonSchemaToZod(schema);
+  if (zod instanceof z.ZodObject) {
+    return zod;
   }
-
-  return z.object(shape);
+  return z.object({}).passthrough();
 }
 
 export function registerAllTools(server: McpServer): void {
+  // 1. Register the 13 consolidated tools
   for (const toolDef of toolDefinitions) {
     const name = toolDef.name;
     const title = name
@@ -67,8 +86,7 @@ export function registerAllTools(server: McpServer): void {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
 
-    const isDestructive = DESTRUCTIVE_TOOLS.has(name);
-    const isReadOnly = READ_ONLY_TOOLS.has(name);
+    const isReadOnlyTool = READ_ONLY_TOOLS.has(name);
     const inputZodSchema = jsonSchemaToZodObject(toolDef.inputSchema);
 
     server.registerTool(
@@ -78,8 +96,8 @@ export function registerAllTools(server: McpServer): void {
         description: toolDef.description,
         inputSchema: inputZodSchema as any,
         annotations: {
-          readOnlyHint: isReadOnly,
-          destructiveHint: isDestructive,
+          readOnlyHint: isReadOnlyTool,
+          destructiveHint: false,
           openWorldHint: false,
         },
       },
@@ -89,8 +107,27 @@ export function registerAllTools(server: McpServer): void {
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
 
+        const rawAction = args?.action;
+        const resolution = resolveAction(name, rawAction, args || {});
+
+        if (!resolution.action) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify(resolution.errorGuidance, null, 2),
+              },
+            ],
+          };
+        }
+
+        const action = resolution.action;
+        const effectiveArgs = { ...(args || {}), action };
+        const actionKey = `${name}:${action}`;
+
         // Security & Access Control Enforcement
-        const projectRoot = resolveProjectRoot(args?.project);
+        const projectRoot = resolveProjectRoot(effectiveArgs?.project);
         const config = loadProjectConfig(projectRoot);
         const accessMode =
           process.env.STATE_MEMORY_READ_ONLY === 'true'
@@ -99,23 +136,25 @@ export function registerAllTools(server: McpServer): void {
               ? 'audit_only'
               : config.accessMode || 'normal';
 
-        if (accessMode === 'read_only' && !READ_ONLY_TOOLS.has(name)) {
+        const isReadOnlyAction = isReadOnlyTool || READ_ONLY_ACTIONS.has(actionKey);
+
+        if (accessMode === 'read_only' && !isReadOnlyAction) {
           throw new McpError(
             ErrorCode.InvalidRequest,
-            `Access denied: server is running in read-only mode and tool "${name}" modifies state.`
+            `Access denied: server is running in read-only mode and action "${actionKey}" modifies state.`
           );
         }
 
         if (
           accessMode === 'audit_only' &&
           ![
-            'doctor_report',
-            'validate_graph',
-            'verify_audit_chain',
-            'audit_project_db',
-            'get_project_summary',
-            'get_context_snapshot',
-          ].includes(name)
+            'run_diagnostics:doctor',
+            'run_diagnostics:validate',
+            'run_diagnostics:audit_chain',
+            'manage_database:audit',
+            'get_analytics:summary',
+            'get_analytics:context_snapshot',
+          ].includes(actionKey)
         ) {
           throw new McpError(
             ErrorCode.InvalidRequest,
@@ -124,17 +163,18 @@ export function registerAllTools(server: McpServer): void {
         }
 
         if (
-          name === 'prune_events' &&
-          process.env.STATE_MEMORY_ADMIN_MODE !== 'true' &&
-          (config as any).accessMode !== 'admin'
+          ((name === 'run_diagnostics' && action === 'prune_events') ||
+            (name === 'run_maintenance' && action === 'prune_events') ||
+            name === 'prune_events') &&
+          process.env.STATE_MEMORY_ADMIN_MODE !== 'true'
         ) {
           throw new McpError(
             ErrorCode.InvalidRequest,
-            `Access denied: "prune_events" requires admin mode.`
+            `Access denied: "prune_events" requires STATE_MEMORY_ADMIN_MODE=true.`
           );
         }
 
-        const result = await handler(args);
+        const result = await handler(effectiveArgs);
         const text =
           result === undefined
             ? ''
@@ -152,5 +192,66 @@ export function registerAllTools(server: McpServer): void {
         };
       }
     );
+  }
+
+  // 2. Register legacy tool shims if STATE_MEMORY_COMPAT=true
+  if (process.env.STATE_MEMORY_COMPAT === 'true') {
+    for (const [legacyName, mapping] of Object.entries(LEGACY_TOOL_MAP)) {
+      const isReadOnly =
+        READ_ONLY_TOOLS.has(legacyName) ||
+        READ_ONLY_ACTIONS.has(`${mapping.tool}:${mapping.action}`);
+      const isDestructive =
+        DESTRUCTIVE_TOOLS.has(legacyName) ||
+        DESTRUCTIVE_ACTIONS.has(`${mapping.tool}:${mapping.action}`);
+
+      server.registerTool(
+        legacyName,
+        {
+          title: `[Deprecated] ${legacyName}`,
+          description: `[DEPRECATED in v1.0] Legacy alias for ${mapping.tool}(action: "${mapping.action}"). Please migrate to ${mapping.tool}.`,
+          inputSchema: z.record(z.any()) as any,
+          annotations: {
+            readOnlyHint: isReadOnly,
+            destructiveHint: isDestructive,
+            openWorldHint: false,
+          },
+        },
+        async (args: any) => {
+          const { tool, transformedArgs } = translateLegacyCall(legacyName, args);
+          const targetHandler = toolHandlers[tool];
+          if (!targetHandler) {
+            throw new McpError(
+              ErrorCode.MethodNotFound,
+              `Handler not found for consolidated tool: ${tool}`
+            );
+          }
+
+          // Admin check on legacy prune_events
+          if (legacyName === 'prune_events' && process.env.STATE_MEMORY_ADMIN_MODE !== 'true') {
+            throw new McpError(
+              ErrorCode.InvalidRequest,
+              `Access denied: "prune_events" requires STATE_MEMORY_ADMIN_MODE=true.`
+            );
+          }
+
+          const result = await targetHandler(transformedArgs);
+          const text =
+            result === undefined
+              ? ''
+              : typeof result === 'string'
+                ? result
+                : JSON.stringify(result, null, 2);
+
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text,
+              },
+            ],
+          };
+        }
+      );
+    }
   }
 }

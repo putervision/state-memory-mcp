@@ -15,7 +15,6 @@ describe('MCP Server Integration Tests', () => {
   });
 
   beforeAll(async () => {
-    // Clear integration test DB tables
     const db = getDb(project);
     db.prepare('DELETE FROM edges WHERE project = ?').run(project);
     db.prepare('DELETE FROM nodes WHERE project = ?').run(project);
@@ -25,14 +24,13 @@ describe('MCP Server Integration Tests', () => {
     client = new Client(
       {
         name: 'test-client',
-        version: '0.0.6',
+        version: '1.0.0',
       },
       {
         capabilities: {},
       }
     );
 
-    // Connect client and server in-process
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   });
 
@@ -42,85 +40,33 @@ describe('MCP Server Integration Tests', () => {
     closeAllDbs();
   });
 
-  it('should list available tools', async () => {
+  it('should list all 13 consolidated tools', async () => {
     const tools = await client.listTools();
     expect(tools.tools).toBeDefined();
-    expect(tools.tools.length).toBe(82);
+    expect(tools.tools.length).toBe(13);
 
     const toolNames = tools.tools.map((t) => t.name);
-    expect(toolNames).toContain('app_version');
-    expect(toolNames).toContain('find_similar_blockers');
-    expect(toolNames).toContain('auto_prune_stale_tasks');
-    expect(toolNames).toContain('link_visual_state');
-    expect(toolNames).toContain('export_joint_trajectories');
-    expect(toolNames).toContain('get_synergy_metrics');
-    expect(toolNames).toContain('natural_language_query');
-    expect(toolNames).toContain('post_blackboard');
-    expect(toolNames).toContain('read_blackboard');
-    expect(toolNames).toContain('plan_and_decompose_feature');
-    expect(toolNames).toContain('post_mortem_from_session');
-    expect(toolNames).toContain('get_state_at_timestamp');
-    expect(toolNames).toContain('revert_to_timestamp');
-    expect(toolNames).toContain('validate_memory_references');
-    expect(toolNames).toContain('velocity_analytics');
-    expect(toolNames).toContain('burndown_chart');
-    expect(toolNames).toContain('export_issues');
-    expect(toolNames).toContain('import_issues');
-    expect(toolNames).toContain('vcs_branch_sync');
-    expect(toolNames).toContain('vcs_merge_resolution');
-    expect(toolNames).toContain('compact_graph');
-    expect(toolNames).toContain('archive_completed_nodes');
-    expect(toolNames).toContain('doctor_report');
-    expect(toolNames).toContain('watch_graph_changes');
-    expect(toolNames).toContain('bootstrap_session');
-    expect(toolNames).toContain('complete_task');
-    expect(toolNames).toContain('ingest_spec');
-    expect(toolNames).toContain('get_spec_compliance');
-    expect(toolNames).toContain('batch_create_nodes');
-    expect(toolNames).toContain('batch_add_edges');
-    expect(toolNames).toContain('list_sessions');
-    expect(toolNames).toContain('value_metrics');
-    expect(toolNames).toContain('scaffold_template');
-    expect(toolNames).toContain('add_node');
-
-    expect(toolNames).toContain('update_node');
-    expect(toolNames).toContain('get_node');
-    expect(toolNames).toContain('remove_node');
-    expect(toolNames).toContain('add_edge');
-    expect(toolNames).toContain('remove_edge');
-    expect(toolNames).toContain('list_nodes');
-    expect(toolNames).toContain('search_nodes');
-    expect(toolNames).toContain('get_subgraph');
-    expect(toolNames).toContain('trace_dependencies');
-    expect(toolNames).toContain('find_blockers');
-    expect(toolNames).toContain('get_project_summary');
-    expect(toolNames).toContain('decision_trail');
-    expect(toolNames).toContain('critical_path');
-    expect(toolNames).toContain('impact_analysis');
-    expect(toolNames).toContain('detect_contradictions');
-    expect(toolNames).toContain('export_graph');
-    expect(toolNames).toContain('import_graph');
+    expect(toolNames).toContain('manage_nodes');
+    expect(toolNames).toContain('manage_edges');
+    expect(toolNames).toContain('manage_sessions');
+    expect(toolNames).toContain('manage_tasks');
+    expect(toolNames).toContain('manage_snapshots');
+    expect(toolNames).toContain('manage_specs');
+    expect(toolNames).toContain('manage_database');
+    expect(toolNames).toContain('manage_data');
     expect(toolNames).toContain('query_graph');
-    expect(toolNames).toContain('backup_project_db');
-    expect(toolNames).toContain('restore_project_db');
-    expect(toolNames).toContain('audit_project_db');
-    expect(toolNames).toContain('merge_project_db');
-    expect(toolNames).toContain('start_session');
-    expect(toolNames).toContain('end_session');
-    expect(toolNames).toContain('get_event_log');
-    expect(toolNames).toContain('get_node_history');
-    expect(toolNames).toContain('undo_last');
-    expect(toolNames).toContain('save_snapshot');
-    expect(toolNames).toContain('list_snapshots');
-    expect(toolNames).toContain('diff_snapshots');
-    expect(toolNames).toContain('export_trajectories');
+    expect(toolNames).toContain('get_analytics');
+    expect(toolNames).toContain('get_events');
+    expect(toolNames).toContain('run_diagnostics');
+    expect(toolNames).toContain('use_blackboard');
   });
 
-  it('should support nodes and edges operations via tools', async () => {
+  it('should support nodes and edges operations via consolidated tools', async () => {
     // 1. Add Task Node
     const addNodeResult = await client.callTool({
-      name: 'add_node',
+      name: 'manage_nodes',
       arguments: {
+        action: 'create',
         project,
         type: 'task',
         title: 'Initial Database Setup',
@@ -136,8 +82,9 @@ describe('MCP Server Integration Tests', () => {
 
     // 2. Add Second Node (Blocker)
     const addBlockerResult = await client.callTool({
-      name: 'add_node',
+      name: 'manage_nodes',
       arguments: {
+        action: 'create',
         project,
         type: 'blocker',
         title: 'Missing Database URI',
@@ -151,8 +98,9 @@ describe('MCP Server Integration Tests', () => {
 
     // 3. Update Task Node
     const updateNodeResult = await client.callTool({
-      name: 'update_node',
+      name: 'manage_nodes',
       arguments: {
+        action: 'update',
         project,
         id: node1.id,
         status: 'blocked',
@@ -162,13 +110,14 @@ describe('MCP Server Integration Tests', () => {
 
     const updatedNode = JSON.parse((updateNodeResult as any).content[0].text);
     expect(updatedNode.status).toBe('blocked');
-    expect(updatedNode.metadata.priority).toBe('high'); // Kept original
-    expect(updatedNode.metadata.estimate).toBe('2h'); // Merged new
+    expect(updatedNode.metadata.priority).toBe('high');
+    expect(updatedNode.metadata.estimate).toBe('2h');
 
     // 4. Link Node and Blocker with Edge
     const addEdgeResult = await client.callTool({
-      name: 'add_edge',
+      name: 'manage_edges',
       arguments: {
+        action: 'add',
         project,
         source_id: blocker.id,
         target_id: node1.id,
@@ -183,8 +132,9 @@ describe('MCP Server Integration Tests', () => {
 
     // 5. List Nodes
     const listResult = await client.callTool({
-      name: 'list_nodes',
+      name: 'manage_nodes',
       arguments: {
+        action: 'list',
         project,
         type: 'task',
       },
@@ -196,8 +146,9 @@ describe('MCP Server Integration Tests', () => {
 
     // 6. Search Nodes (FTS5)
     const searchResult = await client.callTool({
-      name: 'search_nodes',
+      name: 'manage_nodes',
       arguments: {
+        action: 'search',
         project,
         query: 'Setup',
       },
@@ -209,8 +160,9 @@ describe('MCP Server Integration Tests', () => {
 
     // 7. Find Blockers
     const blockersResult = await client.callTool({
-      name: 'find_blockers',
+      name: 'manage_tasks',
       arguments: {
+        action: 'find_blockers',
         project,
         node_id: node1.id,
       },
@@ -222,8 +174,11 @@ describe('MCP Server Integration Tests', () => {
 
     // 8. Project Summary
     const summaryResult = await client.callTool({
-      name: 'get_project_summary',
-      arguments: { project },
+      name: 'get_analytics',
+      arguments: {
+        action: 'summary',
+        project,
+      },
     });
 
     const summary = JSON.parse((summaryResult as any).content[0].text);
@@ -233,8 +188,9 @@ describe('MCP Server Integration Tests', () => {
 
     // 9. Remove Edge
     const removeEdgeResult = await client.callTool({
-      name: 'remove_edge',
+      name: 'manage_edges',
       arguments: {
+        action: 'remove',
         project,
         source_id: blocker.id,
         target_id: node1.id,
@@ -247,8 +203,9 @@ describe('MCP Server Integration Tests', () => {
 
     // 10. Remove Node
     const removeNodeResult = await client.callTool({
-      name: 'remove_node',
+      name: 'manage_nodes',
       arguments: {
+        action: 'remove',
         project,
         id: node1.id,
       },
@@ -260,8 +217,9 @@ describe('MCP Server Integration Tests', () => {
 
   it('should return error for invalid tool arguments', async () => {
     const res = await client.callTool({
-      name: 'add_node',
+      name: 'manage_nodes',
       arguments: {
+        action: 'create',
         project,
         type: 'invalid-type',
         title: '',

@@ -1,6 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { analyticsHandlers } from '../../src/handlers/analytics.js';
-import { graphHandlers } from '../../src/handlers/graph.js';
+import { snapshotHandlers } from '../../src/handlers/snapshot.js';
 import { nodeHandlers } from '../../src/handlers/node.js';
 import { sessionHandlers } from '../../src/handlers/session.js';
 import { parseArgs, findFuzzyNodeSuggestions } from '../../src/handlers/helper.js';
@@ -14,7 +13,7 @@ describe('Handler Coverage Complete Suite', () => {
     closeAllDbs();
   });
 
-  it('should test traceback_to_node for existing and non-existing nodes', () => {
+  it('should test node reset via manage_nodes update', () => {
     const task = GraphEngine.addNode({
       project,
       type: 'task',
@@ -22,39 +21,44 @@ describe('Handler Coverage Complete Suite', () => {
       status: 'pending',
     });
 
-    const resSuccess = analyticsHandlers.traceback_to_node({
+    const resSuccess = nodeHandlers.manage_nodes({
+      action: 'update',
       project,
-      target_node_id: task.id || (task as any).node?.id,
-      reason: 'Downstream test failure',
+      id: task.id || (task as any).node?.id,
+      status: 'in_progress',
     });
-    expect(resSuccess.success).toBe(true);
-    expect(resSuccess.status).toBe('in_progress');
-
-    const resFail = analyticsHandlers.traceback_to_node({
-      project,
-      target_node_id: 'non-existent-target-id',
-    });
-    expect(resFail.success).toBe(false);
-    expect(resFail.error).toContain('not found');
-  });
-
-  it('should test export_graph and import_graph handlers', () => {
-    const exported = graphHandlers.export_graph({ project });
-    expect(exported).toBeDefined();
-
-    const graphDataStr = JSON.stringify(exported);
+    expect(resSuccess).toBeDefined();
+    expect((resSuccess as any).status).toBe('in_progress');
 
     expect(() =>
-      graphHandlers.import_graph({
+      nodeHandlers.manage_nodes({
+        action: 'update',
         project,
-        graph_data: graphDataStr,
+        id: 'non-existent-target-id',
+        status: 'in_progress',
+      })
+    ).toThrow();
+  });
+
+  it('should test manage_data export_graph and import_graph handlers', async () => {
+    const exported: any = await snapshotHandlers.manage_data({ action: 'export_graph', project });
+    expect(exported).toBeDefined();
+
+    await expect(
+      snapshotHandlers.manage_data({
+        action: 'import_graph',
+        project,
+        nodes: exported.nodes || [],
+        edges: exported.edges || [],
         force: false,
       })
-    ).toThrow('Database is not empty');
+    ).rejects.toThrow('Database is not empty');
 
-    const imported = graphHandlers.import_graph({
+    const imported: any = await snapshotHandlers.manage_data({
+      action: 'import_graph',
       project,
-      graph_data: graphDataStr,
+      nodes: exported.nodes || [],
+      edges: exported.edges || [],
       force: true,
     });
     expect(imported).toBeDefined();
@@ -62,7 +66,8 @@ describe('Handler Coverage Complete Suite', () => {
 
   it('should throw McpError when remove_node targets a non-existent node ID', () => {
     expect(() =>
-      nodeHandlers.remove_node({
+      nodeHandlers.manage_nodes({
+        action: 'remove',
         project,
         id: 'non-existent-id-xyz',
       })
@@ -70,7 +75,7 @@ describe('Handler Coverage Complete Suite', () => {
   });
 
   it('should test sessionHandlers list_sessions', () => {
-    const res = sessionHandlers.list_sessions({ project, limit: 5 });
+    const res = sessionHandlers.manage_sessions({ action: 'list', project, limit: 5 });
     expect(res).toBeDefined();
   });
 

@@ -11,7 +11,8 @@ When encountering a build error or failing integration test, log a blocker node:
 
 ```typescript
 // 1. Add Blocker Node
-add_node({
+manage_nodes({
+  action: "create",
   type: "blocker",
   title: "Database connection pool timeout under load",
   status: "active",
@@ -20,18 +21,20 @@ add_node({
 // Returns: blocker_id = "blocker_01KYW901"
 
 // 2. Connect Blocker to Stalled Task
-add_edge({
+manage_edges({
+  action: "add",
   source_id: "blocker_01KYW901",
   target_id: "task_01KYW900",
   type: "blocks"
 });
 ```
 
-### Step 2: Semantic Blocker RAG Search (`find_similar_blockers`)
+### Step 2: Semantic Blocker RAG Search (`manage_tasks:find_similar_blockers`)
 Query historical resolved blockers and observations to find matching resolution patterns:
 
 ```typescript
-find_similar_blockers({
+manage_tasks({
+  action: "find_similar_blockers",
   project: "my-app",
   query: "database pool timeout ECONNRESET connection limit",
   limit: 3
@@ -44,25 +47,27 @@ Log technical findings atomically and resolve the blocker:
 
 ```typescript
 // 1. Log Observation Note
-add_note({
+manage_nodes({
+  action: "add_note",
   text: "Increased SQLite busy_timeout to 5000ms and configured WAL mode connection pooling.",
   attach_to: "task_01KYW900"
 });
 
 // 2. Resolve Blocker
-update_node({
+manage_nodes({
+  action: "update",
   id: "blocker_01KYW901",
   status: "resolved"
 });
 ```
 
-### Step 4: Revert State graph if Unsafe Recovery (`traceback_to_node`)
-If a trial fix corrupts execution context, revert to a prior validated node:
+### Step 4: Revert State graph if Unsafe Recovery (`manage_snapshots:undo`)
+If a trial fix corrupts execution context, revert to a prior validated checkpoint or undo mutations:
 
 ```typescript
-traceback_to_node({
+manage_snapshots({
+  action: "undo",
   project: "my-app",
-  target_node_id: "task_01KYW850",
-  reason: "Trial migration script failed; resetting execution state."
+  node_id: "task_01KYW900"
 });
 ```

@@ -15,25 +15,27 @@ Whenever you capture a screenshot, examine a webpage, or need to verify a visual
 4. **Cache Hit**: If `is_known` is `true`, read the returned `description` and do NOT call your vision LLM.
 5. **Cache Miss**: If `is_known` is `false`, inspect the image with your vision model, summarize the layout, and register it back by calling `analyze_screenshot` with both the `screenshot` and `description` parameters.
 6. **Log Transitions**: Right after taking any UI action (click, type, navigate, scroll), call `record_outcome` to build the navigation graph.
-7. **Snapshotting**: Call `save_visual_snapshot` when reaching milestones, and `diff_visual_snapshots` to check for visual regressions.
+7. **Snapshotting**: Call `manage_snapshot` (`action: "save"`) when reaching milestones, and `manage_snapshot` (`action: "diff"`) to check for visual regressions.
 
 ### 2. Complete Tool Reference
 
 | Tool Name | Key Inputs | Description |
 |-----------|------------|-------------|
-| `analyze_screenshot` | `screenshot` (base64), `description`?, `accessibility_tree`?, `tags`?, `force_refresh`? | Main ingestion and visual state retrieval tool. |
-| `recall_memory` | `query`?, `screenshot`?, `strategy`?, `limit`?, `include_transitions`? | Search visual memory by text query or image query. |
-| `record_outcome` | `from_state_id`, `to_state_id`?, `to_screenshot`?, `action`, `success`, `notes`? | Record UI action outcomes to build the navigation graph. |
+| `analyze_screenshot` | `screenshot`? (base64), `file_path`?, `description`?, `items`? | Main ingestion (single or batch) and visual state retrieval tool. |
+| `recall_memory` | `query`?, `screenshot`?, `file_path`?, `strategy`?, `limit`? | Search visual memory by text query or image query (read-only). |
+| `record_outcome` | `from_state_id`, `to_state_id`?, `action`, `action_type`? ('blocker' \| 'click' \| etc.) | Record UI action transitions or log visual blockers for state-memory. |
 | `get_navigation_paths` | `from_state_id`?, `to_state_id`?, `to_description`?, `max_hops`? | Find historical path or instructions between states. |
-| `compare_states` | `state_a_id`, `state_b_id` | Compare two states visually (hash distance) and semantically. |
-| `get_session_context` | `include_recent`?, `include_frequent`? | Get recent/frequent states and current database statistics. |
-| `save_visual_snapshot` | `name`, `description`? | Save current visual memory states as a named checkpoint. |
-| `diff_visual_snapshots` | `snapshot_a_name`, `snapshot_b_name` | Compare two checkpoints to detect additions or visual regressions. |
-| `undo_last_visual_mutation` | `type`? ('state' \| 'transition' \| 'any') | Revert the last state ingestion or transition edge addition. |
-| `predict_next_action` | `current_state_id`, `goal_description`? | Predict best next UI action and target coordinates. |
-| `set_visual_spec` / `verify_visual_spec` | `name`, `screenshot` | Register and verify visual design contract baselines. |
+| `predict_next_action` | `current_state_id`, `goal_description`?, `goal_state_id`? | Predict best next UI action and grounded element handles (`target_selector`, `target_coords`). |
+| `compare_states` | `state_a_id` & `state_b_id` OR `video_a_id` & `video_b_id` | Compare two states visually (`has_layout_change`) or compare video runs. |
+| `get_session_context` | `include_recent`?, `include_frequent`? | Get recent/frequent states, transition graphs, disk stats, cache metrics, and version info. |
+| `manage_snapshot` | `action` ('save' \| 'diff' \| 'export' \| 'restore'), `name`?, `archive_json`? | Unified snapshot management for visual checkpoints and regression detection. |
+| `manage_visual_spec` | `action` ('set' \| 'verify' \| 'list'), `name`?, `screenshot`?, `tolerance`? | Register and verify visual design contract baselines (Visual SDD). |
+| `manage_video` | `action` ('ingest' \| 'search' \| 'timeline'), `file_path`?, `query`?, `video_id`? | Ingest WebM/MP4 recordings, search video keyframes, or retrieve timelines. |
+| `create_evidence_pack` | `keyframe_state_ids`, `source_video_id`?, `linked_state_memory_nodes`? | Package immutable evidence packs linking video keyframes to state-memory DAGs. |
+| `export_trajectories` | `format`? ('json' \| 'llava' \| 'qwen2_vl' \| 'joint'), `trace_id`? | Export multimodal trajectories for model fine-tuning or joint workflow exports. |
+| `undo_visual_mutation` | `type`? ('state' \| 'transition' \| 'any') | Revert the last visual state ingestion or transition edge addition. |
 | `forget_state` | `state_id` | Purge a specific state and vector embedding for privacy. |
-| `export_visual_trajectories` | `git_branch`?, `format`? | Export multimodal trajectories for local model fine-tuning. |
+| `wait_for_visual_state` | `target_state_id`, `timeout_ms`? | Poll for target visual state until present or timeout occurs. |
 
 ### 3. Agent Permissions & Auto-Run Configuration
 To bypass confirmation dialogs when running CLI cache commands or reading/writing brain images, add these allows to your configuration:

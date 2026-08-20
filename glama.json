@@ -1,0 +1,48 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "name": "state-memory-mcp",
+  "title": "State Memory MCP",
+  "description": "Deterministic persistent SQLite state graph memory for AI coding agents to track tasks, decisions, blockers, plans, and Spec-Driven Development.",
+  "maintainers": [
+    "putervision"
+  ],
+  "author": "PuterVision",
+  "license": "MIT",
+  "repository": "https://github.com/putervision/state-memory-mcp",
+  "homepage": "https://statememorymcp.com",
+  "website": "https://statememorymcp.com",
+  "categories": [
+    "developer-tools",
+    "ai-agents",
+    "workflow",
+    "state-memory"
+  ],
+  "tags": [
+    "mcp",
+    "model-context-protocol",
+    "state-memory",
+    "workflow-graph",
+    "sqlite",
+    "task-tracking",
+    "decision-records",
+    "spec-driven-development",
+    "ai-agents",
+    "cursor",
+    "claude-code",
+    "windsurf"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "state-memory",
+    "workflow-graph",
+    "sqlite",
+    "task-tracking",
+    "decision-records",
+    "spec-driven-development",
+    "ai-agents",
+    "cursor",
+    "claude-code",
+    "windsurf"
+  ]
+}

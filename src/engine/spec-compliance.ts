@@ -49,7 +49,7 @@ export function calculateSpecCompliance(
       specId = meta.spec_id;
     } catch {}
 
-    // Check if requirement is satisfied by a done task or artifact via 'satisfies' or 'implements'
+    // Check if requirement is satisfied by a done task, artifact, or visual verification
     const isSatisfied = db
       .prepare(
         `
@@ -58,12 +58,14 @@ export function calculateSpecCompliance(
       WHERE e.project = ? AND (
         (e.target_id = ? AND e.type = 'satisfies' AND n.status = 'done') OR
         (e.target_id = ? AND e.type = 'implements') OR
-        (e.source_id = ? AND e.type = 'satisfies' AND n.status = 'done')
+        (e.source_id = ? AND e.type = 'satisfies' AND n.status = 'done') OR
+        (e.target_id = ? AND e.type = 'verifies_visual_state') OR
+        (e.source_id = ? AND e.type = 'verifies_visual_state')
       )
       LIMIT 1
     `
       )
-      .get(project, req.id, req.id, req.id);
+      .get(project, req.id, req.id, req.id, req.id, req.id);
 
     if (isSatisfied) {
       satisfiedCount++;
@@ -87,11 +89,11 @@ export function calculateSpecCompliance(
       .prepare(
         `
       SELECT 1 FROM edges
-      WHERE project = ? AND target_id = ? AND type = 'verifies'
+      WHERE project = ? AND (target_id = ? OR source_id = ?) AND type IN ('verifies', 'verifies_visual_state')
       LIMIT 1
     `
       )
-      .get(project, crit.id);
+      .get(project, crit.id, crit.id);
 
     if (isVerifiedInStatus || isVerifiedByEdge) {
       verifiedCount++;

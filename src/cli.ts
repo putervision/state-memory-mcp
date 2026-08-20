@@ -515,6 +515,34 @@ program
   .description('Check npm registry and update @putervision/state-memory-mcp globally to the latest version')
   .action(updateAction);
 
+// Tools command to list all 13 consolidated tools
+program
+  .command('tools')
+  .alias('list-tools')
+  .description('List all 13 consolidated MCP tools and their key actions')
+  .action(() => {
+    console.log(`\n📦 @putervision/state-memory-mcp v${VERSION} — 13 Consolidated MCP Tools:\n`);
+    const tools = [
+      ['manage_nodes', 'create, update, get, remove, list, search, batch_create, batch_update, add_note'],
+      ['manage_edges', 'add, remove, batch_add, link_visual'],
+      ['manage_sessions', 'start, end, list, bootstrap'],
+      ['manage_tasks', 'next, complete, find_blocked, find_stale, find_blockers, find_similar_blockers, auto_prune'],
+      ['manage_snapshots', 'save, list, diff, get_state, revert, undo, get_history'],
+      ['manage_specs', 'scaffold, ingest, export, compliance, verify, decompose_feature, template'],
+      ['manage_database', 'backup, restore, audit, merge, branch_diff, branch_merge'],
+      ['manage_data', 'export_graph, export_issues, export_trajectories, export_joint_trajectories, export_synergy_metrics, import_graph, import_issues, import_spec'],
+      ['query_graph', 'subgraph, trace, raw, natural_language'],
+      ['get_analytics', 'summary, velocity, burndown, value_metrics, cognitive_load, critical_path, context_snapshot, decision_trail, find_related_decisions, contradictions'],
+      ['get_events', 'log, changelog, post_mortem'],
+      ['run_diagnostics', 'validate, doctor, check_refs, audit_chain, compact, archive, prune_events, version'],
+      ['use_blackboard', 'post, read'],
+    ];
+    tools.forEach(([name, actions], i) => {
+      console.log(`  ${String(i + 1).padStart(2, ' ')}. ${name.padEnd(20, ' ')} -> [${actions}]`);
+    });
+    console.log();
+  });
+
 // Subprojects command to explore workspace structure and repositories
 program
   .command('subprojects')

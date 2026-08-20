@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { GraphEngine } from '../../src/engine/graph.js';
 import { getDb, closeAllDbs } from '../../src/engine/db.js';
-import { synergyHandlers } from '../../src/handlers/synergy.js';
+import { edgeHandlers } from '../../src/handlers/edge.js';
+import { snapshotHandlers } from '../../src/handlers/snapshot.js';
 import { EventEngine } from '../../src/engine/events.js';
 
 describe('Additional High-Coverage Edge Cases', () => {
@@ -25,7 +26,8 @@ describe('Additional High-Coverage Edge Cases', () => {
       title: 'UI Component',
     });
 
-    const linkRes = synergyHandlers.link_visual_state({
+    const linkRes: any = edgeHandlers.manage_edges({
+      action: 'link_visual',
       project,
       target_id: nodeA.id,
       visual_state_id: 'vs-456',
@@ -34,7 +36,10 @@ describe('Additional High-Coverage Edge Cases', () => {
     });
     expect(linkRes.edge_id).toBeDefined();
 
-    const metricsRes = await synergyHandlers.get_synergy_metrics({ project });
+    const metricsRes: any = await snapshotHandlers.manage_data({
+      action: 'export_synergy_metrics',
+      project,
+    });
     expect(metricsRes.synergy_health).toBeDefined();
   });
 

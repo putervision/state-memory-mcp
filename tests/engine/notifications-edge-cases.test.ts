@@ -1,5 +1,23 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import * as http from 'node:http';
+
+vi.mock('node:dns/promises', () => {
+  return {
+    lookup: vi.fn().mockImplementation(async (host: string) => {
+      if (host === 'dns.google' || host === 'hooks.example.com') {
+        return [{ address: '8.8.8.8', family: 4 }];
+      }
+      if (host === '127.0.0.1' || host === 'localhost') {
+        return [{ address: '127.0.0.1', family: 4 }];
+      }
+      if (host === 'private.example.com') {
+        return [{ address: '127.0.0.1', family: 4 }];
+      }
+      throw new Error('ENOTFOUND');
+    }),
+  };
+});
+
 import {
   isPrivateIp,
   isSafeWebhookUrl,
@@ -49,7 +67,10 @@ describe('Webhook Notifications Engine Edge Cases', () => {
 
   it('should validate DNS for webhook hostnames asynchronously', async () => {
     const isPublicValid = await validateWebhookHostDns('https://dns.google');
-    expect(isPublicValid).toBeTruthy();
+    expect(isPublicValid).toBe('8.8.8.8');
+
+    const isPrivateInvalid = await validateWebhookHostDns('https://private.example.com');
+    expect(isPrivateInvalid).toBeNull();
 
     const isNonExistent = await validateWebhookHostDns(
       'https://this-domain-should-never-exist-9999999.com'

@@ -25,7 +25,7 @@ describe('Fuzzy Node ID Suggestion Error Tests', () => {
     });
 
     try {
-      nodeHandlers.get_node({ project, id: 'INVALID_ID_999' });
+      nodeHandlers.manage_nodes({ action: 'get', project, id: 'INVALID_ID_999' });
       expect.fail('Expected McpError to be thrown');
     } catch (err: any) {
       expect(err.message).toContain('Node "INVALID_ID_999" not found');
@@ -44,7 +44,7 @@ describe('Fuzzy Node ID Suggestion Error Tests', () => {
     });
 
     try {
-      nodeHandlers.update_node({ project, id: 'INVALID_ID_888', title: 'New' });
+      nodeHandlers.manage_nodes({ action: 'update', project, id: 'INVALID_ID_888', title: 'New' });
       expect.fail('Expected McpError to be thrown');
     } catch (err: any) {
       expect(err.message).toContain('Node "INVALID_ID_888" not found');

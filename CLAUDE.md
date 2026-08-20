@@ -4,31 +4,31 @@ This project tracks workflow state, tasks, design decisions, and blockers using 
 
 ### 1. Priority Order
 Before doing any coding or investigation:
-1. `start_session` — Start a tracking session for full change attribution.
-2. `get_project_summary` — Run to understand current project state, active branches, and overall progress.
-3. `next_tasks` — Query prioritized runnable tasks.
-4. `find_blockers` — Identify any active blockers preventing progress.
-5. `list_nodes` — Find pending tasks, past decisions, or milestones.
-6. `trace_dependencies` — Trace what depends on or blocks a task.
+1. `manage_sessions(action: "start")` — Start a tracking session for full change attribution.
+2. `get_analytics(action: "summary")` — Run to understand current project state, active branches, and overall progress.
+3. `manage_tasks(action: "next")` — Query prioritized runnable tasks.
+4. `manage_tasks(action: "find_blockers")` — Identify any active blockers preventing progress.
+5. `manage_nodes(action: "list")` — Find pending tasks, past decisions, or milestones.
+6. `query_graph(action: "trace")` — Trace what depends on or blocks a task.
 
 ### 2. When to Write to the Graph
 You MUST update the graph as you work:
-- **Starting a session**: Always call `start_session(agent_id: "my-agent")` to track all mutations under a unique session.
-- **Starting a new task**: Create a node with `add_node(type: "task", title: "...", session_id: session_id)`.
-- **Making a design or implementation decision**: Document it with `add_node(type: "decision", title: "...", metadata: { "rationale": "..." }, session_id: session_id)`.
-- **Connecting UI tasks to visual states**: Use `link_visual_state(target_id: task_id, visual_state_id: vs_id, relationship: "renders_state")` or `blocked_by_visual_state`.
-- **Encountering a blocker**: Record the blocker with `add_node(type: "blocker", ..., session_id: session_id)` and connect it using `add_edge(type: "blocks", source_id: blocker_id, target_id: task_id, session_id: session_id)`.
-- **Adding observation notes**: Atomically log notes using `add_note(text: "...", attach_to: node_id)`.
-- **Batch updates**: Bulk update tasks/nodes using `batch_update(ids: ["..."], status: "done")`.
-- **Observability & Trajectories**: Check `get_synergy_metrics` for combined token savings & health, and `export_joint_trajectories` for interleaved fine-tuning datasets.
-- **Completing a task**: Update status to done using `update_node(id: task_id, status: "done", session_id: session_id)`.
-- **Creating/generating a new file**: Create an artifact node with `add_node(type: "artifact", ..., session_id: session_id)` and connect it using `add_edge(type: "produces", ..., session_id: session_id)`.
+- **Starting a session**: Always call `manage_sessions(action: "start", agent_id: "my-agent")` to track all mutations under a unique session.
+- **Starting a new task**: Create a node with `manage_nodes(action: "create", type: "task", title: "...", session_id: session_id)`.
+- **Making a design or implementation decision**: Document it with `manage_nodes(action: "create", type: "decision", title: "...", metadata: { "rationale": "..." }, session_id: session_id)`.
+- **Connecting UI tasks to visual states**: Use `manage_edges(action: "link_visual", target_id: task_id, visual_state_id: vs_id, relationship: "renders_state")`.
+- **Encountering a blocker**: Record the blocker with `manage_nodes(action: "create", type: "blocker", ..., session_id: session_id)` and connect it using `manage_edges(action: "add", type: "blocks", source_id: blocker_id, target_id: task_id, session_id: session_id)`.
+- **Adding observation notes**: Atomically log notes using `manage_nodes(action: "add_note", text: "...", attach_to: node_id)`.
+- **Batch updates**: Bulk update tasks/nodes using `manage_nodes(action: "batch_update", ids: ["..."], status: "done")`.
+- **Observability & Trajectories**: Check `manage_data(action: "export_synergy_metrics")` for combined token savings & health, and `manage_data(action: "export_joint_trajectories")` for interleaved fine-tuning datasets.
+- **Completing a task**: Update status to done using `manage_tasks(action: "complete", task_id: task_id)`.
+- **Creating/generating a new file**: Create an artifact node with `manage_nodes(action: "create", type: "artifact", ..., session_id: session_id)` and connect it using `manage_edges(action: "add", type: "produces", ..., session_id: session_id)`.
 
 ### 3. Workflow Pattern
-1. **Start of session**: Call `start_session` to align and track work, then run `get_project_summary`, `next_tasks`, and `find_blockers`.
+1. **Start of session**: Call `manage_sessions(action: "start")` to align and track work, then run `get_analytics(action: "summary")`, `manage_tasks(action: "next")`, and `manage_tasks(action: "find_blockers")`.
 2. **Task decomposition**: Decompose user requests into tasks and add them to the graph.
 3. **Execution**: Mark tasks as "in_progress", document design decisions as they occur, and log blockers if you hit any obstacles.
-4. **Validation & Resolution**: Run `validate_graph` to ensure no cycles/orphans/contradictions, mark tasks as "done", document completed artifacts, and resolve blockers. Call `end_session` to finalize.
+4. **Validation & Resolution**: Run `run_diagnostics(action: "validate")` to ensure no cycles/orphans/contradictions, mark tasks as "done", document completed artifacts, and resolve blockers. Call `manage_sessions(action: "end")` to finalize.
 
 ### 4. Codebase Seeding on Initialization
 If the project was just initialized or is missing high-level structure (Plans, Milestones, Decisions):
@@ -38,39 +38,37 @@ If the project was just initialized or is missing high-level structure (Plans, M
 
 
 
+<!-- vision-memory-mcp:start -->
 ## Visual Memory (vision-memory-mcp)
 
-This project utilizes `vision-memory-mcp` to cache visual states, record layout transitions, and avoid repetitive LLM vision calls.
+This project utilizes `vision-memory-mcp` to cache visual states, record layout transitions, provide element grounding, and avoid repetitive LLM vision calls.
 
 ### 1. Mandatory Workflow & Priority
-1. **Orient**: Call `get_session_context` to align your state context at the start of work.
+1. **Orient**: Call `get_session_context` to align your visual state context at the start of work.
 2. **Search**: Call `recall_memory` (text/image search) before recreating duplicate UI state paths.
 3. **Ingest/Verify**: ALWAYS call `analyze_screenshot` before querying any front-end vision models.
-   - **Cache Hit (`is_known: true`)**: Do NOT use vision models; read the returned `description` as context.
+   - **Cache Hit (`is_known: true`)**: Do NOT use vision models; read the returned `description` as context and use `grounded_elements` (selectors, coordinates) for action target selection.
    - **Cache Miss (`is_known: false`)**: Query your vision model, then run `analyze_screenshot` with both the image and description to seed the cache.
-4. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
-5. **Undo**: Call `undo_last_visual_mutation` to revert accidental state or edge ingestions.
+4. **Action Target Execution**: Use `predict_next_action` to retrieve `grounded_target` handles (`target_selector`, `target_coords`) for deterministic UI clicks and typing.
+5. **Transitions**: Call `record_outcome` after every click/type/scroll action to construct navigation paths.
+6. **Privacy & Cleanup**: Call `forget_state` to purge sensitive or secret states from storage.
 
-### 2. Tool Reference Summary (23 Core MCP Tools)
-- `analyze_screenshot`: Ingest screenshot, lookup cache, return layout description and grounded elements.
-- `recall_memory`: Search visual memory by description query or base64 image query.
-- `record_outcome`: Save UI action execution outcomes and transitions between states.
-- `get_navigation_paths`: Find path between states using BFS navigation graph.
-- `compare_states`: Compare two visual states structurally and vector-semantically.
-- `get_session_context`: Fetch recent states, frequent states, and transitions.
-- `save_visual_snapshot` / `diff_visual_snapshots`: Manage visual checkpoints and detect visual regression.
-- `undo_last_visual_mutation`: Revert the last visual mutation.
-- `create_visual_blocker`: Generate structured visual blocker payload for `state-memory-mcp`.
-- `predict_next_action`: Predict best next UI action and target coordinates based on transition success rates.
-- `batch_analyze_screenshots`: Process multiple screenshots in a single batch call.
-- `set_visual_spec` / `verify_visual_spec` / `get_visual_diff`: UI compliance testing and mockup verification.
-- `forget_state`: Purge a specific state and vector embedding from storage for privacy.
-- `export_visual_trajectories`: Export multimodal transition trajectories (JSON / LLaVA format) for fine-tuning.
-- `export_joint_trajectories`: Export interleaved visual observation transitions and workflow graph events.
-- `get_metrics`: Query real-time cache hit ratios, latency metrics, and token-savings estimates.
-- `export_snapshot` / `restore_snapshot`: Export and restore full standalone snapshot archives.
-- `wait_for_visual_state`: Poll for target visual state until present or timeout occurs.
-- `app_version`: Query server build version, MCP identifier, package name, and runtime environment.
+### 2. Tool Reference Summary (15 Core MCP Tools)
+* `analyze_screenshot`: Ingest screenshot(s) (single or batch via `items`), lookup cache, return layout description and grounded elements.
+* `recall_memory`: Search visual memory by description query or base64 image query (read-only).
+* `record_outcome`: Save UI action execution outcomes, transitions, or log visual blockers (`action_type: 'blocker'`).
+* `get_navigation_paths`: Find path between states using BFS navigation graph.
+* `predict_next_action`: Predict best next UI action and target coordinates based on transition success rates and AX tree grounding.
+* `compare_states`: Compare visual states structurally (`has_layout_change`) or compare video recordings (`video_a_id`/`video_b_id`).
+* `get_session_context`: Fetch aggregated visual context, recent/frequent states, transitions, cache hit ratios, token savings metrics, and server version info.
+* `manage_snapshot`: Unified snapshot management (`save`, `diff`, `export`, `restore`) for visual checkpoints and regression detection.
+* `manage_visual_spec`: Visual SDD design contract baseline registration (`set`), live verification (`verify`), and listing (`list`).
+* `manage_video`: Unified video memory operations for ingestion (`ingest`), semantic search (`search`), and keyframe timelines (`timeline`).
+* `create_evidence_pack`: Create cryptographic, multi-modal evidence pack linking video keyframes, state graph tasks, and visual proof.
+* `export_trajectories`: Export multimodal visual transitions and joint workflow trajectories (`json`, `llava`, `qwen2_vl`, `joint`).
+* `undo_visual_mutation`: Revert accidental state or transition edge ingestions.
+* `forget_state`: Purge a specific state and vector embedding from storage for privacy.
+* `wait_for_visual_state`: Poll for target visual state until present or timeout occurs.
 
 #### 3. Agent Permissions & Auto-Run Configuration
 To allow cache query and ingestion commands to run automatically without prompting:
@@ -79,3 +77,5 @@ To allow cache query and ingestion commands to run automatically without prompti
   * `"read_file(.*\\.gemini/antigravity/brain/.*)"` (Allow reading captured screenshots)
   * `"write_file(.*\\.gemini/antigravity/brain/.*)"` (Allow saving visual states)
 * **VS Code / Cursor IDE (`settings.json`)**: Ensure the agent has execution permissions for `command(vision-memory-mcp)` and read/write access to the workspace's local `.vision-memory-mcp/` cache directory.
+<!-- vision-memory-mcp:end -->
+

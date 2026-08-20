@@ -1,22 +1,41 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { synergyHandlers } from '../src/handlers/synergy.js';
+import { edgeHandlers } from '../src/handlers/edge.js';
+import { snapshotHandlers } from '../src/handlers/snapshot.js';
 import { GraphEngine } from '../src/engine/graph.js';
-import { getDb, registerProject } from '../src/engine/db.js';
+import { getDb, registerProject, unregisterProject } from '../src/engine/db.js';
 import { validateGraph } from '../src/engine/validate.js';
 import { redactData, redactText } from '../src/utils/redact.js';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 const TEST_PROJECT = 'test-synergy-project';
 const TEST_DIR = path.resolve(process.cwd(), '.state-memory-mcp/test-synergy-project');
 
 describe('Dual MCP Synergy & Interop Tests', () => {
+  let tmpDir: string;
+  let origEnvReg: string | undefined;
+
   beforeEach(() => {
+    origEnvReg = process.env.STATE_MEMORY_REGISTRY_PATH;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-syn-reg-'));
+    process.env.STATE_MEMORY_REGISTRY_PATH = path.join(tmpDir, 'projects.json');
     fs.mkdirSync(TEST_DIR, { recursive: true });
     registerProject(TEST_PROJECT, process.cwd());
   });
 
   afterEach(() => {
+    unregisterProject(TEST_PROJECT);
+    if (origEnvReg !== undefined) {
+      process.env.STATE_MEMORY_REGISTRY_PATH = origEnvReg;
+    } else {
+      delete process.env.STATE_MEMORY_REGISTRY_PATH;
+    }
+    if (fs.existsSync(tmpDir)) {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      } catch {}
+    }
     try {
       const db = getDb(TEST_PROJECT);
       db.prepare(`DELETE FROM nodes WHERE project = ?`).run(TEST_PROJECT);
@@ -48,7 +67,8 @@ describe('Dual MCP Synergy & Interop Tests', () => {
       status: 'pending',
     });
 
-    const res = synergyHandlers.link_visual_state({
+    const res: any = edgeHandlers.manage_edges({
+      action: 'link_visual',
       project: TEST_PROJECT,
       target_id: task.id || (task as any).node?.id,
       visual_state_id: 'vs-test-101',
@@ -80,7 +100,8 @@ describe('Dual MCP Synergy & Interop Tests', () => {
     const unverifiedUi = validation.issues.filter((i) => i.check === 'unverified_ui');
     expect(unverifiedUi.length).toBeGreaterThan(0);
 
-    synergyHandlers.link_visual_state({
+    edgeHandlers.manage_edges({
+      action: 'link_visual',
       project: TEST_PROJECT,
       target_id: task.id || (task as any).node?.id,
       visual_state_id: 'vs-test-102',
@@ -100,18 +121,19 @@ describe('Dual MCP Synergy & Interop Tests', () => {
       status: 'pending',
     });
 
-    synergyHandlers.link_visual_state({
+    edgeHandlers.manage_edges({
+      action: 'link_visual',
       project: TEST_PROJECT,
       target_id: task.id || (task as any).node?.id,
       visual_state_id: 'vs-1',
     });
 
-    const trajectories = await synergyHandlers.export_joint_trajectories({ project: TEST_PROJECT });
+    const trajectories: any = await snapshotHandlers.manage_data({ action: 'export_joint_trajectories', project: TEST_PROJECT });
     expect(trajectories.project).toBe(TEST_PROJECT);
     expect(trajectories.vision_memory_status).toBeDefined();
     expect(Array.isArray(trajectories.steps)).toBe(true);
 
-    const metrics = await synergyHandlers.get_synergy_metrics({ project: TEST_PROJECT });
+    const metrics: any = await snapshotHandlers.manage_data({ action: 'export_synergy_metrics', project: TEST_PROJECT });
     expect(metrics.project).toBe(TEST_PROJECT);
     expect(metrics.state_memory).toBeDefined();
     expect(metrics.vision_memory?.status).toBeDefined();
@@ -120,7 +142,8 @@ describe('Dual MCP Synergy & Interop Tests', () => {
 
   it('should validate parameters and error handling in link_visual_state', () => {
     expect(() =>
-      synergyHandlers.link_visual_state({
+      edgeHandlers.manage_edges({
+        action: 'link_visual',
         project: TEST_PROJECT,
         target_id: '',
         visual_state_id: 'vs-1',
@@ -128,7 +151,8 @@ describe('Dual MCP Synergy & Interop Tests', () => {
     ).toThrow();
 
     expect(() =>
-      synergyHandlers.link_visual_state({
+      edgeHandlers.manage_edges({
+        action: 'link_visual',
         project: TEST_PROJECT,
         target_id: 'non-existent-target-id',
         visual_state_id: 'vs-1',
@@ -144,7 +168,8 @@ describe('Dual MCP Synergy & Interop Tests', () => {
       status: 'pending',
     });
 
-    const res = synergyHandlers.link_visual_state({
+    const res: any = edgeHandlers.manage_edges({
+      action: 'link_visual',
       project: TEST_PROJECT,
       target_id: task.id || (task as any).node?.id,
       visual_state_id: 'vs-blocker-1',
@@ -156,7 +181,8 @@ describe('Dual MCP Synergy & Interop Tests', () => {
   });
 
   it('should filter export_joint_trajectories by session_id', async () => {
-    const trajectories = await synergyHandlers.export_joint_trajectories({
+    const trajectories: any = await snapshotHandlers.manage_data({
+      action: 'export_joint_trajectories',
       project: TEST_PROJECT,
       session_id: 'sess-12345',
     });

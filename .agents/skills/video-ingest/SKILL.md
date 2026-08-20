@@ -34,10 +34,10 @@ Use video ingestion whenever you encounter:
 
 When diagnosing bugs or linking test runs to task nodes:
 
-1. **Ingest Video**: Call `ingest_video` with file path and action timestamps.
+1. **Ingest Video**: Call `manage_video` (`action: "ingest"`) with file path and action timestamps.
 2. **Extract Evidence Payload**: Read the returned `evidence_payload` containing `source_video_id`, `frame_range`, and `timestamps_ms`.
 3. **Build Evidence Pack**: Call `create_evidence_pack` linking `keyframe_state_ids` with `state-memory-mcp` task or blocker node IDs.
-4. **Compare Trajectories (On Failure)**: Call `compare_video_trajectories(video_a_id, video_b_id)` to pinpoint exact frame divergence points.
+4. **Compare Trajectories (On Failure)**: Call `compare_states(video_a_id: "...", video_b_id: "...")` to pinpoint exact frame divergence points.
 
 ---
 
@@ -59,10 +59,10 @@ vision-memory-mcp video list
 
 ---
 
-## 5. MCP Tool Reference (5 Core Video Tools)
+## 5. Consolidated Video MCP Tools Reference
 
-- `ingest_video`: Ingests video file/base64, extracts keyframes, dHash deduplicates, and generates CLIP vector embeddings.
-- `get_video_timeline`: Fetches step-by-step keyframes, exact timestamps (`timestamp_ms`), OCR snippets, and grounded target handles.
-- `compare_video_trajectories`: Calculates similarity score between two recordings and pinpoints exact timestamp divergence.
-- `search_video_memory`: Searches video memory by description query, category, tags, or file path.
+- `manage_video` (`action: "ingest"`): Ingests video file/base64, extracts keyframes, dHash deduplicates, and generates CLIP vector embeddings.
+- `manage_video` (`action: "timeline"`): Fetches step-by-step keyframes, exact timestamps (`timestamp_ms`), OCR snippets, and grounded target handles.
+- `manage_video` (`action: "search"`): Searches video memory by description query, category, tags, or file path.
+- `compare_states` (`video_a_id`, `video_b_id`): Calculates similarity score between two recordings and pinpoints exact timestamp divergence.
 - `create_evidence_pack`: Produces an immutable, cryptographically hashable evidence pack payload linking keyframes to task graph nodes.

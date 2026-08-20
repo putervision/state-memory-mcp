@@ -7,6 +7,7 @@ import { getCurrentIsoString } from '../utils/time.js';
 import { getCurrentBranch } from '../utils/git.js';
 import { logger } from '../utils/logger.js';
 import { EventEngine } from './events.js';
+import { clearTfidfCache } from './tfidf.js';
 
 export interface GetNodeResult {
   node: BaseNode;
@@ -25,6 +26,7 @@ export class GraphEngine {
     status?: string;
     metadata?: Record<string, unknown>;
     tags?: string[];
+    idempotency_key?: string;
     session_id?: string | null;
   }): BaseNode {
     AddNodeSchema.parse(params);
@@ -32,14 +34,38 @@ export class GraphEngine {
     const db = getDb(projectSlug);
 
     return db.transaction(() => {
+      if (params.idempotency_key) {
+        const existingRows = db
+          .prepare('SELECT * FROM nodes WHERE project = ?')
+          .all(projectSlug) as any[];
+        for (const row of existingRows) {
+          const parsed = parseNodeRow(row);
+          if (
+            parsed.metadata &&
+            (parsed.metadata as any).idempotency_key === params.idempotency_key
+          ) {
+            logger.debug(
+              `Idempotent hit for key "${params.idempotency_key}": returning existing node ${parsed.id}`
+            );
+            return parsed;
+          }
+        }
+      }
+
       const id = generateId();
       const now = getCurrentIsoString();
       const branch = getCurrentBranch() || undefined;
       const status = params.status || DEFAULT_STATUS_BY_TYPE[params.type];
 
+      const nodeMetadata = params.idempotency_key
+        ? { ...(params.metadata || {}), idempotency_key: params.idempotency_key }
+        : params.metadata || {};
+
       const root = resolveProjectRoot(params.project);
-      const metadataStr = encryptPayload(JSON.stringify(params.metadata || {}), root);
-      const tagsStr = encryptPayload(JSON.stringify(params.tags || []), root);
+      const plainMetadataStr = JSON.stringify(nodeMetadata);
+      const plainTagsStr = JSON.stringify(params.tags || []);
+      const metadataStr = encryptPayload(plainMetadataStr, root);
+      const tagsStr = encryptPayload(plainTagsStr, root);
 
       const stmt = db.prepare(`
         INSERT INTO nodes (id, type, title, status, project, git_branch, metadata, tags, created_at, updated_at)
@@ -65,7 +91,7 @@ export class GraphEngine {
           INSERT INTO nodes_fts(rowid, title, metadata, tags)
           VALUES (?, ?, ?, ?)
         `
-        ).run(result.lastInsertRowid, params.title, metadataStr, tagsStr);
+        ).run(result.lastInsertRowid, params.title, plainMetadataStr, plainTagsStr);
       } catch (err: any) {
         logger.warn(`Failed to update full-text search index for node ${id}: ${err.message}`);
       }
@@ -79,7 +105,7 @@ export class GraphEngine {
         status,
         project: projectSlug,
         git_branch: branch,
-        metadata: params.metadata || {},
+        metadata: nodeMetadata,
         tags: params.tags || [],
         created_at: now,
         updated_at: now,
@@ -198,8 +224,11 @@ export class GraphEngine {
       const status = params.status !== undefined ? params.status : node.status;
       const tags = params.tags !== undefined ? params.tags : node.tags;
 
-      const metadataStr = JSON.stringify(finalMetadata);
-      const tagsStr = JSON.stringify(tags);
+      const root = resolveProjectRoot(params.project);
+      const plainMetadataStr = JSON.stringify(finalMetadata);
+      const plainTagsStr = JSON.stringify(tags);
+      const metadataStr = encryptPayload(plainMetadataStr, root);
+      const tagsStr = encryptPayload(plainTagsStr, root);
 
       const row = db.prepare('SELECT rowid FROM nodes WHERE id = ?').get(params.id) as
         { rowid: number } | undefined;
@@ -225,7 +254,7 @@ export class GraphEngine {
             INSERT INTO nodes_fts(rowid, title, metadata, tags)
             VALUES (?, ?, ?, ?)
           `
-          ).run(row.rowid, title, metadataStr, tagsStr);
+          ).run(row.rowid, title, plainMetadataStr, plainTagsStr);
         } catch (err: any) {
           logger.warn(
             `Failed to update full-text search index for updated node ${params.id}: ${err.message}`
@@ -252,6 +281,8 @@ export class GraphEngine {
         after_state: updatedNode,
         project: projectSlug,
       });
+
+      clearTfidfCache(params.id);
 
       return updatedNode;
     })();
@@ -336,6 +367,8 @@ export class GraphEngine {
         before_state: node,
         project: projectSlug,
       });
+
+      clearTfidfCache(params.id);
 
       return {
         deleted_node_id: params.id,

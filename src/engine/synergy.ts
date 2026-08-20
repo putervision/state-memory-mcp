@@ -1,26 +1,32 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { GraphEngine } from '../engine/graph.js';
-import { EdgeEngine } from '../engine/edges.js';
-import { getDb, getProjectSlug, resolveProjectRoot } from '../engine/db.js';
+import { GraphEngine } from './graph.js';
+import { EdgeEngine } from './edges.js';
+import { getDb, getProjectSlug, resolveProjectRoot } from './db.js';
 import { redactData } from '../utils/redact.js';
 import path from 'path';
 import fs from 'fs';
 
-export const synergyHandlers = {
-  link_visual_state: (args: any) => {
-    const projectSlug = getProjectSlug(args?.project);
-    const targetId = args?.target_id;
-    const visualStateId = args?.visual_state_id;
-    const relationship = args?.relationship || 'renders_state';
-    const visualDescription = args?.visual_description || `Visual State ${visualStateId}`;
-    const sourceUrl = args?.source_url || '';
-    const metadata = args?.metadata || {};
+export class SynergyEngine {
+  static linkVisualState(params: {
+    project?: string;
+    target_id: string;
+    visual_state_id: string;
+    relationship?: string;
+    visual_description?: string;
+    source_url?: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    const projectSlug = getProjectSlug(params.project);
+    const targetId = params.target_id;
+    const visualStateId = params.visual_state_id;
+    const relationship = params.relationship || 'renders_state';
+    const visualDescription = params.visual_description || `Visual State ${visualStateId}`;
+    const sourceUrl = params.source_url || '';
+    const metadata = params.metadata || {};
 
     if (!targetId || !visualStateId) {
       throw new McpError(ErrorCode.InvalidRequest, 'target_id and visual_state_id are required.');
     }
-
-    const db = getDb(projectSlug);
 
     // 1. Ensure target node exists
     const targetNode = GraphEngine.getNode({
@@ -58,7 +64,7 @@ export const synergyHandlers = {
     const visualStateNodeId = visualNodeObj.node ? visualNodeObj.node.id : visualNodeObj.id;
     const targetNodeId = targetNode.node ? targetNode.node.id : (targetNode as any).id;
 
-    // 3. Add edge connecting target to visual_state (or vice versa for blocked_by_visual_state)
+    // 2. Add edge connecting target to visual_state (or vice versa for blocked_by_visual_state)
     const isBlockedBy = relationship === 'blocked_by_visual_state';
     const actualSource = isBlockedBy
       ? targetNodeId
@@ -87,12 +93,16 @@ export const synergyHandlers = {
       target_id: actualTarget,
       visual_state_id: visualStateId,
     };
-  },
+  }
 
-  export_joint_trajectories: async (args: any) => {
-    const projectSlug = getProjectSlug(args?.project);
-    const sessionId = args?.session_id;
-    const limit = args?.limit || 100;
+  static async exportJointTrajectories(params: {
+    project?: string;
+    session_id?: string;
+    limit?: number;
+  }) {
+    const projectSlug = getProjectSlug(params.project);
+    const sessionId = params.session_id;
+    const limit = params.limit || 100;
     const db = getDb(projectSlug);
 
     // Fetch state memory events
@@ -109,8 +119,12 @@ export const synergyHandlers = {
     const events = db.prepare(query).all(...queryParams) as any[];
 
     // Attempt to inspect vision memory LanceDB table if present
-    const projectRoot = resolveProjectRoot(args?.project);
-    const visionDbDir = path.join(projectRoot, '.vision-memory-mcp');
+    const projectRoot = resolveProjectRoot(params.project);
+    const visionDbDir = process.env.LANCEDB_PATH
+      ? path.isAbsolute(process.env.LANCEDB_PATH)
+        ? process.env.LANCEDB_PATH
+        : path.resolve(projectRoot, process.env.LANCEDB_PATH)
+      : path.join(projectRoot, '.vision-memory-mcp');
     let visualStates: any[] = [];
     let visionMemoryStatus: 'connected' | 'offline' | 'schema_mismatch' = 'offline';
 
@@ -130,20 +144,22 @@ export const synergyHandlers = {
         } else {
           visionMemoryStatus = 'schema_mismatch';
         }
-      } catch (err) {
+      } catch {
         visionMemoryStatus = 'offline';
       }
     }
 
     const steps: any[] = [];
-    events.forEach((ev: any, idx: number) => {
+    events.forEach((ev: any) => {
       let afterState = {};
       try {
         afterState = redactData(JSON.parse(ev.after_state || '{}'));
-      } catch {}
+      } catch {
+        // Ignore JSON parse errors on after_state
+      }
 
       steps.push({
-        step_index: idx + 1,
+        step_index: 0,
         timestamp: new Date(ev.timestamp).getTime() || Date.now(),
         iso_timestamp: ev.timestamp,
         source: 'state_memory',
@@ -155,9 +171,22 @@ export const synergyHandlers = {
       });
     });
 
-    visualStates.forEach((vs: any, idx: number) => {
+    visualStates.forEach((vs: any) => {
+      let groundedElements: any[] = [];
+      try {
+        groundedElements =
+          typeof vs.grounded_elements === 'string'
+            ? JSON.parse(vs.grounded_elements || '[]')
+            : vs.grounded_elements || [];
+      } catch {}
+
+      let tags: string[] = [];
+      try {
+        tags = typeof vs.tags === 'string' ? JSON.parse(vs.tags || '[]') : vs.tags || [];
+      } catch {}
+
       steps.push({
-        step_index: steps.length + idx + 1,
+        step_index: 0,
         timestamp: vs.created_at || Date.now(),
         iso_timestamp: new Date(vs.created_at || Date.now()).toISOString(),
         source: 'vision_memory',
@@ -166,10 +195,15 @@ export const synergyHandlers = {
         description: redactData(vs.description || ''),
         source_url: vs.source_url || '',
         importance_score: vs.importance_score || 0.5,
+        grounded_elements: groundedElements,
+        tags: tags,
       });
     });
 
     steps.sort((a, b) => a.timestamp - b.timestamp);
+    steps.forEach((step, idx) => {
+      step.step_index = idx + 1;
+    });
 
     return {
       session_id: sessionId || 'all',
@@ -178,10 +212,10 @@ export const synergyHandlers = {
       total_steps: steps.length,
       steps,
     };
-  },
+  }
 
-  get_synergy_metrics: async (args: any) => {
-    const projectSlug = getProjectSlug(args?.project);
+  static async getSynergyMetrics(params: { project?: string }) {
+    const projectSlug = getProjectSlug(params.project);
     const db = getDb(projectSlug);
 
     const totalTasks =
@@ -225,8 +259,12 @@ export const synergyHandlers = {
       )?.count || 0;
 
     // Check vision memory metrics if accessible
-    const projectRoot = resolveProjectRoot(args?.project);
-    const visionDbDir = path.join(projectRoot, '.vision-memory-mcp');
+    const projectRoot = resolveProjectRoot(params.project);
+    const visionDbDir = process.env.LANCEDB_PATH
+      ? path.isAbsolute(process.env.LANCEDB_PATH)
+        ? process.env.LANCEDB_PATH
+        : path.resolve(projectRoot, process.env.LANCEDB_PATH)
+      : path.join(projectRoot, '.vision-memory-mcp');
     let totalVisualStates = 0;
     let visionMemoryStatus: 'connected' | 'offline' | 'schema_mismatch' = 'offline';
 
@@ -272,5 +310,5 @@ export const synergyHandlers = {
             ? 'DEGRADED_OFFLINE'
             : 'NEEDS_ATTENTION',
     };
-  },
-};
+  }
+}

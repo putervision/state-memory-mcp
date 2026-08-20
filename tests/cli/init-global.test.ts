@@ -12,8 +12,11 @@ describe('Global Init & Index Tracker CLI Tests', () => {
   );
   const project1Path = path.join(tmpDir, 'project1');
   const project2Path = path.join(tmpDir, 'project2');
+  let origEnvReg: string | undefined;
 
   beforeEach(() => {
+    origEnvReg = process.env.STATE_MEMORY_REGISTRY_PATH;
+    process.env.STATE_MEMORY_REGISTRY_PATH = path.join(tmpDir, 'projects.json');
     fs.mkdirSync(project1Path, { recursive: true });
     fs.mkdirSync(project2Path, { recursive: true });
     registerProject('proj1-test', project1Path);
@@ -23,6 +26,11 @@ describe('Global Init & Index Tracker CLI Tests', () => {
   afterEach(() => {
     unregisterProject('proj1-test');
     unregisterProject('proj2-test');
+    if (origEnvReg !== undefined) {
+      process.env.STATE_MEMORY_REGISTRY_PATH = origEnvReg;
+    } else {
+      delete process.env.STATE_MEMORY_REGISTRY_PATH;
+    }
     try {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     } catch {}

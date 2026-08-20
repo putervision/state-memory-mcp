@@ -10,18 +10,20 @@ This guide demonstrates how an AI agent uses `@putervision/state-memory-mcp` to 
 Synthesize a post-mortem document summarizing all mutations, blockers, and decisions during an agent session:
 
 ```typescript
-post_mortem_from_session({
+get_events({
+  action: "post_mortem",
   project: "my-app",
   session_id: "sess_01KYW801"
 });
 // Generates structured markdown summary of timeline, root causes, decisions made, and artifacts produced
 ```
 
-### Step 2: Trace Decision Lineage (`decision_trail`)
+### Step 2: Trace Decision Lineage (`get_analytics:decision_trail`)
 Inspect the historical sequence of design decisions and updates leading to the current architecture:
 
 ```typescript
-decision_trail({
+get_analytics({
+  action: "decision_trail",
   project: "my-app",
   node_id: "decision_auth_strategy_01"
 });
@@ -31,9 +33,9 @@ decision_trail({
 Export JSONL trajectory logs combining state graph mutations and `vision-memory-mcp` layout transitions:
 
 ```typescript
-export_joint_trajectories({
+manage_data({
+  action: "export_joint_trajectories",
   project: "my-app",
-  session_id: "sess_01KYW801",
-  output_format: "jsonl"
+  session_id: "sess_01KYW801"
 });
 ```

@@ -2,7 +2,10 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { ParseResult } from '../schema/schemas.js';
 import { getDb } from '../engine/db.js';
 
-export function parseArgs<T>(schema: { safeParse: (args: any) => ParseResult<T> }, args: any): T {
+export function parseArgs<T>(
+  schema: { safeParse: (args: unknown) => ParseResult<T> },
+  args: unknown
+): T {
   const parsed = schema.safeParse(args);
   if (!parsed.success || !parsed.data) {
     const errorMsg =

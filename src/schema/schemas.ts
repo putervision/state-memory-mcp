@@ -452,6 +452,7 @@ export const AddNodeSchema = z.object({
   status: z.string().optional(),
   metadata: MetadataSchema.optional(),
   tags: z.array(z.string().max(100, 'Tag cannot exceed 100 characters')).optional(),
+  idempotency_key: z.string().max(250, 'idempotency_key cannot exceed 250 characters').optional(),
 });
 
 export const GetNodeSchema = z.object({
@@ -783,6 +784,11 @@ export const ValidateGraphSchema = z.object({
   auto_fix: z.boolean().optional().default(false),
 });
 
+export const DedupeGraphSchema = z.object({
+  project: z.string().optional(),
+  apply: z.boolean().optional().default(false),
+});
+
 export const PruneEventsSchema = z.object({
   project: z.string().optional(),
   older_than: z.string().min(1, 'older_than is required'),
@@ -1017,4 +1023,26 @@ export const WatchGraphChangesSchema = z.object({
   project: z.string().optional(),
   since_timestamp: z.string().optional(),
   session_id: z.string().optional(),
+});
+
+export const LinkVisualSchema = z.object({
+  project: z.string().optional(),
+  target_id: z.string().min(1, 'target_id is required'),
+  visual_state_id: z.string().min(1, 'visual_state_id is required'),
+  relationship: z
+    .enum(['renders_state', 'blocked_by_visual_state', 'verifies_visual_state', 'visualizes_spec'])
+    .optional(),
+  visual_description: z.string().optional(),
+  source_url: z.string().optional(),
+  metadata: MetadataSchema.optional(),
+});
+
+export const ExportJointTrajectoriesSchema = z.object({
+  project: z.string().optional(),
+  session_id: z.string().optional(),
+  limit: z.number().optional(),
+});
+
+export const ExportSynergyMetricsSchema = z.object({
+  project: z.string().optional(),
 });

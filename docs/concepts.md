@@ -43,16 +43,16 @@ Nodes are linked together to represent workflow connections:
 
 ---
 
-## 🧠 Advanced Graph Queries
+## 🧠 Advanced Graph Queries & Analytics
 
-Exposing your state as a graph enables the server to run advanced graph query tools:
+Exposing your state as a graph enables the server to run advanced graph queries and analytics:
 
-* **`critical_path`**: Computes the longest chain of unfinished tasks blocking a milestone so the agent knows what to prioritize.
-* **`impact_analysis`**: Calculates the "blast radius" or downstream dependency chain affected if a node (or code file) is edited or deleted.
-* **`detect_contradictions`**: Audits the database for logical flaws (e.g. finished tasks that still have active blockers, or contradicting design decisions).
-* **`decision_trail`**: Traces the historical lineage of updates and contradictions back to the original architectural choice.
-* **`get_event_log` / `get_node_history`**: Query the append-only event ledger and trace exactly when, how, and by whom a node was modified.
-* **`undo_last`**: Reverts the last mutation on a node (rollback) to recover from a downstream reasoning or testing failure (FSM State Traceback).
+* **`get_analytics(action: "critical_path")`**: Computes the longest chain of unfinished tasks blocking a milestone so the agent knows what to prioritize.
+* **`query_graph(action: "trace", direction: "downstream")`**: Calculates the "blast radius" or downstream dependency chain affected if a node (or code file) is edited or deleted.
+* **`get_analytics(action: "contradictions")`**: Audits the database for logical flaws (e.g. finished tasks that still have active blockers, or contradicting design decisions).
+* **`get_analytics(action: "decision_trail")`**: Traces the historical lineage of updates and contradictions back to the original architectural choice.
+* **`get_events(action: "log")` / `manage_snapshots(action: "get_history")`**: Query the append-only event ledger and trace exactly when, how, and by whom a node was modified.
+* **`manage_snapshots(action: "undo")`**: Reverts the last mutation on a node (rollback) to recover from a downstream reasoning or testing failure.
 
 ---
 
@@ -61,10 +61,10 @@ Exposing your state as a graph enables the server to run advanced graph query to
 For maximum developer-agent alignment, seed your graph immediately after initializing the project:
 
 1. **Add a Plan Node**: Create a high-level `plan` node representing your project roadmap:
-   - `add_node(type: "plan", title: "Project Roadmap")`
+   - `manage_nodes(action: "create", type: "plan", title: "Project Roadmap")`
 2. **Define Milestones**: Establish target milestones representing project phases and link them to the plan:
-   - `add_node(type: "milestone", title: "v1.0 MVP Release")`
-   - `add_edge(source_id: mvp_id, target_id: roadmap_id, type: "part_of")`
+   - `manage_nodes(action: "create", type: "milestone", title: "v1.0 MVP Release")`
+   - `manage_edges(action: "add", source_id: mvp_id, target_id: roadmap_id, type: "part_of")`
 3. **Log Core Decisions**: Create `decision` nodes describing architectural components and link them to the milestones:
-   - `add_node(type: "decision", title: "SQLite Database Choice", metadata: { "rationale": "Simple, local storage" })`
-   - `add_edge(source_id: db_choice_id, target_id: mvp_id, type: "decided_in")`
+   - `manage_nodes(action: "create", type: "decision", title: "SQLite Database Choice", metadata: { "rationale": "Simple, local storage" })`
+   - `manage_edges(action: "add", source_id: db_choice_id, target_id: mvp_id, type: "decided_in")`

@@ -12,7 +12,7 @@ If your machines share a network filesystem (NFS, SSHFS, Dropbox, or synced fold
 export STATE_MEMORY_MCP_DIR="/shared/network/path/.state-memory-mcp"
 ```
 
-### Pattern B: Backup & Merge (`merge_project_db`)
+### Pattern B: Backup & Merge (`manage_database:merge`)
 For isolated or air-gapped machines, synchronize databases using deterministic backups and non-destructive merges:
 
 1. **Machine A (Export Backup)**:
@@ -23,9 +23,9 @@ For isolated or air-gapped machines, synchronize databases using deterministic b
    ```bash
    state-memory-mcp merge -p my-project --source /path/to/sync/machine_a.db
    ```
-   *Note*: `merge_project_db` resolves node/edge conflicts by keeping the node with the newer `updated_at` timestamp (Last-Write-Wins CRDT style) and runs graph integrity checks.
+   *Note*: `manage_database(action: "merge")` resolves node/edge conflicts by keeping the node with the newer `updated_at` timestamp (Last-Write-Wins CRDT style) and runs graph integrity checks.
 
-### Pattern C: Deterministic Export & Git Tracking (`export_graph`)
+### Pattern C: Deterministic Export & Git Tracking (`manage_data:export_graph`)
 Export the project graph to a deterministic JSON file tracked in Git:
 
 1. **Export Graph to Repository**:
@@ -51,7 +51,7 @@ After restoring or merging an external database, verify cryptographic audit chai
 
 ```typescript
 // Via MCP Tool
-verify_audit_chain({ project: "my-project" });
+run_diagnostics({ action: "audit_chain", project: "my-project" });
 
 // Via CLI
 state-memory-mcp audit -p my-project

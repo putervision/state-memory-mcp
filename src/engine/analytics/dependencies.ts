@@ -245,34 +245,92 @@ export function findBlockers(params: {
       blockerSql += " AND git_branch = ?";
       blockerArgs.push(branch);
     }
+    blockerSql += " ORDER BY created_at DESC LIMIT 100";
     
     const blockerRows = db.prepare(blockerSql).all(...blockerArgs) as NodeRow[];
+    if (blockerRows.length === 0) {
+      return [];
+    }
 
-    const blockerSummaries: BlockerSummary[] = [];
+    const blockerNodes = blockerRows.map(parseNodeRow);
+    const blockerIds = blockerNodes.map((b) => b.id);
+    const placeholders = blockerIds.map(() => '?').join(',');
 
-    for (const row of blockerRows) {
-      const blockerNode = parseNodeRow(row);
+    // Batched recursive CTE to trace downstream from all blockers at once (N+1 query elimination)
+    const batchedCteQuery = `
+      WITH RECURSIVE dependency_chain(root_id, node_id, depth, path_str) AS (
+        SELECT id, id, 0, ',' || id || ',' FROM nodes WHERE id IN (${placeholders})
+        UNION
+        SELECT 
+          dc.root_id,
+          CASE 
+            WHEN e.type = 'depends_on' AND e.target_id = dc.node_id THEN e.source_id
+            WHEN e.type = 'child_of' AND e.source_id = dc.node_id THEN e.target_id
+            WHEN e.type = 'blocks' AND e.source_id = dc.node_id THEN e.target_id
+          END,
+          dc.depth + 1,
+          dc.path_str || (
+            CASE 
+              WHEN e.type = 'depends_on' AND e.target_id = dc.node_id THEN e.source_id
+              WHEN e.type = 'child_of' AND e.source_id = dc.node_id THEN e.target_id
+              WHEN e.type = 'blocks' AND e.source_id = dc.node_id THEN e.target_id
+            END
+          ) || ','
+        FROM dependency_chain dc
+        JOIN edges e ON (
+          (e.type = 'depends_on' AND e.target_id = dc.node_id) OR
+          (e.type = 'child_of' AND e.source_id = dc.node_id) OR
+          (e.type = 'blocks' AND e.source_id = dc.node_id)
+        )
+        WHERE dc.depth < 10 AND e.type IN ('depends_on', 'blocks', 'child_of')
+          AND INSTR(dc.path_str, ',' || (
+            CASE 
+              WHEN e.type = 'depends_on' AND e.target_id = dc.node_id THEN e.source_id
+              WHEN e.type = 'child_of' AND e.source_id = dc.node_id THEN e.target_id
+              WHEN e.type = 'blocks' AND e.source_id = dc.node_id THEN e.target_id
+            END
+          ) || ',') = 0
+      )
+      SELECT root_id, node_id, depth FROM dependency_chain WHERE depth > 0
+    `;
 
-      const traceResult = traceDependencies({
-        project: projectSlug,
-        node_id: blockerNode.id,
-        direction: 'downstream',
-        edge_types: ['depends_on', 'blocks', 'child_of'],
-        max_depth: 10,
-      });
+    const chainRows = db.prepare(batchedCteQuery).all(...blockerIds) as {
+      root_id: string;
+      node_id: string;
+      depth: number;
+    }[];
 
-      const blocked_nodes = traceResult.chain.map((item) => ({
-        node: item.node,
-        depth: item.depth,
-      }));
+    const uniqueNodeIds = Array.from(new Set(chainRows.map((r) => r.node_id)));
+    const nodeMap = new Map<string, BaseNode>();
 
-      blockerSummaries.push({
-        blocker_node: blockerNode,
-        blocked_nodes,
+    if (uniqueNodeIds.length > 0) {
+      const nodePlaceholders = uniqueNodeIds.map(() => '?').join(',');
+      const nodesFetched = db
+        .prepare(`SELECT * FROM nodes WHERE id IN (${nodePlaceholders})`)
+        .all(...uniqueNodeIds) as NodeRow[];
+      for (const nr of nodesFetched) {
+        nodeMap.set(nr.id, parseNodeRow(nr));
+      }
+    }
+
+    // Group blocked nodes by root blocker ID
+    const blockedByRoot = new Map<string, { node: BaseNode; depth: number }[]>();
+    for (const row of chainRows) {
+      const node = nodeMap.get(row.node_id);
+      if (!node) continue;
+      if (!blockedByRoot.has(row.root_id)) {
+        blockedByRoot.set(row.root_id, []);
+      }
+      blockedByRoot.get(row.root_id)!.push({
+        node,
+        depth: row.depth,
       });
     }
 
-    return blockerSummaries;
+    return blockerNodes.map((blockerNode) => ({
+      blocker_node: blockerNode,
+      blocked_nodes: blockedByRoot.get(blockerNode.id) || [],
+    }));
   }
 }
 
@@ -350,16 +408,16 @@ export function getProjectSummary(params: { project?: string }): {
 
   const recommended_next_tools: string[] = [];
   if (active_blockers.length > 0) {
-    recommended_next_tools.push('find_blockers', 'add_note');
+    recommended_next_tools.push('manage_tasks:find_blockers', 'manage_nodes:add_note');
   }
   if (node_counts.task > 0) {
-    recommended_next_tools.push('complete_task', 'next_tasks');
+    recommended_next_tools.push('manage_tasks:complete', 'manage_tasks:next');
   }
   if (node_counts.artifact > 0) {
-    recommended_next_tools.push('validate_memory_references');
+    recommended_next_tools.push('run_diagnostics:check_refs');
   }
   if (node_counts.visual_state > 0 || (node_counts.acceptance_criterion || 0) > 0) {
-    recommended_next_tools.push('link_visual_state', 'verify_requirement');
+    recommended_next_tools.push('manage_edges:link_visual', 'manage_specs:verify');
   }
 
   return {

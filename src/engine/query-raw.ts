@@ -54,7 +54,7 @@ export function queryGraph(params: {
   }
 
   const forbiddenPattern =
-    /\b(load_extension|writefile|readfile|attach|detach|fts3_tokenizer|pragma|sqlite_master|sqlite_schema)\b/i;
+    /\b(load_extension|writefile|readfile|attach|detach|fts3_tokenizer|pragma|sqlite_master|sqlite_schema|into)\b/i;
   const match = cleanSql.match(forbiddenPattern);
   if (match) {
     throw new ValidationError(`SQL query contains forbidden keyword/function: ${match[1]}`);

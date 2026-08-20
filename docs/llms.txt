@@ -1,6 +1,6 @@
-# PuterVision LLC — MCP Research & Development Labs
+# PuterVision — MCP Research & Development Labs
 
-> PuterVision LLC is a private engineering research laboratory pioneering deterministic state graph storage, perceptual visual caching, and context compression algorithms for AI developer agents and Model Context Protocol (MCP) architectures.
+> PuterVision is a private engineering research laboratory pioneering deterministic state graph storage, perceptual visual caching, and context compression algorithms for AI developer agents and Model Context Protocol (MCP) architectures.
 
 ## Core Research Focus
 - **Deterministic Context Stores**: SQLite-backed state graph memory for AI coding agents to eliminate LLM hallucination in task tracking and audit trails.
@@ -13,8 +13,9 @@
 ### 1. State Memory MCP (`@putervision/state-memory-mcp`)
 - **Website**: https://statememorymcp.com
 - **Repository**: https://github.com/putervision/state-memory-mcp
-- **Description**: Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI agents with persistent SQLite state graph memory for tracking tasks, decisions, blockers, plans, and artifacts.
-- **Primary Capabilities**: SQLite graph database, 3D WebGL graph visualizer, Spec-Driven Development (SDD), Git branch isolation.
+- **Description**: Zero-infrastructure, deterministic Model Context Protocol (MCP) server (v1.0.0, 13 Consolidated MCP Tools). Provides AI agents with persistent SQLite state graph memory for tracking tasks, decisions, blockers, plans, and artifacts.
+- **Architecture & Codebase Distillation**: https://statememorymcp.com/codebase-distillation.md
+- **Primary Capabilities**: SQLite graph database, 13 domain-oriented consolidated tools, 3D WebGL graph visualizer, Spec-Driven Development (SDD), Git branch isolation, SHA-256 cryptographic audit ledger, and Dual-MCP multimodal synergy.
 
 ### 2. Visual Memory MCP (`@putervision/vision-memory-mcp`)
 - **Website**: https://visionmemorymcp.com

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getDb, closeDb } from '../../src/engine/db.js';
 import { GraphEngine } from '../../src/engine/graph.js';
-import { synergyHandlers } from '../../src/handlers/synergy.js';
+import { edgeHandlers } from '../../src/handlers/edge.js';
+import { snapshotHandlers } from '../../src/handlers/snapshot.js';
 import { validateMemoryReferences } from '../../src/engine/cross-memory-validation.js';
 
 describe('Dual-Memory Synergy & AST Linking Integration Tests', () => {
@@ -26,7 +27,8 @@ describe('Dual-Memory Synergy & AST Linking Integration Tests', () => {
       status: 'done',
     });
 
-    const linkRes = synergyHandlers.link_visual_state({
+    const linkRes: any = edgeHandlers.manage_edges({
+      action: 'link_visual',
       project,
       target_id: task.id,
       visual_state_id: 'vs-mock-12345',
@@ -37,7 +39,10 @@ describe('Dual-Memory Synergy & AST Linking Integration Tests', () => {
     expect(linkRes.success).toBe(true);
     expect(linkRes.relationship).toBe('verifies_visual_state');
 
-    const metrics = await synergyHandlers.get_synergy_metrics({ project });
+    const metrics: any = await snapshotHandlers.manage_data({
+      action: 'export_synergy_metrics',
+      project,
+    });
     expect(metrics.state_memory.completed_tasks).toBe(1);
     expect(metrics.state_memory.ui_verified_tasks).toBe(1);
     expect(metrics.state_memory.ui_verification_ratio_pct).toBe(100);
@@ -51,14 +56,19 @@ describe('Dual-Memory Synergy & AST Linking Integration Tests', () => {
       status: 'in_progress',
     });
 
-    synergyHandlers.link_visual_state({
+    edgeHandlers.manage_edges({
+      action: 'link_visual',
       project,
       target_id: task.id,
       visual_state_id: 'vs-trace-999',
       relationship: 'renders_state',
     });
 
-    const jointTrace = await synergyHandlers.export_joint_trajectories({ project, limit: 10 });
+    const jointTrace: any = await snapshotHandlers.manage_data({
+      action: 'export_joint_trajectories',
+      project,
+      limit: 10,
+    });
     expect(jointTrace.project).toBe('synergy-test-project');
     expect(jointTrace.steps.length).toBeGreaterThan(0);
     expect(jointTrace.steps[0]).toHaveProperty('step_index');

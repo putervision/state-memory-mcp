@@ -2,7 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [1.0.0] - 2026-08-19
+
+### 💥 Major Breaking Changes & API Consolidation
+- **Consolidated 82 MCP Tools into 13 Domain Tools (≤ 15 tools)**: Unified all tool operations behind action-dispatched interfaces (`manage_nodes`, `manage_edges`, `manage_sessions`, `manage_tasks`, `manage_snapshots`, `manage_specs`, `manage_database`, `manage_data`, `query_graph`, `get_analytics`, `get_events`, `run_diagnostics`, `use_blackboard`), achieving Glama Server Coherence A grade.
+- **Backward Compatibility Mode (`STATE_MEMORY_COMPAT=true`)**: Added legacy shim layer that transparently translates all 78 legacy tool calls to the new action-dispatched handlers with `[DEPRECATED]` warnings.
+- **Removed Deprecated Stubs**: Removed non-functional `subscribe_context_changes`, duplicate wrapper `watch_graph_changes`, and redundant `traceback_to_node`.
+- **MIGRATION.md**: Shipped comprehensive migration guide with complete mapping tables and examples.
+
+### 🔒 Security Hardening
+- **Cryptographic Audit Chain**: SHA-256 hash preimage in `EventEngine.logEvent` and `verifyAuditChain` now covers all fields (`metadata`, `before_state`, `after_state`, `session_id`, `prev_hash`, `id`, `event_type`, `entity_id`, `timestamp`). `undoLastMutation` now logs an append-only audit event instead of mutating historical event rows in-place.
+- **DoS Query Bounds**: Enforced numeric upper bounds on all `limit` parameters across Zod schemas (`.min(1).max(1000)`).
+- **Admin Privilege Isolation**: Restricted destructive operations (e.g. `prune_events`) to host environment variable `STATE_MEMORY_ADMIN_MODE=true` exclusively.
+- **SQLite Sandbox Defense**: Enforced `PRAGMA trusted_schema = OFF` across all database connections.
+
+### ⚡ Performance Optimizations
+- **N+1 Blocker Query Resolution**: Refactored `findBlockers()` to perform a single batched recursive CTE query across all active blockers.
+- **Recursive CTE Bounds**: Added `depth < 50` limit on recursive CTEs in `decisionTrail()`.
+- **SQLite PRAGMAs**: Configured `PRAGMA cache_size = -20000` (20MB cache) and `PRAGMA mmap_size = 30000000000` for high-throughput reads.
+- **Bundle Code Splitting**: Enabled `splitting: true` in `tsup.config.ts`.
+
+### 📄 Documentation & Website Synchronization
+- **`glama.json`**: Added Glama maintainer metadata manifest for registry verification.
+- **Documentation & Website Overhaul**: Rewrote `docs/tools-reference.md`, `docs/api-reference.md`, `docs/index.html`, and `.agents/skills/SKILL.md` to document the 13 consolidated tools and action patterns.
+
 ## [0.10.0] - 2026-08-11
 
 ### Added (Minor Version Release — 82 Core MCP Tools & Dual-Memory Synergy)
@@ -231,7 +256,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed & Improved
 - Published npm package under `@putervision` organization scope: `@putervision/state-memory-mcp`.
-- Updated project author to PuterVision LLC and set project homepage link to `https://putervision.com`.
+- Updated project author to PuterVision and set project homepage link to `https://putervision.com`.
 - Updated all repository, issues, homepage, and documentation links to point to `https://github.com/putervision/state-memory-mcp`.
 - Standardized installation instructions to `npm install -g @putervision/state-memory-mcp` across all documentation, website, and CLI templates.
 - Standardized website feature card layouts and icons with `<h3><span>icon</span> Title</h3>` structure and glassmorphism styling.

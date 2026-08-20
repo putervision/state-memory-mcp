@@ -1,7 +1,7 @@
 {
   "$schema": "https://modelcontextprotocol.io/schemas/mcp-manifest.json",
   "name": "PuterVision MCP Ecosystem",
-  "vendor": "PuterVision LLC",
+  "vendor": "PuterVision",
   "description": "Deterministic state memory graph and visual perception cache MCP servers for AI developer agents.",
   "homepage": "https://putervision.com",
   "documentation": "https://putervision.com/llms.txt",

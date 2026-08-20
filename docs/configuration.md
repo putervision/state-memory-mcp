@@ -28,14 +28,14 @@ When starting the server via `state-memory-mcp run` or running `state-memory-mcp
 | `STATE_MEMORY_MCP_LOG_LEVEL` | Logging verbosity on `stderr` (`debug`, `info`, `warn`, `error`). | `info` |
 | `STATE_MEMORY_MCP_DEFAULT_BRANCH` | Fallback branch name if Git cannot be queried on startup. | `main` |
 | `STATE_MEMORY_ENCRYPTION_KEY` | Hex or string key for AES-256-GCM metadata payload encryption at rest. | `undefined` (plaintext) |
-| `STATE_MEMORY_MAX_DB_BYTES` | Maximum database size safety limit in bytes before rejecting writes. | `5368709120` (5 GB) |
+| `STATE_MEMORY_MAX_DB_BYTES` | Maximum database size safety limit in bytes before rejecting writes. | `104857600` (100 MB) |
 | `STATE_MEMORY_BUSY_TIMEOUT` | SQLite database lock busy timeout in milliseconds. | `5000` (5 seconds) |
 | `STATE_MEMORY_WAL_MODE` | SQLite journal mode (`WAL`, `DELETE`, `TRUNCATE`, `PERSIST`, `MEMORY`, `OFF`). | `WAL` |
 | `STATE_MEMORY_CYCLE_DETECTION_MODE` | Graph cycle detection policy (`strict` or `best_effort`). | `strict` |
 | `STATE_MEMORY_READ_ONLY` | Forces server into read-only access mode (`true`/`false`). | `false` |
 | `STATE_MEMORY_AUDIT_ONLY` | Forces server into audit-only access mode (`true`/`false`). | `false` |
-| `STATE_MEMORY_ADMIN_KEY` | Secret token required to execute administrative operations like `prune_events`. | `undefined` |
-| `STATE_MEMORY_ADMIN_MODE` | Enables administrative mode globally (`true`/`false`). | `false` |
+| `STATE_MEMORY_ADMIN_MODE` | Enables administrative operations like `prune_events` (`true`/`false`). | `false` |
+| `STATE_MEMORY_COMPAT` | Enables backward-compatibility shim for v0.10 tool names (`true`/`false`). | `false` |
 | `STATE_MEMORY_STRICT_AUDIT` | Enforces strict cryptographic event log verification. | `false` |
 | `STATE_MEMORY_WEBHOOK_URL` | Webhook HTTP POST endpoint for real-time state change notifications. | `undefined` |
 | `STATE_MEMORY_WEBHOOK_SECRET` | Secret token sent as `Authorization: Bearer <secret>` in webhook headers. | `undefined` |

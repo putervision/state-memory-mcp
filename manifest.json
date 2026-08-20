@@ -1,10 +1,10 @@
 {
   "manifest_version": "0.2",
   "name": "@putervision/state-memory-mcp",
-  "version": "0.10.0",
+  "version": "1.0.0",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "author": {
-    "name": "PuterVision LLC"
+    "name": "PuterVision"
   },
   "homepage": "https://statememorymcp.com",
   "server": {

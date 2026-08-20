@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getDb, closeDb } from '../../src/engine/db.js';
 import { GraphEngine } from '../../src/engine/graph.js';
 import { specHandlers } from '../../src/handlers/spec.js';
-import { analyticsHandlers } from '../../src/handlers/analytics.js';
+import { batchHandlers } from '../../src/handlers/batch.js';
 
 describe('Spec-Driven Development (SDD) Workflow Integration Tests', () => {
   const project = 'sdd-test-project';
@@ -19,7 +19,8 @@ describe('Spec-Driven Development (SDD) Workflow Integration Tests', () => {
   });
 
   it('should scaffold spec nodes and track compliance matrix', () => {
-    const scaffoldRes = specHandlers.scaffold_spec({
+    const scaffoldRes: any = specHandlers.manage_specs({
+      action: 'scaffold',
       project,
       title: 'User Authentication Feature Spec',
     });
@@ -27,13 +28,14 @@ describe('Spec-Driven Development (SDD) Workflow Integration Tests', () => {
     expect(scaffoldRes.spec_path).toBeDefined();
     expect(scaffoldRes.spec_node_id).toBeDefined();
 
-    const complianceBefore = specHandlers.get_spec_compliance({ project });
+    const complianceBefore: any = specHandlers.manage_specs({ action: 'compliance', project });
     expect(complianceBefore.total_specs).toBe(1);
     expect(complianceBefore.total_criteria).toBe(4);
 
     const firstCrit = complianceBefore.unverified_criteria[0];
     if (firstCrit) {
-      const verifyRes = specHandlers.verify_requirement({
+      const verifyRes: any = specHandlers.manage_specs({
+        action: 'verify',
         project,
         criterion_id: firstCrit.id,
         status: 'verified',
@@ -42,7 +44,7 @@ describe('Spec-Driven Development (SDD) Workflow Integration Tests', () => {
       expect(verifyRes.status).toBe('verified');
     }
 
-    const complianceAfter = specHandlers.get_spec_compliance({ project });
+    const complianceAfter: any = specHandlers.manage_specs({ action: 'compliance', project });
     expect(complianceAfter.verified_criteria_count).toBe(1);
     expect(complianceAfter.verification_percentage).toBeGreaterThan(0);
   });
@@ -62,7 +64,8 @@ describe('Spec-Driven Development (SDD) Workflow Integration Tests', () => {
       status: 'active',
     });
 
-    const results = analyticsHandlers.find_similar_blockers({
+    const results: any = batchHandlers.manage_tasks({
+      action: 'find_similar_blockers',
       project,
       query: 'database pool timeout',
       limit: 5,

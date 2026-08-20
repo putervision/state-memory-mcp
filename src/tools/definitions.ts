@@ -1,49 +1,63 @@
-export const READ_ONLY_TOOLS = new Set([
-  'get_node',
-  'list_nodes',
-  'search_nodes',
-  'get_subgraph',
-  'trace_dependencies',
-  'find_blockers',
-  'find_similar_blockers',
-  'get_project_summary',
-  'decision_trail',
-  'critical_path',
-  'impact_analysis',
-  'detect_contradictions',
-  'export_graph',
-  'query_graph',
-  'natural_language_query',
-  'read_blackboard',
-  'post_mortem_from_session',
-  'get_state_at_timestamp',
-  'validate_memory_references',
-  'velocity_analytics',
-  'burndown_chart',
-  'export_issues',
-  'vcs_branch_sync',
-  'doctor_report',
-  'watch_graph_changes',
-  'backup_project_db',
-  'audit_project_db',
-  'get_context_snapshot',
-  'find_related_decisions',
-  'find_blocked_tasks',
-  'value_metrics',
-  'get_event_log',
-  'get_node_history',
-  'list_snapshots',
-  'diff_snapshots',
-  'export_trajectories',
-  'next_tasks',
-  'what_changed',
-  'get_stale_nodes',
-  'validate_graph',
-  'get_spec_compliance',
-  'export_spec',
-  'export_joint_trajectories',
-  'get_synergy_metrics',
-  'app_version',
+export const READ_ONLY_TOOLS = new Set(['query_graph', 'get_analytics', 'get_events']);
+
+export const READ_ONLY_ACTIONS = new Set([
+  'manage_nodes:get',
+  'manage_nodes:list',
+  'manage_nodes:search',
+  'manage_sessions:list',
+  'manage_tasks:next',
+  'manage_tasks:find_blocked',
+  'manage_tasks:find_stale',
+  'manage_tasks:find_blockers',
+  'manage_tasks:find_similar_blockers',
+  'manage_snapshots:list',
+  'manage_snapshots:diff',
+  'manage_snapshots:get_state',
+  'manage_snapshots:get_history',
+  'manage_specs:export',
+  'manage_specs:compliance',
+  'manage_database:audit',
+  'manage_database:backup',
+  'manage_database:branch_diff',
+  'manage_data:export_graph',
+  'manage_data:export_issues',
+  'manage_data:export_trajectories',
+  'manage_data:export_joint_trajectories',
+  'manage_data:export_synergy_metrics',
+  'query_graph:subgraph',
+  'query_graph:trace',
+  'query_graph:raw',
+  'query_graph:natural_language',
+  'get_analytics:summary',
+  'get_analytics:velocity',
+  'get_analytics:burndown',
+  'get_analytics:value_metrics',
+  'get_analytics:cognitive_load',
+  'get_analytics:critical_path',
+  'get_analytics:context_snapshot',
+  'get_analytics:decision_trail',
+  'get_analytics:find_related_decisions',
+  'get_analytics:contradictions',
+  'get_events:log',
+  'get_events:changelog',
+  'get_events:post_mortem',
+  'run_diagnostics:validate',
+  'run_diagnostics:doctor',
+  'run_diagnostics:check_refs',
+  'run_diagnostics:audit_chain',
+  'run_diagnostics:version',
+  'run_diagnostics:dedupe',
+  'use_blackboard:read',
+]);
+
+export const DESTRUCTIVE_ACTIONS = new Set([
+  'manage_nodes:remove',
+  'manage_edges:remove',
+  'manage_database:restore',
+  'manage_snapshots:revert',
+  'manage_snapshots:undo',
+  'manage_data:import_graph',
+  'run_diagnostics:prune_events',
 ]);
 
 export const DESTRUCTIVE_TOOLS = new Set([
@@ -63,143 +77,116 @@ export interface ToolDefinition {
 
 export const toolDefinitions: ToolDefinition[] = [
   {
-    name: 'add_node',
+    name: 'manage_nodes',
     description:
-      'Create a new node in the workflow graph (e.g. task, decision, artifact, plan, blocker, milestone, observation).',
+      'Manage graph nodes in the state graph. Supported actions: create (add single node), update (modify node properties), get (fetch node with edges), remove (delete node and cascade edges), list (filter nodes), search (FTS5 or TF-IDF search), batch_create (create multiple nodes atomically), batch_update (update multiple nodes atomically), add_note (log observation node with optional context link).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: {
+        action: {
           type: 'string',
-          description:
-            'Optional project identifier. If omitted, the project is auto-detected from the current working directory.',
+          enum: [
+            'create',
+            'update',
+            'get',
+            'remove',
+            'list',
+            'search',
+            'batch_create',
+            'batch_update',
+            'add_note',
+          ],
+          description: 'The node management action to execute.',
         },
+        id: { type: 'string', description: 'Unique node identifier for get, update, or remove.' },
         type: {
           type: 'string',
-          enum: ['task', 'decision', 'artifact', 'plan', 'observation', 'blocker', 'milestone'],
-          description: 'The type of node to create.',
+          enum: [
+            'task',
+            'decision',
+            'artifact',
+            'plan',
+            'milestone',
+            'blocker',
+            'observation',
+            'spec',
+            'requirement',
+            'acceptance_criterion',
+            'visual_state',
+          ],
+          description: 'The type classification of the node.',
         },
-        title: {
-          type: 'string',
-          description: 'Short human-readable title/label for the node.',
-        },
+        title: { type: 'string', description: 'Title or label of the node.' },
         status: {
           type: 'string',
           description:
-            'Optional status (e.g., "pending", "in_progress", "done" for tasks). Defaults to the type-specific initial status.',
+            'Status of the node (e.g. pending, in_progress, done, blocked, active, accepted, current).',
         },
-        metadata: {
-          type: 'object',
-          description:
-            'Optional metadata JSON object containing details specific to the node (e.g., description, priority, estimate, rationale).',
-        },
+        metadata: { type: 'object', description: 'Arbitrary structured key-value metadata.' },
         tags: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Optional tags for filtering and grouping.',
+          description: 'Array of searchable tags.',
         },
-      },
-      required: ['type', 'title'],
-    },
-  },
-  {
-    name: 'update_node',
-    description: 'Update properties of an existing node in the workflow graph.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
+        query: { type: 'string', description: 'Search term for full-text search.' },
+        algorithm: {
           type: 'string',
-          description: 'Optional project identifier.',
+          enum: ['fts5', 'tfidf', 'hybrid'],
+          description: 'Search algorithm for search action.',
         },
-        id: {
-          type: 'string',
-          description: 'The unique ID of the node to update.',
+        nodes: {
+          type: 'array',
+          items: { type: 'object' },
+          description: 'Array of node payloads for batch_create.',
         },
-        title: {
-          type: 'string',
-          description: 'Updated short human-readable title.',
-        },
-        status: {
-          type: 'string',
-          description: 'Updated status.',
-        },
-        metadata: {
-          type: 'object',
-          description:
-            "Optional metadata JSON object containing details to merge into the node's existing metadata.",
-        },
-        tags: {
+        ids: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Updated tags list.',
+          description: 'Array of node IDs for batch_update.',
         },
-      },
-      required: ['id'],
-    },
-  },
-  {
-    name: 'get_node',
-    description:
-      'Get a single node by its unique ID, including all its connected inbound and outbound edges.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
+        text: { type: 'string', description: 'Text note content for add_note.' },
+        attach_to: {
           type: 'string',
-          description: 'Optional project identifier.',
+          description: 'Node ID to attach observation note to via references edge.',
         },
-        id: {
-          type: 'string',
-          description: 'The unique ID of the node to retrieve.',
+        git_branch: { type: 'string', description: 'Git branch filter.' },
+        limit: { type: 'number', description: 'Maximum number of items to return (1-1000).' },
+        offset: { type: 'number', description: 'Number of items to skip for pagination.' },
+        compact: {
+          type: 'boolean',
+          description: 'Whether to return a lightweight compact summary.',
         },
         include_edges: {
           type: 'boolean',
-          description:
-            'Whether to include the inbound and outbound edges in the response. Defaults to true.',
+          description: 'Whether to include inbound/outbound edges on get.',
         },
+        expected_version: {
+          type: 'number',
+          description: 'Optimistic concurrency version check for update.',
+        },
+        session_id: {
+          type: 'string',
+          description: 'Active session identifier for change attribution.',
+        },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
-      required: ['id'],
+      required: ['action'],
     },
   },
   {
-    name: 'remove_node',
+    name: 'manage_edges',
     description:
-      'Delete a node from the workflow graph. Connected relationships (edges) are cascade deleted automatically.',
+      'Manage typed graph relationships between nodes. Supported actions: add (create typed relationship), remove (delete relationship), batch_add (create multiple relationships atomically), link_visual (link task or artifact to visual memory state).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: {
+        action: {
           type: 'string',
-          description: 'Optional project identifier.',
+          enum: ['add', 'remove', 'batch_add', 'link_visual'],
+          description: 'The edge management action to execute.',
         },
-        id: {
-          type: 'string',
-          description: 'The unique ID of the node to delete.',
-        },
-      },
-      required: ['id'],
-    },
-  },
-  {
-    name: 'add_edge',
-    description:
-      'Create a relationship/edge between two nodes. Cycles are rejected for depends_on, blocks, and child_of.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        source_id: {
-          type: 'string',
-          description: 'The source node ID.',
-        },
-        target_id: {
-          type: 'string',
-          description: 'The target node ID.',
-        },
+        source_id: { type: 'string', description: 'ID of the source node.' },
+        target_id: { type: 'string', description: 'ID of the target node.' },
         type: {
           type: 'string',
           enum: [
@@ -207,1629 +194,526 @@ export const toolDefinitions: ToolDefinition[] = [
             'blocks',
             'produces',
             'references',
-            'decided_in',
             'updates',
             'contradicts',
             'part_of',
-            'implements',
             'child_of',
+            'implements',
+            'decided_in',
             'extends',
             'modifies',
             'renders_state',
+            'blocked_by_visual_state',
+            'verifies_visual_state',
+            'verifies',
+            'satisfies',
           ],
-          description: 'The relationship type.',
+          description: 'The semantic relationship type.',
         },
-        properties: {
-          type: 'object',
-          description: 'Optional edge properties/metadata JSON object.',
-        },
-      },
-      required: ['source_id', 'target_id', 'type'],
-    },
-  },
-  {
-    name: 'remove_edge',
-    description: 'Delete a specific relationship between two nodes.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        source_id: {
-          type: 'string',
-          description: 'The source node ID.',
-        },
-        target_id: {
-          type: 'string',
-          description: 'The target node ID.',
-        },
-        type: {
-          type: 'string',
-          description: 'The relationship type to delete.',
-        },
-      },
-      required: ['source_id', 'target_id', 'type'],
-    },
-  },
-  {
-    name: 'list_nodes',
-    description: 'List nodes with filtering by type, status, tags, and git branch.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        type: {
-          type: 'string',
-          enum: ['task', 'decision', 'artifact', 'plan', 'observation', 'blocker', 'milestone'],
-          description: 'Optional node type to filter by.',
-        },
-        status: {
-          type: 'string',
-          description: 'Optional status to filter by.',
-        },
-        tags: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional tags (matches nodes having ALL specified tags).',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of results. Defaults to 50.',
-        },
-        offset: {
-          type: 'number',
-          description: 'Pagination offset. Defaults to 0.',
-        },
-        compact: {
-          type: 'boolean',
-          description:
-            'If true, metadata is omitted to optimize LLM token consumption. Defaults to false.',
-        },
-        git_branch: {
-          type: 'string',
-          description:
-            'Optional Git branch name to filter by. Defaults to the active branch. Use "*" to list across all branches.',
-        },
-      },
-    },
-  },
-  {
-    name: 'search_nodes',
-    description:
-      'Search nodes using full-text search (FTS5) or local TF-IDF vector similarity across title, metadata, and tags.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        query: {
-          type: 'string',
-          description: 'The keyword search query.',
-        },
-        type: {
-          type: 'string',
-          enum: ['task', 'decision', 'artifact', 'plan', 'observation', 'blocker', 'milestone'],
-          description: 'Optional node type to filter results.',
-        },
-        status: {
-          type: 'string',
-          description: 'Optional status to filter results.',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of results. Defaults to 20.',
-        },
-        offset: {
-          type: 'number',
-          description: 'Offset for pagination. Defaults to 0.',
-        },
-        algorithm: {
-          type: 'string',
-          enum: ['fts', 'tfidf'],
-          description:
-            'The search algorithm: "fts" (default, keyword full-text search) or "tfidf" (local TF-IDF vector similarity search).',
-        },
-      },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'get_subgraph',
-    description: 'Retrieve a node and its N-hop neighborhood (nodes and connecting edges).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        root_id: {
-          type: 'string',
-          description: 'The starting node ID.',
-        },
-        depth: {
-          type: 'number',
-          description: 'Traversed neighborhood depth. Default 2, maximum 5.',
-        },
-        edge_types: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional edge types to traverse. If omitted, all types are traversed.',
-        },
-        node_types: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional node types to include in returned set.',
-        },
-      },
-      required: ['root_id'],
-    },
-  },
-  {
-    name: 'trace_dependencies',
-    description:
-      'Trace dependency chains upstream (what depends_on or blocks) or downstream (what is blocked/depended on).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        node_id: {
-          type: 'string',
-          description: 'The node ID to trace from.',
-        },
-        direction: {
-          type: 'string',
-          enum: ['upstream', 'downstream'],
-          description: 'Trace direction (upstream = requirements; downstream = dependents).',
-        },
-        edge_types: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Edge types to follow. Defaults to [depends_on, blocks, child_of].',
-        },
-        max_depth: {
-          type: 'number',
-          description: 'Maximum depth. Default 10, maximum 20.',
-        },
-      },
-      required: ['node_id', 'direction'],
-    },
-  },
-  {
-    name: 'find_blockers',
-    description:
-      'List active blockers and the nodes they block, either project-wide or for a specific node.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        node_id: {
-          type: 'string',
-          description: 'Optional node ID to search active blockers for.',
-        },
-        include_transitive: {
-          type: 'boolean',
-          description: 'Whether to check for transitive blockers. Defaults to true.',
-        },
-      },
-    },
-  },
-  {
-    name: 'find_similar_blockers',
-    description:
-      'Semantic TF-IDF search over solved blockers and observations to discover past resolution patterns.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        query: {
-          type: 'string',
-          description: 'Natural language description of the problem or blocker.',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of matching blocker nodes to return. Defaults to 10.',
-        },
-      },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'auto_prune_stale_tasks',
-    description:
-      'Automatically transition inactive in_progress tasks idle for longer than a specified threshold.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        older_than: {
-          type: 'string',
-          description: 'Inactivity duration threshold (e.g. 7d, 24h). Defaults to 7d.',
-        },
-        target_status: {
-          type: 'string',
-          description: 'Status to set pruned tasks to. Defaults to cancelled.',
-        },
-      },
-    },
-  },
-  {
-    name: 'get_project_summary',
-    description:
-      'Retrieve a high-level project summary: counts, status breakdowns, progress, decisions, and blockers.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-      },
-    },
-  },
-  {
-    name: 'decision_trail',
-    description:
-      'Trace the full chain of decisions that led to a given state: what was decided, what it updated/superseded, and what it contradicts.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        node_id: {
-          type: 'string',
-          description: 'The decision node ID to trace from.',
-        },
-      },
-      required: ['node_id'],
-    },
-  },
-  {
-    name: 'critical_path',
-    description:
-      'Compute the longest dependency chain to a milestone — the minimum set of tasks that must complete.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        milestone_id: {
-          type: 'string',
-          description: 'The milestone node ID.',
-        },
-      },
-      required: ['milestone_id'],
-    },
-  },
-  {
-    name: 'impact_analysis',
-    description: 'Calculate downstream affected nodes if a target node is modified or deleted.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        node_id: {
-          type: 'string',
-          description: 'The node ID to run impact analysis for.',
-        },
-      },
-      required: ['node_id'],
-    },
-  },
-  {
-    name: 'detect_contradictions',
-    description:
-      'Scan for contradictions (tasks marked done but blocked, accepted contradicting decisions).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-      },
-    },
-  },
-  {
-    name: 'export_graph',
-    description:
-      'Export project nodes and edges in JSON, DOT, Mermaid, or interactive HTML format.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        format: {
-          type: 'string',
-          enum: ['json', 'dot', 'mermaid', 'html'],
-          description: 'Export format. Defaults to json.',
-        },
-      },
-    },
-  },
-  {
-    name: 'import_graph',
-    description:
-      'Bulk import nodes and edges (replaces existing project data, requires force parameter if data exists).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        nodes: {
-          type: 'array',
-          items: { type: 'object' },
-          description: 'List of node objects.',
-        },
+        properties: { type: 'object', description: 'Optional metadata properties for the edge.' },
         edges: {
           type: 'array',
           items: { type: 'object' },
-          description: 'List of edge objects.',
+          description: 'Array of edge objects for batch_add.',
         },
-        force: {
-          type: 'boolean',
-          description: 'Force overwrite if the database already contains nodes or edges.',
-        },
-      },
-      required: ['nodes', 'edges'],
-    },
-  },
-  {
-    name: 'query_graph',
-    description: 'Run safe, read-only SELECT SQL queries against the graph database.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
+        visual_state_id: {
           type: 'string',
-          description: 'Optional project identifier.',
+          description: 'Visual Memory snapshot/state ID for link_visual.',
         },
-        sql: {
-          type: 'string',
-          description: 'The SELECT SQL query string.',
-        },
-        params: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional query parameter values.',
-        },
-      },
-      required: ['sql'],
-    },
-  },
-  {
-    name: 'natural_language_query',
-    description:
-      'Query state graph using natural language free-text ("what is blocking auth?", "decisions led here").',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        query: {
-          type: 'string',
-          description: 'Free-text natural language query.',
-        },
-        limit: {
-          type: 'number',
-          description: 'Optional maximum results to return.',
-        },
-      },
-      required: ['query'],
-    },
-  },
-  {
-    name: 'post_blackboard',
-    description: 'Post an ephemeral message or state update to the multi-agent blackboard.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        agent_id: { type: 'string', description: 'Optional ID of posting agent.' },
-        agent_role: {
-          type: 'string',
-          description: 'Optional role of posting agent (e.g. coder, reviewer, planner).',
-        },
-        topic: { type: 'string', description: 'Topic or channel for the message.' },
-        content: { type: 'string', description: 'Content text or JSON payload of the message.' },
-        ttl_seconds: {
-          type: 'number',
-          description: 'Optional time-to-live in seconds before message expires.',
-        },
-      },
-      required: ['topic', 'content'],
-    },
-  },
-  {
-    name: 'read_blackboard',
-    description: 'Read recent messages from the multi-agent blackboard.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        topic: { type: 'string', description: 'Optional topic filter.' },
-        limit: { type: 'number', description: 'Optional max messages to return.' },
-      },
-    },
-  },
-  {
-    name: 'plan_and_decompose_feature',
-    description:
-      'Atomically create a feature plan, optional milestone, subtasks, and dependency edges in a single turn.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        title: { type: 'string', description: 'Feature plan title.' },
-        description: { type: 'string', description: 'Optional feature specification description.' },
-        milestone_title: {
-          type: 'string',
-          description: 'Optional milestone title to group subtasks under.',
-        },
-        subtasks: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              title: { type: 'string', description: 'Subtask title.' },
-              description: { type: 'string', description: 'Subtask description.' },
-              depends_on_index: {
-                type: 'number',
-                description: 'Optional 0-based index of preceding subtask this task depends on.',
-              },
-            },
-            required: ['title'],
-          },
-          description: 'List of subtask objects.',
-        },
-      },
-      required: ['title', 'subtasks'],
-    },
-  },
-  {
-    name: 'post_mortem_from_session',
-    description:
-      'Analyze an agent session event log and generate a post-mortem observation and report artifact.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        session_id: { type: 'string', description: 'Target session ID.' },
-        summary_title: { type: 'string', description: 'Optional summary report title.' },
-      },
-      required: ['session_id'],
-    },
-  },
-  {
-    name: 'get_state_at_timestamp',
-    description:
-      'Reconstruct historical state memory (nodes and edges) as it existed at a specific ISO timestamp.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        timestamp: {
-          type: 'string',
-          description: 'Target ISO timestamp (e.g. 2026-07-28T12:00:00Z).',
-        },
-      },
-      required: ['timestamp'],
-    },
-  },
-  {
-    name: 'revert_to_timestamp',
-    description:
-      'Roll back state graph memory to a historical point in time, removing subsequent nodes and edges.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        timestamp: { type: 'string', description: 'Target ISO timestamp to revert back to.' },
-        session_id: { type: 'string', description: 'Optional session ID for event logging.' },
-      },
-      required: ['timestamp'],
-    },
-  },
-  {
-    name: 'validate_memory_references',
-    description:
-      'Validate cross-memory references to external file paths and code symbols, optionally auto-healing broken links.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        auto_heal: {
-          type: 'boolean',
-          description: 'Optional flag to flag broken nodes with warning metadata.',
-        },
-      },
-    },
-  },
-  {
-    name: 'velocity_analytics',
-    description:
-      'Calculate velocity analytics, task completion rate, average cycle time, and daily throughput breakdown.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        window_days: { type: 'number', description: 'Optional time window in days (default 14).' },
-      },
-    },
-  },
-  {
-    name: 'burndown_chart',
-    description:
-      'Generate burndown chart time-series data, remaining scope, and estimated completion date.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        days: { type: 'number', description: 'Optional timeframe in days (default 14).' },
-      },
-    },
-  },
-  {
-    name: 'export_issues',
-    description:
-      'Export tasks and blockers as external issue tracker JSON payloads (GitHub Issues / Jira).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        format: {
-          type: 'string',
-          enum: ['github', 'jira', 'generic'],
-          description: 'Target issue tracker format (default github).',
-        },
-      },
-    },
-  },
-  {
-    name: 'import_issues',
-    description:
-      'Import external issue tracker issues (GitHub Issues / Jira) into state graph memory.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        issues: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              external_id: { type: 'string', description: 'External issue ID or number.' },
-              title: { type: 'string', description: 'Issue title.' },
-              body: { type: 'string', description: 'Issue description body.' },
-              state: { type: 'string', description: 'Issue state (open/closed).' },
-              labels: { type: 'array', items: { type: 'string' }, description: 'Issue labels.' },
-            },
-            required: ['external_id', 'title'],
-          },
-        },
-      },
-      required: ['issues'],
-    },
-  },
-  {
-    name: 'vcs_branch_sync',
-    description:
-      'Analyze state memory nodes created or modified on the current git branch vs a target branch.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        target_branch: {
-          type: 'string',
-          description: 'Target git branch to compare against (default main).',
-        },
-      },
-    },
-  },
-  {
-    name: 'vcs_merge_resolution',
-    description: 'Simulate or resolve state memory graph conflicts when merging Git branches.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        source_branch: { type: 'string', description: 'Source branch being merged.' },
-        target_branch: { type: 'string', description: 'Target branch being merged into.' },
-        strategy: {
-          type: 'string',
-          enum: ['auto_accept', 'flag_conflicts'],
-          description: 'Conflict resolution strategy (default flag_conflicts).',
-        },
-      },
-      required: ['source_branch', 'target_branch'],
-    },
-  },
-  {
-    name: 'compact_graph',
-    description:
-      'Rebuild database indexes, prune orphaned edges, and reclaim unused SQLite disk storage.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        prune_orphaned_edges: {
-          type: 'boolean',
-          description: 'Optional flag to prune orphaned edges (default false).',
-        },
-      },
-    },
-  },
-  {
-    name: 'archive_completed_nodes',
-    description: 'Flag completed tasks updated before a specified cutoff threshold as archived.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        older_than_days: { type: 'number', description: 'Cutoff threshold in days (default 30).' },
-      },
-    },
-  },
-  {
-    name: 'doctor_report',
-    description:
-      'Run system health diagnostics, check schema integrity, WAL status, orphaned edge counts, and generate recommendations.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-      },
-    },
-  },
-  {
-    name: 'watch_graph_changes',
-    description:
-      'Observe recent state graph mutations and event log entries since a timestamp or session.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        since_timestamp: {
-          type: 'string',
-          description: 'Optional ISO timestamp to filter events from.',
-        },
-        session_id: { type: 'string', description: 'Optional session ID to observe.' },
-      },
-    },
-  },
-  {
-    name: 'backup_project_db',
-    description: "Backup the project's sqlite database file to a target destination.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        outputPath: {
+        relationship: {
           type: 'string',
           description:
-            "Optional absolute path where the backup file should be saved. If omitted, a backup is created in the project's default backup folder.",
+            'Relationship type for link_visual (e.g. renders_state, blocked_by_visual_state).',
         },
+        visual_description: {
+          type: 'string',
+          description: 'Optional text description for the visual state.',
+        },
+        source_url: {
+          type: 'string',
+          description: 'Optional URL where the visual state was captured.',
+        },
+        metadata: { type: 'object', description: 'Optional metadata for link_visual.' },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
+      required: ['action'],
     },
   },
   {
-    name: 'restore_project_db',
+    name: 'manage_sessions',
     description:
-      "Restore the project's sqlite database from a backup file (destructively overwrites current project database).",
+      'Manage agent tracking sessions and multi-turn workflow attribution. Supported actions: start (begin tracked session), end (conclude session), list (view active/historical sessions), bootstrap (single-turn start + context snapshot + next tasks).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: {
+        action: {
           type: 'string',
-          description: 'Optional project identifier.',
-        },
-        backupPath: {
-          type: 'string',
-          description: 'The absolute path to the backup file to restore.',
-        },
-      },
-      required: ['backupPath'],
-    },
-  },
-  {
-    name: 'audit_project_db',
-    description:
-      "Audit the project's database for physical integrity, foreign key violations, orphaned edges, circular dependencies, and contradictions.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-      },
-    },
-  },
-  {
-    name: 'merge_project_db',
-    description:
-      'Merge an external sqlite database file into the existing project database, resolving conflicts by keeping the newer updated_at nodes.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        sourcePath: {
-          type: 'string',
-          description: 'The absolute path to the source database file to merge from.',
-        },
-        force: {
-          type: 'boolean',
-          description:
-            'Optional. If true, commits the merge even if circular dependencies are introduced.',
-        },
-      },
-      required: ['sourcePath'],
-    },
-  },
-  {
-    name: 'get_context_snapshot',
-    description:
-      'Get a comprehensive high-level context snapshot combining summary, active blockers, and immediate pending tasks.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-      },
-    },
-  },
-  {
-    name: 'find_related_decisions',
-    description:
-      'Find all decisions that affected a given artifact (either directly produces it or decided_in a milestone that produces it).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        artifact_id: {
-          type: 'string',
-          description: 'The unique ID of the artifact node.',
-        },
-      },
-      required: ['artifact_id'],
-    },
-  },
-  {
-    name: 'find_blocked_tasks',
-    description:
-      'List all tasks that are currently blocked by a given decision node (either directly or transitively).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        decision_id: {
-          type: 'string',
-          description: 'The unique ID of the decision node.',
-        },
-      },
-      required: ['decision_id'],
-    },
-  },
-  {
-    name: 'scaffold_template',
-    description:
-      'Scaffold standard feature (fdd) or decision (rfc) workflow templates into the project graph.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        template: {
-          type: 'string',
-          enum: ['fdd', 'rfc'],
-          description:
-            'The template type: "fdd" (Feature-Driven Development design/build) or "rfc" (Request for Comments decision loop).',
-        },
-        name: {
-          type: 'string',
-          description: 'The name of the feature or RFC (e.g., "OAuth Login").',
-        },
-      },
-      required: ['template', 'name'],
-    },
-  },
-  {
-    name: 'value_metrics',
-    description:
-      'Retrieve ROI and productivity health metrics for a project (e.g. estimated time and tokens saved, graph health).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-      },
-    },
-  },
-  {
-    name: 'start_session',
-    description: 'Start a new tracked session with agent identity and metadata.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
+          enum: ['start', 'end', 'list', 'bootstrap'],
+          description: 'The session management action to execute.',
         },
         agent_id: {
           type: 'string',
-          description: 'Optional identifier for the executing agent or user.',
+          description: 'Agent identifier for session tracking and change attribution.',
         },
-        metadata: {
-          type: 'object',
-          description: 'Optional session metadata.',
-        },
-      },
-    },
-  },
-  {
-    name: 'end_session',
-    description: 'End an active tracked session.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        session_id: {
-          type: 'string',
-          description: 'The ID of the session to end.',
-        },
-      },
-      required: ['session_id'],
-    },
-  },
-  {
-    name: 'list_sessions',
-    description: 'List active and completed sessions for a project.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
+        session_id: { type: 'string', description: 'Unique session identifier for end.' },
+        metadata: { type: 'object', description: 'Arbitrary session metadata.' },
         active_only: {
           type: 'boolean',
-          description: 'Optional filter to return only active (open) sessions.',
+          description: 'Whether to return only active unclosed sessions on list.',
         },
-        limit: {
-          type: 'number',
-          description: 'Optional maximum number of sessions to return (default 20).',
-        },
-      },
-    },
-  },
-  {
-    name: 'get_event_log',
-    description: 'Query the project event log with filters.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        entity_id: {
-          type: 'string',
-          description: 'Optional filter by node or edge ID.',
-        },
-        event_type: {
-          type: 'string',
-          description: 'Optional filter by event type (e.g. node_created).',
-        },
-        session_id: {
-          type: 'string',
-          description: 'Optional filter by session ID.',
-        },
-        since: {
-          type: 'string',
-          description: 'Optional ISO 8601 start timestamp filter.',
-        },
-        until: {
-          type: 'string',
-          description: 'Optional ISO 8601 end timestamp filter.',
-        },
-        limit: {
-          type: 'number',
-          description: 'Optional limit (default 50).',
-        },
-        offset: {
-          type: 'number',
-          description: 'Optional offset.',
-        },
-      },
-    },
-  },
-  {
-    name: 'verify_audit_chain',
-    description:
-      'Mathematically verify the cryptographic SHA-256 event audit chain for non-repudiable tamper resistance.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-      },
-    },
-  },
-  {
-    name: 'subscribe_context_changes',
-    description:
-      'Subscribe to Context-Aware Shared Context Store (CA-MCP) state reactor triggers for constant O(1) LLM coordination.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        since_event_id: {
-          type: 'number',
-          description: 'Optional event ID to fetch changes since.',
-        },
-        since_timestamp: {
-          type: 'string',
-          description: 'Optional ISO 8601 timestamp to fetch changes since.',
-        },
-      },
-    },
-  },
-  {
-    name: 'traceback_to_node',
-    description:
-      'Reset task execution state back to a prior validated node when downstream test/verification fails.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        target_node_id: {
-          type: 'string',
-          description: 'The target node ID to trace back to.',
-        },
-        reason: {
-          type: 'string',
-          description: 'Optional reason for the rollback.',
-        },
-      },
-      required: ['target_node_id'],
-    },
-  },
-  {
-    name: 'get_cognitive_load',
-    description:
-      'Calculate Intrinsic (ICL) and Extraneous (ECL) cognitive load metrics for the active task graph.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-      },
-    },
-  },
-  {
-    name: 'get_node_history',
-    description: 'Get the full chronological mutation history of a specific node.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        node_id: {
-          type: 'string',
-          description: 'The unique ID of the node.',
-        },
-      },
-      required: ['node_id'],
-    },
-  },
-  {
-    name: 'undo_last',
-    description: 'Revert the last recorded mutation for a specific node.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        node_id: {
-          type: 'string',
-          description: 'The unique ID of the node.',
-        },
-      },
-      required: ['node_id'],
-    },
-  },
-  {
-    name: 'save_snapshot',
-    description: 'Save a persistent context snapshot of the current graph state.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        session_id: {
-          type: 'string',
-          description: 'Optional session ID to associate with the snapshot.',
-        },
-        force: {
-          type: 'boolean',
-          description: 'Force saving snapshot even if the graph is large.',
-        },
-      },
-    },
-  },
-  {
-    name: 'list_snapshots',
-    description: 'List saved snapshots for the project.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        limit: {
-          type: 'number',
-          description: 'Optional limit (default 20).',
-        },
-      },
-    },
-  },
-  {
-    name: 'diff_snapshots',
-    description: 'Compare two snapshots and return semantic node/edge changes.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        snapshot_id_a: {
-          type: 'string',
-          description: 'The first snapshot ID.',
-        },
-        snapshot_id_b: {
-          type: 'string',
-          description: 'The second snapshot ID.',
-        },
-      },
-      required: ['snapshot_id_a', 'snapshot_id_b'],
-    },
-  },
-  {
-    name: 'export_trajectories',
-    description: 'Export event transition logs in JSONL format for fine-tuning models.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        session_id: {
-          type: 'string',
-          description: 'Optional filter by session ID.',
-        },
-        since: {
-          type: 'string',
-          description: 'Optional start ISO 8601 timestamp.',
-        },
-        until: {
-          type: 'string',
-          description: 'Optional end ISO 8601 timestamp.',
-        },
-        limit: {
-          type: 'number',
-          description: 'Optional maximum number of events to export. Defaults to 10000.',
-        },
-        offset: {
-          type: 'number',
-          description: 'Optional offset for pagination. Defaults to 0.',
-        },
-      },
-    },
-  },
-  {
-    name: 'batch_update',
-    description:
-      'Update the status, metadata, or tags of multiple nodes in a single atomic transaction. Max 100 IDs.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        ids: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'List of node IDs to update.',
-        },
-        status: {
-          type: 'string',
-          description: 'Optional new status to apply to all nodes.',
-        },
-        metadata: {
-          type: 'object',
-          description: 'Optional metadata updates to merge into all nodes.',
-        },
-        tags: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional new list of tags to apply to all nodes.',
-        },
-      },
-      required: ['ids'],
-    },
-  },
-  {
-    name: 'next_tasks',
-    description: 'Get the next unblocked runnable tasks, ordered by blocking impact and age.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        git_branch: {
-          type: 'string',
-          description: 'Optional git branch name to filter by. Defaults to active branch.',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of tasks to return. Defaults to 5.',
-        },
-        include_context: {
-          type: 'boolean',
-          description:
-            'Whether to include blockers and downstream tasks in context. Defaults to false.',
-        },
-      },
-    },
-  },
-  {
-    name: 'what_changed',
-    description:
-      'Retrieve a structured diff of all graph changes since a timestamp or session start.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        since: {
-          type: 'string',
-          description: 'ISO 8601 start timestamp.',
-        },
-        since_session: {
-          type: 'string',
-          description: 'Session ID to get changes since that session started.',
-        },
-        git_branch: {
-          type: 'string',
-          description: 'Optional git branch name to filter by.',
-        },
-      },
-    },
-  },
-  {
-    name: 'get_stale_nodes',
-    description:
-      'Find nodes of a given status/type that have not been updated for a specified duration.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        older_than: {
-          type: 'string',
-          description:
-            'Minimum duration of inactivity, e.g., "7d", "24h", "30m". Defaults to "7d".',
-        },
-        status: {
-          type: 'string',
-          description: 'Status to filter by, or "*" for all. Defaults to "in_progress".',
-        },
-        type: {
-          type: 'string',
-          description: 'Optional node type to filter by.',
-        },
-        git_branch: {
-          type: 'string',
-          description: 'Optional git branch to filter by.',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of results to return. Defaults to 20.',
-        },
-      },
-    },
-  },
-  {
-    name: 'validate_graph',
-    description:
-      'Check the graph for logical issues (blocked done tasks, circular dependencies, empty milestones, orphan nodes, dangling edges).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        checks: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: [
-              'blocked_done',
-              'orphan_nodes',
-              'empty_milestones',
-              'stale_in_progress',
-              'missing_decisions',
-              'dangling_edges',
-              'cycle_check',
-              'unverified_ui',
-            ],
-          },
-          description: 'Specific validation checks to run. Runs all by default.',
-        },
-      },
-    },
-  },
-  {
-    name: 'prune_events',
-    description:
-      'Prune old event log entries older than a specified duration, preserving the latest event for each entity.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        older_than: {
-          type: 'string',
-          description: 'Prune events older than this duration, e.g., "30d", "90d".',
-        },
-        dry_run: {
-          type: 'boolean',
-          description:
-            'Preview the count of events to be deleted without modifying the DB. Defaults to true.',
-        },
-        preserve_types: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Event types that should never be pruned.',
-        },
-      },
-      required: ['older_than'],
-    },
-  },
-  {
-    name: 'add_note',
-    description: 'Attach a quick developer note or observation to a node or the project.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: {
-          type: 'string',
-          description: 'Optional project identifier.',
-        },
-        text: {
-          type: 'string',
-          description: 'Observation note text.',
-        },
-        attach_to: {
-          type: 'string',
-          description: 'Optional target node ID to attach this note to.',
-        },
-        tags: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional tags to associate with this note.',
-        },
-      },
-      required: ['text'],
-    },
-  },
-  {
-    name: 'bootstrap_session',
-    description:
-      'Single-turn session initialization combining start_session, context snapshot, and next unblocked tasks.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        agent_id: { type: 'string', description: 'Optional agent ID identifier.' },
-        metadata: { type: 'object', description: 'Optional session metadata.' },
+        limit: { type: 'number', description: 'Maximum number of sessions to list (1-1000).' },
         task_limit: {
           type: 'number',
-          description: 'Maximum number of next tasks to fetch (default: 5).',
+          description: 'Maximum runnable tasks to return on bootstrap.',
         },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
+      required: ['action'],
     },
   },
   {
-    name: 'complete_task',
+    name: 'manage_tasks',
     description:
-      'Single-turn task completion: updates task status to done, optionally creates an artifact node or links a visual memory state ID, and connects relationships.',
+      'Task prioritization, workflow execution, blockers, and stale task management. Supported actions: next (query prioritized unblocked tasks), complete (mark done and optionally create artifact), find_blocked (find tasks blocked by a decision), find_stale (find idle/untouched tasks), find_blockers (find active blockers), find_similar_blockers (TF-IDF search for previously resolved blockers), auto_prune (cancel stale in-progress tasks).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
+        action: {
+          type: 'string',
+          enum: [
+            'next',
+            'complete',
+            'find_blocked',
+            'find_stale',
+            'find_blockers',
+            'find_similar_blockers',
+            'auto_prune',
+          ],
+          description: 'The task management action to execute.',
+        },
         task_id: { type: 'string', description: 'Task node ID to complete.' },
-        artifact_title: { type: 'string', description: 'Optional title for produced artifact.' },
+        decision_id: { type: 'string', description: 'Decision node ID for find_blocked.' },
+        node_id: { type: 'string', description: 'Optional node ID to check blockers for.' },
+        include_transitive: {
+          type: 'boolean',
+          description: 'Whether to include transitive blockers.',
+        },
+        query: { type: 'string', description: 'Query text for find_similar_blockers.' },
+        threshold: {
+          type: 'number',
+          description: 'Similarity threshold for find_similar_blockers (0.0 - 1.0).',
+        },
+        older_than: {
+          type: 'string',
+          description: 'Duration threshold for staleness (e.g. 7d, 24h, 30m).',
+        },
+        target_status: {
+          type: 'string',
+          description: 'Target status to assign when auto-pruning (e.g. cancelled).',
+        },
+        artifact_title: {
+          type: 'string',
+          description: 'Optional title of artifact produced on complete.',
+        },
+        artifact_file_path: {
+          type: 'string',
+          description: 'Optional file path for produced artifact.',
+        },
         artifact_metadata: {
           type: 'object',
           description: 'Optional metadata for produced artifact.',
         },
-        tags: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Optional tags for artifact.',
-        },
         visual_state_id: {
           type: 'string',
-          description: 'Optional visual state ID from vision memory to link as visual proof.',
+          description: 'Optional visual state ID to link on complete.',
         },
         visual_relationship: {
           type: 'string',
-          enum: ['renders_state', 'verifies_visual_state'],
-          description: 'Edge type to connect task to visual state (default: renders_state).',
+          description: 'Visual relationship for complete (default: renders_state).',
         },
+        status: { type: 'string', description: 'Status filter for find_stale.' },
+        type: { type: 'string', description: 'Node type filter for find_stale.' },
+        git_branch: { type: 'string', description: 'Git branch filter.' },
+        limit: { type: 'number', description: 'Maximum tasks to return (1-1000).' },
+        include_context: {
+          type: 'boolean',
+          description: 'Whether to include parent plan/milestone and blocker context on next.',
+        },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
-      required: ['task_id'],
+      required: ['action'],
     },
   },
   {
-    name: 'batch_create_nodes',
+    name: 'manage_snapshots',
     description:
-      'Atomically create multiple nodes in a single transaction with FTS5 search index synchronization.',
+      'State checkpointing, time travel, diffing, and undo operations. Supported actions: save (create named checkpoint), list (list checkpoints), diff (compare two snapshots), get_state (reconstruct graph state at historical timestamp), revert (rollback graph to historical timestamp), undo (revert last mutation on a node), get_history (chronological audit log for a node).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
+        action: {
+          type: 'string',
+          enum: ['save', 'list', 'diff', 'get_state', 'revert', 'undo', 'get_history'],
+          description: 'The snapshot management action to execute.',
+        },
+        session_id: { type: 'string', description: 'Optional session identifier for save.' },
+        force: { type: 'boolean', description: 'Force snapshot even if node count is high.' },
+        snapshot_id_a: { type: 'string', description: 'First snapshot ID for diff.' },
+        snapshot_id_b: { type: 'string', description: 'Second snapshot ID for diff.' },
+        timestamp: { type: 'string', description: 'ISO 8601 timestamp for get_state or revert.' },
+        node_id: { type: 'string', description: 'Node ID for undo or get_history.' },
+        limit: { type: 'number', description: 'Maximum snapshots to list (1-1000).' },
+        project: { type: 'string', description: 'Target project name or slug.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'manage_specs',
+    description:
+      'Spec-Driven Development (SDD) lifecycle and workflow template generation. Supported actions: scaffold (generate spec template in .specs/), ingest (parse PRD/Gherkin into graph nodes), export (export spec node back to Markdown/Gherkin), compliance (calculate requirement coverage matrix), verify (mark acceptance criterion verified/failing), decompose_feature (decompose feature into plan/milestones/subtasks), template (scaffold FDD or RFC template).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: [
+            'scaffold',
+            'ingest',
+            'export',
+            'compliance',
+            'verify',
+            'decompose_feature',
+            'template',
+          ],
+          description: 'The specification or template action to execute.',
+        },
+        title: { type: 'string', description: 'Title of feature spec or template.' },
+        name: { type: 'string', description: 'Name of template or feature.' },
+        template: {
+          type: 'string',
+          enum: ['fdd', 'rfc'],
+          description: 'Template type for template action.',
+        },
+        description: { type: 'string', description: 'Feature description for decompose_feature.' },
+        subtasks: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Array of subtask titles for decompose_feature.',
+        },
+        file_path: {
+          type: 'string',
+          description: 'File path of PRD or Gherkin feature for ingest.',
+        },
+        format: {
+          type: 'string',
+          enum: ['markdown', 'gherkin', 'openspec'],
+          description: 'Format of spec file.',
+        },
+        spec_id: { type: 'string', description: 'Spec node ID for export.' },
+        criterion_id: { type: 'string', description: 'Acceptance criterion node ID for verify.' },
+        status: {
+          type: 'string',
+          enum: ['verified', 'failing', 'skipped'],
+          description: 'Verification status for verify.',
+        },
+        observation_id: {
+          type: 'string',
+          description: 'Optional observation node ID containing test proof.',
+        },
+        project: { type: 'string', description: 'Target project name or slug.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'manage_database',
+    description:
+      'Physical SQLite database maintenance, backups, integrity checks, and Git VCS state sync. Supported actions: backup (online SQLite backup), restore (destructive restore from backup), audit (foreign keys and physical integrity check), merge (merge external SQLite state DB), branch_diff (diff state nodes across git branches), branch_merge (resolve graph conflicts during branch merge).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['backup', 'restore', 'audit', 'merge', 'branch_diff', 'branch_merge'],
+          description: 'The database administration or VCS sync action to execute.',
+        },
+        outputPath: { type: 'string', description: 'Target destination file path for backup.' },
+        backupPath: { type: 'string', description: 'Source backup file path for restore.' },
+        sourcePath: { type: 'string', description: 'Source SQLite database path for merge.' },
+        target_branch: {
+          type: 'string',
+          description: 'Target git branch to compare or merge against.',
+        },
+        source_branch: { type: 'string', description: 'Source git branch for branch_merge.' },
+        resolution_strategy: {
+          type: 'string',
+          enum: ['ours', 'theirs', 'union'],
+          description: 'Conflict resolution strategy for branch_merge.',
+        },
+        force: { type: 'boolean', description: 'Force overwrite during restore or merge.' },
+        project: { type: 'string', description: 'Target project name or slug.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'manage_data',
+    description:
+      'Export and import graph structures, issue tracker items, fine-tuning trajectories, and multimodal synergy metrics. Supported actions: export_graph (export to JSON/DOT/Mermaid/HTML), export_issues (export to GitHub/Jira JSON), export_trajectories (export JSONL fine-tuning data), export_joint_trajectories (export interleaved state + vision data), export_synergy_metrics (compute dual-memory metrics), import_graph (bulk import nodes & edges), import_issues (import GitHub/Jira issues), import_spec (import PRD/Gherkin spec).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: [
+            'export_graph',
+            'export_issues',
+            'export_trajectories',
+            'export_joint_trajectories',
+            'export_synergy_metrics',
+            'import_graph',
+            'import_issues',
+            'import_spec',
+          ],
+          description: 'The data export or import action to execute.',
+        },
+        format: {
+          type: 'string',
+          enum: [
+            'json',
+            'dot',
+            'mermaid',
+            'html',
+            'github',
+            'jira',
+            'markdown',
+            'gherkin',
+            'openspec',
+          ],
+          description: 'Data format.',
+        },
+        session_id: { type: 'string', description: 'Session ID filter for trajectories.' },
+        since: { type: 'string', description: 'Start timestamp for trajectories.' },
+        until: { type: 'string', description: 'End timestamp for trajectories.' },
+        limit: { type: 'number', description: 'Maximum items to export (1-1000).' },
+        offset: { type: 'number', description: 'Offset for trajectories.' },
         nodes: {
           type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              type: { type: 'string', description: 'Node type (task, decision, artifact, etc.).' },
-              title: { type: 'string', description: 'Node title.' },
-              status: { type: 'string', description: 'Optional node status.' },
-              metadata: { type: 'object', description: 'Optional metadata object.' },
-              tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags.' },
-            },
-            required: ['type', 'title'],
-          },
-          description: 'Array of nodes to create.',
+          items: { type: 'object' },
+          description: 'Array of node objects for import_graph.',
         },
-      },
-      required: ['nodes'],
-    },
-  },
-  {
-    name: 'batch_add_edges',
-    description:
-      'Atomically add multiple edges with cycle detection and complete transaction rollback on failure.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
         edges: {
           type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              source_id: { type: 'string', description: 'Source node ID.' },
-              target_id: { type: 'string', description: 'Target node ID.' },
-              type: { type: 'string', description: 'Edge relationship type.' },
-              properties: { type: 'object', description: 'Optional edge properties.' },
-            },
-            required: ['source_id', 'target_id', 'type'],
-          },
-          description: 'Array of edges to create.',
+          items: { type: 'object' },
+          description: 'Array of edge objects for import_graph.',
         },
+        issues: {
+          type: 'array',
+          items: { type: 'object' },
+          description: 'Array of issue objects for import_issues.',
+        },
+        file_path: { type: 'string', description: 'File path for import_spec.' },
+        force: { type: 'boolean', description: 'Force overwrite during import.' },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
-      required: ['edges'],
+      required: ['action'],
     },
   },
   {
-    name: 'ingest_spec',
+    name: 'query_graph',
     description:
-      'Parse and ingest a Markdown PRD, OpenSpec, or Gherkin BDD specification file into graph nodes.',
+      'Query graph topology, neighborhoods, dependency paths, and safe read-only SQL queries. Supported actions: subgraph (fetch N-hop neighborhood around root node), trace (trace dependency chain upstream or downstream with cycle detection), raw (execute safe read-only SELECT query against SQLite), natural_language (translate natural language query into graph operations).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        file_path: { type: 'string', description: 'Absolute or relative path to spec file.' },
-        format: { type: 'string', description: 'Optional spec format: markdown, gherkin, auto.' },
-      },
-      required: ['file_path'],
-    },
-  },
-  {
-    name: 'export_spec',
-    description:
-      'Export a graph-managed specification node and child requirements back to clean Markdown or Gherkin text.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        spec_id: { type: 'string', description: 'Spec node ID to export.' },
-        format: { type: 'string', description: 'Optional export format: markdown, gherkin.' },
-      },
-      required: ['spec_id'],
-    },
-  },
-  {
-    name: 'get_spec_compliance',
-    description:
-      'Calculate real-time Spec Compliance matrix, requirement coverage ratio, and unfulfilled criteria.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-      },
-    },
-  },
-  {
-    name: 'scaffold_spec',
-    description:
-      'Scaffold a standard feature specification template in .specs/ and ingest it into memory.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        title: { type: 'string', description: 'Optional title of feature spec.' },
-      },
-    },
-  },
-  {
-    name: 'verify_requirement',
-    description:
-      'Mark an acceptance criterion as verified, failing, or skipped, optionally linking a test observation.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        criterion_id: { type: 'string', description: 'Acceptance criterion node ID.' },
-        observation_id: { type: 'string', description: 'Optional observation node ID as proof.' },
-        status: { type: 'string', description: 'Status: verified, failing, skipped.' },
-      },
-      required: ['criterion_id'],
-    },
-  },
-  {
-    name: 'link_visual_state',
-    description:
-      'Link a task or artifact to a visual memory state ID via renders_state, blocked_by_visual_state, or verifies_visual_state edge.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        target_id: { type: 'string', description: 'The task or artifact node ID in state memory.' },
-        visual_state_id: { type: 'string', description: 'The visual state ID in vision memory.' },
-        relationship: {
+        action: {
           type: 'string',
-          enum: ['renders_state', 'blocked_by_visual_state', 'verifies_visual_state'],
-          description: 'The edge type (default renders_state).',
+          enum: ['subgraph', 'trace', 'raw', 'natural_language'],
+          description: 'The graph query action to execute.',
         },
-        visual_description: {
+        root_id: { type: 'string', description: 'Root node ID for subgraph query.' },
+        node_id: { type: 'string', description: 'Starting node ID for trace.' },
+        direction: {
           type: 'string',
-          description: 'Optional description of the visual state.',
+          enum: ['upstream', 'downstream'],
+          description: 'Direction of dependency traversal for trace.',
         },
-        source_url: { type: 'string', description: 'Optional source URL or page location.' },
-        metadata: { type: 'object', description: 'Optional additional metadata.' },
+        edge_types: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Allowed edge types for trace (default: depends_on, blocks, child_of).',
+        },
+        depth: { type: 'number', description: 'Maximum depth for subgraph query (1-10).' },
+        max_depth: { type: 'number', description: 'Maximum traversal depth for trace (1-50).' },
+        sql: { type: 'string', description: 'Read-only SELECT query for raw action.' },
+        params: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Query parameters for raw action.',
+        },
+        query: {
+          type: 'string',
+          description: 'Natural language search query for natural_language action.',
+        },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
-      required: ['target_id', 'visual_state_id'],
+      required: ['action'],
     },
   },
   {
-    name: 'export_joint_trajectories',
+    name: 'get_analytics',
     description:
-      'Export unified, interleaved event and visual observation trajectories correlated by session ID for agent training.',
+      'Compute workflow metrics, velocity, burndown, cognitive load, decision lineages, and contradiction audits. Supported actions: summary (project overview), velocity (throughput and duration), burndown (time-series remaining tasks chart), value_metrics (token savings and ROI), cognitive_load (ICL and ECL context complexity), critical_path (longest unfinished task chain), context_snapshot (consolidated overview), decision_trail (trace decision lineage), find_related_decisions (find decisions related to an artifact), contradictions (audit for conflicting decisions or broken states).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
-        session_id: { type: 'string', description: 'Optional session ID / trace ID to filter.' },
-        limit: { type: 'number', description: 'Maximum steps to export (default 100).' },
+        action: {
+          type: 'string',
+          enum: [
+            'summary',
+            'velocity',
+            'burndown',
+            'value_metrics',
+            'cognitive_load',
+            'critical_path',
+            'context_snapshot',
+            'decision_trail',
+            'find_related_decisions',
+            'contradictions',
+          ],
+          description: 'The analytics or decision analysis action to execute.',
+        },
+        milestone_id: {
+          type: 'string',
+          description: 'Milestone ID for critical_path calculation.',
+        },
+        node_id: { type: 'string', description: 'Decision node ID for decision_trail.' },
+        artifact_id: {
+          type: 'string',
+          description: 'Artifact node ID for find_related_decisions.',
+        },
+        window_days: {
+          type: 'number',
+          description: 'Number of days to analyze for velocity (default: 14).',
+        },
+        days: {
+          type: 'number',
+          description: 'Number of historical days for burndown (default: 14).',
+        },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
+      required: ['action'],
     },
   },
   {
-    name: 'get_synergy_metrics',
+    name: 'get_events',
     description:
-      'Get combined dual-memory metrics: token savings, UI task verification ratio, and visual blocker health.',
+      'Inspect the append-only event audit ledger, query structured changesets, and generate session post-mortems. Supported actions: log (query event ledger with filters), changelog (get structured graph diff since timestamp or session), post_mortem (analyze a session and produce a structured markdown report).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
+        action: {
+          type: 'string',
+          enum: ['log', 'changelog', 'post_mortem'],
+          description: 'The event query action to execute.',
+        },
+        session_id: { type: 'string', description: 'Session ID for log or post_mortem.' },
+        since: {
+          type: 'string',
+          description: 'ISO timestamp or relative duration (e.g. 2h, 1d) for log or changelog.',
+        },
+        since_session: { type: 'string', description: 'Session ID to diff from for changelog.' },
+        until: { type: 'string', description: 'Ending ISO timestamp for log.' },
+        git_branch: { type: 'string', description: 'Git branch filter for changelog.' },
+        limit: { type: 'number', description: 'Maximum events to return (1-1000).' },
+        offset: { type: 'number', description: 'Pagination offset for log.' },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
+      required: ['action'],
     },
   },
   {
-    name: 'app_version',
-    description: 'Get version, package name, MCP identifier, and server info of state-memory-mcp.',
+    name: 'run_diagnostics',
+    description:
+      'Run graph sanity checks, health diagnostics, reference validation, audit chain verification, and storage maintenance. Supported actions: validate (check cycles, orphans, dangling edges), doctor (database WAL mode, schema version, storage health), check_refs (validate file paths and AST symbols with auto-heal), audit_chain (verify SHA-256 event hash integrity), compact (reclaim SQLite storage), archive (archive old completed tasks), prune_events (permanently prune events - admin mode required), version (retrieve package version info), dedupe (detect and merge duplicate nodes).',
     inputSchema: {
       type: 'object',
       properties: {
-        project: { type: 'string', description: 'Optional project identifier.' },
+        action: {
+          type: 'string',
+          enum: [
+            'validate',
+            'doctor',
+            'check_refs',
+            'audit_chain',
+            'compact',
+            'archive',
+            'prune_events',
+            'version',
+            'dedupe',
+          ],
+          description: 'The diagnostic or maintenance action to execute.',
+        },
+        apply: {
+          type: 'boolean',
+          description: 'For dedupe action: whether to apply merging (default: false for dry-run).',
+        },
+        checks: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional subset of validation checks.',
+        },
+        auto_heal: {
+          type: 'boolean',
+          description: 'Automatically fix broken file references on check_refs.',
+        },
+        prune_orphaned_edges: {
+          type: 'boolean',
+          description: 'Whether to prune dangling edges during compact.',
+        },
+        older_than_days: {
+          type: 'number',
+          description: 'Age threshold in days for archive (default: 30).',
+        },
+        older_than: {
+          type: 'string',
+          description: 'Age duration threshold for prune_events (e.g. 90d).',
+        },
+        dry_run: { type: 'boolean', description: 'Simulate event pruning without deleting.' },
+        preserve_types: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Event types to preserve from pruning.',
+        },
+        project: { type: 'string', description: 'Target project name or slug.' },
       },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'use_blackboard',
+    description:
+      'Multi-agent shared blackboard for asynchronous agent coordination. Supported actions: post (publish ephemeral notice with topic, content, and TTL expiration), read (read active non-expired blackboard notices).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['post', 'read'],
+          description: 'The blackboard action to execute.',
+        },
+        topic: { type: 'string', description: 'Blackboard topic or channel name.' },
+        content: { type: 'string', description: 'Message payload to post.' },
+        agent_id: { type: 'string', description: 'Sender agent identifier.' },
+        agent_role: {
+          type: 'string',
+          description: 'Sender agent role (e.g. planner, coder, reviewer).',
+        },
+        ttl_seconds: { type: 'number', description: 'Time-to-live in seconds (default: 3600).' },
+        project: { type: 'string', description: 'Target project name or slug.' },
+      },
+      required: ['action'],
     },
   },
 ];

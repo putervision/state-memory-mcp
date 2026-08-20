@@ -11,11 +11,11 @@ Start a tracked session and scaffold a feature spec:
 
 ```typescript
 // 1. Start Session
-start_session({ agent_id: "coder-agent-1", metadata: { feature: "user-auth" } });
+manage_sessions({ action: "start", agent_id: "coder-agent-1", metadata: { feature: "user-auth" } });
 // Returns: session_id = "sess_01KYW801"
 
 // 2. Scaffold Spec
-scaffold_spec({ title: "User Authentication Flow" });
+manage_specs({ action: "scaffold", title: "User Authentication Flow" });
 // Scaffolds .specs/user-authentication-flow.md and ingests into memory graph
 ```
 
@@ -24,10 +24,10 @@ Inspect spec requirements and prioritized tasks:
 
 ```typescript
 // 1. Get Spec Compliance Matrix
-get_spec_compliance({ project: "my-app" });
+manage_specs({ action: "compliance", project: "my-app" });
 
 // 2. Fetch Next Tasks
-next_tasks({ limit: 5 });
+manage_tasks({ action: "next", limit: 5 });
 ```
 
 ### Step 3: Implement & Link Visual State Proof
@@ -35,7 +35,8 @@ As coding progresses, link UI states captured by `vision-memory-mcp`:
 
 ```typescript
 // Link visual state layout screenshot to task verification
-link_visual_state({
+manage_edges({
+  action: "link_visual",
   project: "my-app",
   target_id: "node_task_01KYW802",
   visual_state_id: "vs_login_screen_01",
@@ -47,7 +48,8 @@ link_visual_state({
 Complete the task, create an artifact node, and create a `produces` edge in a single call:
 
 ```typescript
-complete_task({
+manage_tasks({
+  action: "complete",
   project: "my-app",
   task_id: "node_task_01KYW802",
   artifact_title: "src/auth/jwt-strategy.ts",

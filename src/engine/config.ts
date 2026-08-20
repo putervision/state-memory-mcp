@@ -11,6 +11,7 @@ export const ProjectConfigSchema = z.object({
   allowedExportDirs: z.array(z.string()).optional(),
   strictAudit: z.boolean().optional(),
   busyTimeoutMs: z.number().optional(),
+  mmapSizeBytes: z.number().optional(),
   maxDatabaseSizeBytes: z.number().optional(),
   autoVacuumThresholdBytes: z.number().optional(),
   cycleDetectionMode: z.enum(['strict', 'best_effort']).optional(),
@@ -26,6 +27,7 @@ export type ProjectConfig = {
   allowedExportDirs?: string[];
   strictAudit?: boolean;
   busyTimeoutMs?: number;
+  mmapSizeBytes?: number;
   maxDatabaseSizeBytes?: number;
   autoVacuumThresholdBytes?: number;
   cycleDetectionMode?: 'strict' | 'best_effort';

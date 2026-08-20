@@ -158,7 +158,7 @@ The graph consists of typed **Nodes** and directed typed **Edges**:
 ```mermaid
 classDiagram
     class Node {
-        +string id (ULID / NanoID)
+        +string id
         +string type
         +string title
         +string status
@@ -166,7 +166,7 @@ classDiagram
         +string git_branch
         +int version
         +object metadata
-        +string[] tags
+        +List~string~ tags
         +string created_at
         +string updated_at
     }
@@ -196,8 +196,8 @@ classDiagram
         +string timestamp
     }
 
-    Node "1" -- "*" Edge : source / target
-    Node "1" -- "*" Event : audited by
+    Node "1" --> "*" Edge : source / target
+    Node "1" --> "*" Event : audited by
 ```
 
 #### Node Types (11)
@@ -253,31 +253,31 @@ sequenceDiagram
 
     Note over Agent,S: 1. Orient & Bootstrap
     Agent->>S: manage_sessions(action: "start", agent_id: "agent-01")
-    S-->>Agent: { session_id: "01M0E..." }
+    S-->>Agent: Session started (session_id returned)
     Agent->>A: get_analytics(action: "summary")
-    A-->>Agent: { progress: 66%, active_blockers: [] }
+    A-->>Agent: Summary metrics (progress, active blockers)
 
     Note over Agent,T: 2. Task Selection
     Agent->>T: manage_tasks(action: "next", limit: 5)
-    T-->>Agent: { tasks: [{ id: "task_1", title: "Add OAuth middleware" }] }
+    T-->>Agent: Prioritized runnable tasks
 
     Note over Agent,Q: 3. Context Tracing
     Agent->>Q: query_graph(action: "trace", node_id: "task_1", direction: "upstream")
-    Q-->>Agent: { dependencies: [...], related_decisions: [...] }
+    Q-->>Agent: Upstream dependencies and related decisions
 
     Note over Agent,N: 4. Execute & Record Decisions
     Agent->>N: manage_nodes(action: "create", type: "decision", title: "Use PKCE Flow")
-    N-->>Agent: { id: "dec_1", status: "accepted" }
+    N-->>Agent: Decision node created
     Agent->>E: manage_edges(action: "add", source_id: "dec_1", target_id: "task_1", type: "decided_in")
-    E-->>Agent: { id: "edge_1" }
+    E-->>Agent: Relationship edge created
 
     Note over Agent,D: 5. Validate & Complete
     Agent->>D: run_diagnostics(action: "validate")
-    D-->>Agent: { passed: true, issues: [] }
+    D-->>Agent: Invariants validated (passed: true)
     Agent->>T: manage_tasks(action: "complete", task_id: "task_1", artifact_title: "auth.ts")
-    T-->>Agent: { completed: true, artifact_id: "art_1" }
+    T-->>Agent: Task marked done with artifact link
     Agent->>S: manage_sessions(action: "end", session_id: "01M0E...")
-    S-->>Agent: { status: "ended", duration_sec: 145 }
+    S-->>Agent: Session concluded
 ```
 
 ---

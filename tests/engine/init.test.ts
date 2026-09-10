@@ -10,7 +10,9 @@ describe('CLI Init and Post-Init Updates', () => {
 
   beforeAll(() => {
     if (fs.existsSync(tempTestDir)) {
-      fs.rmSync(tempTestDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(tempTestDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      } catch {}
     }
     fs.mkdirSync(tempTestDir, { recursive: true });
   });
@@ -18,7 +20,9 @@ describe('CLI Init and Post-Init Updates', () => {
   afterAll(() => {
     closeAllDbs();
     if (fs.existsSync(tempTestDir)) {
-      fs.rmSync(tempTestDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(tempTestDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      } catch {}
     }
   });
 

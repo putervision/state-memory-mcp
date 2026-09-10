@@ -13,7 +13,9 @@ describe('CLI subprojectsAction Command', () => {
   afterAll(() => {
     closeAllDbs();
     if (fs.existsSync(tmpDir)) {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      } catch {}
     }
   });
 

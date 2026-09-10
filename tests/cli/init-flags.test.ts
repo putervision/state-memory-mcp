@@ -3,15 +3,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { runInit } from '../../src/cli/init.js';
-import { closeAllDbs } from '../../src/engine/db.js';
+import { closeAllDbs, unregisterProject } from '../../src/engine/db.js';
 
 describe('CLI Init Extended Flags & Scaffolding', () => {
   const tmpDir = path.join(os.tmpdir(), `init-flags-test-${Date.now()}`);
 
   afterAll(() => {
     closeAllDbs();
+    try {
+      unregisterProject(path.basename(tmpDir));
+    } catch {}
     if (fs.existsSync(tmpDir)) {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+      } catch {
+        // Fallback for busy/locked filesystem in CI
+      }
     }
   });
 

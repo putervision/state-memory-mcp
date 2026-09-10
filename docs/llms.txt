@@ -13,7 +13,7 @@
 ### 1. State Memory MCP (`@putervision/state-memory-mcp`)
 - **Website**: https://statememorymcp.com
 - **Repository**: https://github.com/putervision/state-memory-mcp
-- **Description**: Zero-infrastructure, deterministic Model Context Protocol (MCP) server (v1.0.0, 13 Consolidated MCP Tools). Provides AI agents with persistent SQLite state graph memory for tracking tasks, decisions, blockers, plans, and artifacts.
+- **Description**: Zero-infrastructure, deterministic Model Context Protocol (MCP) server (v1.1.1, 13 Consolidated MCP Tools). Provides AI agents with persistent SQLite state graph memory for tracking tasks, decisions, blockers, plans, and artifacts.
 - **Architecture & Codebase Distillation**: https://statememorymcp.com/codebase-distillation.md
 - **Primary Capabilities**: SQLite graph database, 13 domain-oriented consolidated tools, 3D WebGL graph visualizer, Spec-Driven Development (SDD), Git branch isolation, SHA-256 cryptographic audit ledger, and Dual-MCP multimodal synergy.
 

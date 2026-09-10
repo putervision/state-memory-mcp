@@ -26,10 +26,57 @@ describe('Cross-Workspace Prompt & Instruction Linter Suite', () => {
     'wait_for_visual_state',
   ]);
 
+  const worldModelTools = new Set([
+    'update_entity',
+    'query_entities',
+    'set_relation',
+    'get_spatial_map',
+    'simulate_movement',
+    'ingest_observation',
+    'get_expected_view',
+    'link_to_goal',
+    'manage_spatial_spec',
+    'use_spatial_blackboard',
+    'generate_game_inputs',
+    'wait_for_spatial_state',
+  ]);
+
+  const behaviorTools = new Set([
+    'load_behavior',
+    'set_parameters',
+    'get_status',
+    'abort_behavior',
+    'register_trigger',
+    'replay_recording',
+    'get_metrics',
+    'manage_behaviors',
+    'manage_blackboard',
+    'manage_runtime_db',
+  ]);
+
+  const reasoningTools = new Set([
+    'set_goal',
+    'evaluate_situation',
+    'replan',
+    'assess_risk',
+    'query_knowledge',
+    'set_utility_weights',
+    'get_decision_trace',
+    'manage_beliefs',
+    'manage_intentions',
+    'manage_reasoning_db',
+  ]);
+
+  const webcryptTools = new Set(['encrypt_payload', 'manage_keys', 'sign_verify']);
+
   const validIdentifiers = new Set<string>([
     ...Object.keys(TOOL_ACTION_REGISTRY),
     ...Object.keys(LEGACY_TOOL_MAP),
     ...Array.from(dualMemoryVisionTools),
+    ...Array.from(worldModelTools),
+    ...Array.from(behaviorTools),
+    ...Array.from(reasoningTools),
+    ...Array.from(webcryptTools),
   ]);
 
   for (const toolMeta of Object.values(TOOL_ACTION_REGISTRY)) {

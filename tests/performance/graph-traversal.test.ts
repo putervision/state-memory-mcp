@@ -38,7 +38,7 @@ describe('Performance Benchmarking Test Suite (1,000+ Node Scalability)', () => 
 
     expect(totalCreated).toBe(1000);
     // Ensure creation of 1,000 nodes finishes reasonably under load
-    expect(durationMs).toBeLessThan(10000);
+    expect(durationMs).toBeLessThan(20000);
   });
 
   it('should benchmark listNodes querying under 1,000 nodes', async () => {

@@ -228,6 +228,31 @@ server.registerResource(
   }
 );
 
+server.registerResource(
+  'state-health',
+  'state:///health',
+  {
+    title: 'State Memory Server Health',
+    description: 'Server health status, version, and timestamp',
+    mimeType: 'application/json',
+  },
+  async (uri: URL) => {
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: 'application/json',
+          text: JSON.stringify({
+            status: 'healthy',
+            version: '1.1.1',
+            timestamp: new Date().toISOString(),
+          }, null, 2),
+        },
+      ],
+    };
+  }
+);
+
 // Register Tools & Prompts
 registerAllTools(server);
 registerAllPrompts(server);

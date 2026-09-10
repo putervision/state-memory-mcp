@@ -1,0 +1,25 @@
+<!-- agent-reasoning-mcp:start -->
+# Strategic Agent Reasoning (agent-reasoning-mcp)
+
+This project uses `agent-reasoning-mcp` with project slug "state-memory-mcp" to manage goals, decompose complex tasks, evaluate situational trade-offs, and track decision rationale.
+
+## Mandatory Reasoning Workflow
+1. **Start of planning**: Call `set_goal(action: "create", title: "...")` to establish high-level objectives.
+2. **Decomposition**: Call `set_goal(action: "decompose", parent_id: "...", subgoals: [...])` to break down into actionable steps.
+3. **Situational Trade-offs**: Call `evaluate_situation(action: "snapshot", snapshot: {...})` before selecting high-stakes actions.
+4. **Utility Configuration**: Tune agent priorities with `set_utility_weights(action: "configure", weights: {...})`.
+5. **Intention Dispatch**: Create execution directives with `manage_intentions(action: "create", ...)` for the runtime engine.
+6. **Reactive Replanning**: If an unexpected blocker occurs, invoke `replan(action: "blocker", goal_id: "...", blocker_description: "...")`.
+
+## 10 Core MCP Tools
+- `set_goal`: Manage goal hierarchy and task DAGs.
+- `evaluate_situation`: Score and rank candidate actions from environment snapshots.
+- `replan`: Adaptively reconstruct subgoals upon obstacles.
+- `assess_risk`: Quantitative threat and risk calculation.
+- `query_knowledge`: Search heuristics and past decision patterns.
+- `set_utility_weights`: Configure utility weights (aggression, caution, greed, exploration).
+- `get_decision_trace`: Explainable chain-of-thought rationale playback.
+- `manage_beliefs`: Structured belief state with exponential confidence decay.
+- `manage_intentions`: Wire contract directives queue for runtime execution.
+- `manage_reasoning_db`: Snapshots, diagnostics, and SHA-256 Merkle audit verification.
+<!-- agent-reasoning-mcp:end -->

@@ -143,7 +143,7 @@ When an autonomous AI agent enters a repository with `state-memory-mcp`:
 ## 🧪 Testing
 
 ```bash
-# Run full unit, integration, and performance benchmark test suite across all 110 test files (406 tests)
+# Run full unit, integration, and performance benchmark test suite across all 113 test files (418 tests)
 npm run test
 ```
 

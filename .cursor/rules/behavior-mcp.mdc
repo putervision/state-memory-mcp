@@ -1,0 +1,23 @@
+<!-- behavior-mcp:start -->
+# Behavior Runtime Engine (behavior-mcp)
+
+This project uses `behavior-mcp` with project slug "state-memory-mcp" to execute deterministic behavior trees at ~60Hz in browser runtimes with reactive triggers and safety guardrails.
+
+## Mandatory Runtime Workflow
+1. **Load Behavior**: Call `load_behavior(action: "load", behavior_name: "...")` to activate execution.
+2. **Monitor Execution**: Check `get_status(action: "current")` and inspect active node traversal paths.
+3. **Reactive Triggers**: Register high-priority emergency interrupts via `register_trigger(action: "register", ...)`.
+4. **Safety & Abort**: Call `abort_behavior(action: "abort")` to immediately halt execution if anomalous behavior occurs.
+
+## 10 Core MCP Tools
+- `load_behavior`: Inject and start behavior tree execution.
+- `set_parameters`: Update execution parameters on the fly.
+- `get_status`: Query active status, current node path, and tick counters.
+- `abort_behavior`: Immediately halt, pause, or resume execution.
+- `register_trigger`: Configure priority interrupts with cooldown guards.
+- `replay_recording`: Capture and replay deterministic frame actions.
+- `get_metrics`: Query execution telemetry and duration statistics.
+- `manage_behaviors`: Register and version behavior tree definitions with SHA-256 tree hashes.
+- `manage_blackboard`: Read and write behavior tree blackboard state variables.
+- `manage_runtime_db`: Database maintenance, diagnostics, and SHA-256 Merkle audit verification.
+<!-- behavior-mcp:end -->

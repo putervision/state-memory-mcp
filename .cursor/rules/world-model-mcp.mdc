@@ -1,0 +1,33 @@
+<!-- world-model-mcp:start -->
+## Spatial World Model (world-model-mcp)
+
+This project uses `world-model-mcp` with project slug "state-memory-mcp" to maintain a persistent 3D/2D spatial internal world model, entity tracking, object permanence, and movement simulation.
+
+### 1. Mandatory Workflow & Priority
+1. **Orient & Explore**: Call `get_spatial_map(format: 'summary')` and `get_expected_view` at the start of spatial or simulated tasks.
+2. **Entity Queries**: Use `query_entities` (FTS5 search, proximity radius, or entity_id lookup) before creating duplicate objects.
+3. **Perception Bridging**:
+   - Ingest detected objects from vision models using `ingest_observation`.
+   - Reconcile expected vs observed visual state using `ingest_observation(reconcile: true)`.
+4. **Spatial Relations**: Record topological containment, support, or proximity using `set_relation` (e.g. `on`, `inside`, `next_to`, `contains`).
+5. **Action Simulation & Validation**: Before executing movement, call `simulate_movement` to verify path validity and avoid AABB obstacle collisions, or `simulate_movement(mode: 'navigate')` for waypoint planning.
+6. **Goal Alignment**: Link target entities and destination regions to active `state-memory-mcp` tasks using `link_to_goal`.
+7. **Action Outcomes**: Record movement success and entity mutations using `record_outcome`.
+
+### 2. Tool Reference Summary (15 Core MCP Tools)
+* `update_entity`: Create or update an entity (position, orientation, bounding box, properties, confidence).
+* `query_entities`: Search entities by keyword, type, region, spatial proximity, tags, status, or lookup specific entity location/history.
+* `set_relation`: Record/update spatial relationships (on, inside, next_to, above, below, near, contains).
+* `get_spatial_map`: Export structured spatial layout, topological graph, 3D asset, or high-level summary.
+* `simulate_movement`: Predict entity trajectory, test for AABB obstacle collisions, or compute navigation waypoints.
+* `ingest_observation`: Merge perception detections into world model; re-identify entities and reconcile frustum view.
+* `get_expected_view`: Calculate what entities should be visible from an observer pose and FOV cone.
+* `link_to_goal`: Associate entities/regions with state-memory task IDs, or extract goal-relevant context slices.
+* `record_outcome`: Update world model after action execution completes.
+* `manage_spatial_spec`: Spatial SDD physical contract baseline registration, verification, and listing.
+* `create_evidence_pack`: Generate cryptographic SHA-256 evidence packages linking spatial state to tasks.
+* `use_spatial_blackboard`: Multi-agent shared spatial blackboard for publishing intentions and claiming mutex locks.
+* `manage_snapshot`: Unified spatial snapshot and time-travel management (save, restore, diff, list, undo, history).
+* `generate_game_inputs`: Generate Playwright MCP automation inputs or project/unproject 3D coordinates and screen pixels.
+* `wait_for_spatial_state`: Poll and wait until an entity reaches a specific spatial condition.
+<!-- world-model-mcp:end -->

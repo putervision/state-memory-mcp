@@ -28,8 +28,6 @@ import { validateGraph } from '../engine/validate.js';
 import { exportGraph } from '../engine/export.js';
 import { EventEngine } from '../engine/events.js';
 
-const MARKER = 'state-memory-mcp';
-
 /**
  * Full init workflow — creates data dir, updates gitignore,
  * scaffolds IDE instructions and MCP configs, and seeds initial nodes.
@@ -222,10 +220,6 @@ function upsertInstructionBlock(
     return { updatedContent, status: 'updated' };
   }
 
-  if (content.includes(MARKER)) {
-    return { updatedContent: content, status: 'unchanged' };
-  }
-
   const separator = content.endsWith('\n') ? '\n' : '\n\n';
   return { updatedContent: `${content}${separator}${newBlock.trim()}\n`, status: 'appended' };
 }
@@ -288,6 +282,47 @@ function scaffoldMcpConfigs(root: string, projectSlug: string): void {
 
   // VS Code: .vscode/mcp.json
   mergeMcpConfig(root, '.vscode/mcp.json', 'VS Code', getMcpConfigVscode(projectSlug), 'servers');
+
+  // Windsurf: .windsurf/mcp.json (if workspace directory exists)
+  const windsurfDir = path.join(root, '.windsurf');
+  if (fs.existsSync(windsurfDir)) {
+    mergeMcpConfig(
+      root,
+      '.windsurf/mcp.json',
+      'Windsurf',
+      getMcpConfigCursor(projectSlug),
+      'mcpServers'
+    );
+  }
+
+  // Claude Desktop (if directory exists on system)
+  const homedir = os.homedir();
+  const claudeDir =
+    process.platform === 'darwin'
+      ? path.join(homedir, 'Library', 'Application Support', 'Claude')
+      : process.platform === 'win32'
+        ? path.join(process.env.APPDATA || path.join(homedir, 'AppData', 'Roaming'), 'Claude')
+        : path.join(homedir, '.config', 'Claude');
+
+  if (fs.existsSync(claudeDir)) {
+    mergeMcpConfig(
+      claudeDir,
+      'claude_desktop_config.json',
+      'Claude Desktop',
+      {
+        mcpServers: {
+          'state-memory-mcp': {
+            command: 'state-memory-mcp',
+            args: ['run'],
+            env: {
+              STATE_MEMORY_MCP_PROJECT: projectSlug,
+            },
+          },
+        },
+      },
+      'mcpServers'
+    );
+  }
 }
 
 /**
@@ -399,6 +434,24 @@ function scaffoldGlobalAntigravityMcpConfig(): void {
     getMcpConfigAntigravity(),
     'mcpServers'
   );
+
+  // Auto-grant command(state-memory-mcp) permission in ~/.gemini/config/config.json
+  const geminiConfigJson = path.join(geminiConfigDir, 'config.json');
+  if (fs.existsSync(geminiConfigJson)) {
+    try {
+      const raw = fs.readFileSync(geminiConfigJson, 'utf-8');
+      const data = JSON.parse(raw);
+      if (data.userSettings?.globalPermissionGrants?.allow) {
+        if (!data.userSettings.globalPermissionGrants.allow.includes('command(state-memory-mcp)')) {
+          data.userSettings.globalPermissionGrants.allow.push('command(state-memory-mcp)');
+          fs.writeFileSync(geminiConfigJson, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+          console.log(
+            '      ✅ Google Antigravity (config.json) — granted command(state-memory-mcp)'
+          );
+        }
+      }
+    } catch {}
+  }
 }
 
 /**
@@ -446,6 +499,19 @@ function scaffoldAgentsCustomizations(root: string, projectSlug: string): void {
 
   fs.writeFileSync(skillPath, skillContent, 'utf-8');
   console.log('      ✅ .agents/skills/state-memory-mcp/SKILL.md — updated to latest version');
+
+  // --- Global Skill (~/.gemini/config/skills/state-memory-mcp/SKILL.md) ---
+  const homedir = os.homedir();
+  const globalSkillDir = path.join(homedir, '.gemini', 'config', 'skills', 'state-memory-mcp');
+  try {
+    if (!fs.existsSync(globalSkillDir)) {
+      fs.mkdirSync(globalSkillDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(globalSkillDir, 'SKILL.md'), skillContent, 'utf-8');
+    console.log(
+      '      ✅ Global Agent Skill (~/.gemini/config/skills/state-memory-mcp/SKILL.md) — updated to latest version'
+    );
+  } catch {}
 }
 
 /**

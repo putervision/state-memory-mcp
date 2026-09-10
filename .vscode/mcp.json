@@ -22,6 +22,46 @@
       "env": {
         "LANCEDB_PATH": "./.vision-memory-mcp"
       }
+    },
+    "world-model-mcp": {
+      "type": "stdio",
+      "command": "world-model-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "WORLD_MODEL_MCP_PROJECT": "state-memory-mcp"
+      }
+    },
+    "behavior-mcp": {
+      "type": "stdio",
+      "command": "behavior-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "BEHAVIOR_PROJECT": "state-memory-mcp"
+      }
+    },
+    "agent-reasoning-mcp": {
+      "type": "stdio",
+      "command": "agent-reasoning-mcp",
+      "args": [
+        "run"
+      ],
+      "env": {
+        "REASONING_PROJECT": "state-memory-mcp"
+      }
+    }
+  },
+  "mcpServers": {
+    "webcrypt": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "webcrypt",
+        "mcp"
+      ]
     }
   }
 }

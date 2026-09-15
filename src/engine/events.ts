@@ -441,12 +441,18 @@ export class EventEngine {
     let deleted = 0;
     if (candidateIds.length > 0 && !dryRun) {
       db.transaction(() => {
-        // SQLite has 999 parameter limit, chunk deletion if needed
-        const chunkSize = 900;
+        const chunkSize = 500;
+        const fullChunkStmt = db.prepare(
+          `DELETE FROM events WHERE id IN (${Array(chunkSize).fill('?').join(',')})`
+        );
         for (let i = 0; i < candidateIds.length; i += chunkSize) {
           const chunk = candidateIds.slice(i, i + chunkSize);
-          const placeholders = chunk.map(() => '?').join(',');
-          db.prepare(`DELETE FROM events WHERE id IN (${placeholders})`).run(...chunk);
+          if (chunk.length === chunkSize) {
+            fullChunkStmt.run(...chunk);
+          } else {
+            const placeholders = chunk.map(() => '?').join(',');
+            db.prepare(`DELETE FROM events WHERE id IN (${placeholders})`).run(...chunk);
+          }
         }
       })();
       deleted = candidateIds.length;

@@ -330,7 +330,16 @@ export const migrations: Migration[] = [
         `CREATE INDEX IF NOT EXISTS idx_nodes_project_type_status_branch ON nodes(project, type, status, git_branch)`
       ).run();
       db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_nodes_project_status_type ON nodes(project, status, type)`
+      ).run();
+      db.prepare(
         `CREATE INDEX IF NOT EXISTS idx_edges_project_branch_type ON edges(project, git_branch, type)`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_edges_project_source_type ON edges(project, source_id, type)`
+      ).run();
+      db.prepare(
+        `CREATE INDEX IF NOT EXISTS idx_edges_project_target_type ON edges(project, target_id, type)`
       ).run();
       db.prepare(
         `CREATE INDEX IF NOT EXISTS idx_events_project_session ON events(project, session_id)`
@@ -341,7 +350,10 @@ export const migrations: Migration[] = [
     },
     down: (db) => {
       db.prepare('DROP INDEX IF EXISTS idx_nodes_project_type_status_branch').run();
+      db.prepare('DROP INDEX IF EXISTS idx_nodes_project_status_type').run();
       db.prepare('DROP INDEX IF EXISTS idx_edges_project_branch_type').run();
+      db.prepare('DROP INDEX IF EXISTS idx_edges_project_source_type').run();
+      db.prepare('DROP INDEX IF EXISTS idx_edges_project_target_type').run();
       db.prepare('DROP INDEX IF EXISTS idx_events_project_session').run();
       db.prepare('DROP INDEX IF EXISTS idx_events_project_timestamp').run();
     },

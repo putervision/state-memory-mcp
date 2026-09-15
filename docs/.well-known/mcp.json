@@ -10,7 +10,7 @@
       "id": "state-memory-mcp",
       "name": "State Memory MCP",
       "package": "@putervision/state-memory-mcp",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "command": "npx",
       "args": [
         "-y",
@@ -33,7 +33,7 @@
       "id": "vision-memory-mcp",
       "name": "Visual Memory MCP",
       "package": "@putervision/vision-memory-mcp",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "command": "npx",
       "args": [
         "-y",
@@ -54,7 +54,7 @@
       "id": "world-model-mcp",
       "name": "Spatial World Model MCP",
       "package": "@putervision/world-model-mcp",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "command": "npx",
       "args": [
         "-y",
@@ -75,7 +75,7 @@
       "id": "behavior-mcp",
       "name": "Behavior Runtime MCP",
       "package": "@putervision/behavior-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "command": "npx",
       "args": [
         "-y",
@@ -96,7 +96,7 @@
       "id": "agent-reasoning-mcp",
       "name": "Agent Reasoning MCP",
       "package": "@putervision/agent-reasoning-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "command": "npx",
       "args": [
         "-y",

@@ -1,6 +1,6 @@
 {
   "name": "@putervision/state-memory-mcp",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Deterministic, persistent graph server for tracking workflow state, decisions, and blockers.",
   "keywords": [
     "mcp",
@@ -91,7 +91,9 @@
     "test:coverage": "vitest run --coverage",
     "test:matrix": "bash scripts/test-matrix.sh",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "version:check": "node scripts/sync-version.mjs --check",
+    "version:sync": "node scripts/sync-version.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0"

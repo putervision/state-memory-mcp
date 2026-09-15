@@ -241,7 +241,7 @@ server.registerResource(
           mimeType: 'application/json',
           text: JSON.stringify({
             status: 'healthy',
-            version: '1.2.0',
+            version: VERSION,
             timestamp: new Date().toISOString(),
           }, null, 2),
         },

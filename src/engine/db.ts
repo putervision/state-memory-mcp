@@ -345,7 +345,13 @@ export function sanitizeSlug(str: string): string {
 
 export function getProjectSlug(project?: string): string {
   if (project && project.trim() !== '') {
-    return sanitizeSlug(project);
+    const slug = sanitizeSlug(project);
+    if (!slug) {
+      throw new DatabaseError(
+        `Invalid project identifier "${project}": must contain at least one alphanumeric character.`
+      );
+    }
+    return slug;
   }
   const root = resolveProjectRoot(project);
 
@@ -363,7 +369,13 @@ export function getProjectSlug(project?: string): string {
 
   const config = loadProjectConfig(root);
   const name = config.projectName || path.basename(root);
-  return sanitizeSlug(name);
+  const slug = sanitizeSlug(name);
+  if (!slug) {
+    throw new DatabaseError(
+      `Invalid project name "${name}": must contain at least one alphanumeric character.`
+    );
+  }
+  return slug;
 }
 
 // Get the directory where a project's database is stored
@@ -404,9 +416,9 @@ export function getProjectDbDir(project?: string): string {
   const projectSlug = getProjectSlug(project);
   const targetDir = path.resolve(path.join(baseDir, projectSlug));
 
-  // Verify that the resolved target directory is inside the allowed baseDir to prevent path traversal
+  // Verify that the resolved target directory is strictly inside the allowed baseDir to prevent path traversal
   const relative = path.relative(baseDir, targetDir);
-  const isSafe = relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  const isSafe = relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
   if (!isSafe) {
     throw new DatabaseError(
       `Path traversal detected: target directory "${targetDir}" is outside allowed base directory "${baseDir}"`

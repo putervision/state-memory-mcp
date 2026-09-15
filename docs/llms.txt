@@ -1,30 +1,69 @@
 # PuterVision — MCP Research & Development Labs
 
-> PuterVision is a private engineering research laboratory pioneering deterministic state graph storage, perceptual visual caching, and context compression algorithms for AI developer agents and Model Context Protocol (MCP) architectures.
+> PuterVision is an AI engineering research laboratory pioneering deterministic multi-modal state memory, visual perception caching, 3D spatial world models, high-frequency behavior tree execution engines, and BDI reasoning architectures for autonomous AI developer agents and the Model Context Protocol (MCP).
 
 ## Core Research Focus
 - **Deterministic Context Stores**: SQLite-backed state graph memory for AI coding agents to eliminate LLM hallucination in task tracking and audit trails.
 - **Perceptual Fast-Path Matching**: Sub-5ms screen state recognition using Hamming distance dHash algorithms to bypass expensive vision LLM calls.
-- **Spec-Driven Development (SDD)**: Compiling Markdown PRDs and Gherkin BDD specs into graph execution nodes to verify requirement coverage.
-- **Local Multimodal Perception**: Embedded zero-cloud CLIP vision models and LanceDB vector stores for private semantic retrieval.
+- **3D Spatial Memory & Simulation**: Durable entity tracking, exponential confidence decay, and AABB collision avoidance for game and desktop automation.
+- **High-Frequency (~60Hz) Behavior Tree Runtime**: Deterministic in-browser tick loops with reactive trigger preemption and safety guardrails.
+- **Strategic BDI Reasoning**: Multi-attribute expected utility evaluation, hierarchical goal decomposition, and explainable decision traces.
 
-## Published Open-Source Initiatives
+## Published Open-Source Initiatives (The PuterVision MCP Pentad)
 
 ### 1. State Memory MCP (`@putervision/state-memory-mcp`)
 - **Website**: https://statememorymcp.com
 - **Repository**: https://github.com/putervision/state-memory-mcp
-- **Description**: Zero-infrastructure, deterministic Model Context Protocol (MCP) server (v1.1.1, 13 Consolidated MCP Tools). Provides AI agents with persistent SQLite state graph memory for tracking tasks, decisions, blockers, plans, and artifacts.
-- **Architecture & Codebase Distillation**: https://statememorymcp.com/codebase-distillation.md
-- **Primary Capabilities**: SQLite graph database, 13 domain-oriented consolidated tools, 3D WebGL graph visualizer, Spec-Driven Development (SDD), Git branch isolation, SHA-256 cryptographic audit ledger, and Dual-MCP multimodal synergy.
+- **Description**: Zero-infrastructure, deterministic Model Context Protocol (MCP) server providing AI agents with persistent SQLite state graph memory for tracking tasks, decisions, blockers, plans, and artifacts.
+- **Primary Capabilities**: SQLite graph database, 3D WebGL graph visualizer, Spec-Driven Development (SDD), Git branch isolation, SHA-256 Merkle event ledger.
 
 ### 2. Visual Memory MCP (`@putervision/vision-memory-mcp`)
 - **Website**: https://visionmemorymcp.com
 - **Repository**: https://github.com/putervision/vision-memory-mcp
-- **Description**: Visual perception cache & perceptual hashing MCP server. Caches webpage and app screenshots locally using dHash, local CLIP vector search, and accessibility trees to optimize LLM vision token overhead.
-- **Primary Capabilities**: L1/L2 dHash zero-token fast-path, L3 local CLIP vector search, visual layout drift verification.
+- **Description**: Visual perception cache & perceptual hashing MCP server. Caches webpage and app screenshots locally using dHash, local CLIP vector search, and accessibility trees to cut LLM token costs by up to 90%.
+- **Primary Capabilities**: L1/L2 dHash zero-token fast-path, L3 local CLIP vector search, visual layout drift verification, WebM/MP4 video frame timeline ingestion.
+
+### 3. Spatial World Model MCP (`@putervision/world-model-mcp`)
+- **Website**: https://worldmodelmcp.com
+- **Repository**: https://github.com/putervision/world-model-mcp
+- **Description**: Deterministic 3D/2D spatial internal world model for autonomous agents with entity permanence, movement simulation, and collision avoidance.
+- **Primary Capabilities**: Entity CRUD, topological spatial graphs, frustum ray-AABB occlusion culling, waypoint navigation, Playwright 3D game automation inputs.
+
+### 4. Behavior Runtime MCP (`@putervision/behavior-mcp`)
+- **Website**: https://behaviormcp.com
+- **Repository**: https://github.com/putervision/behavior-mcp
+- **Description**: High-frequency (~60Hz) in-browser behavior tree tactical runtime engine with reactive trigger interrupts and multi-layer safety guardrails.
+- **Primary Capabilities**: Fail-closed behavior trees, 60 actions/sec rate limiter, leaf policy gates, watchdog timers, deterministic frame recordings.
+
+### 5. Agent Reasoning MCP (`@putervision/agent-reasoning-mcp`)
+- **Website**: https://agentreasoningmcp.com
+- **Repository**: https://github.com/putervision/agent-reasoning-mcp
+- **Description**: Strategic BDI reasoning and decision intelligence engine for autonomous AI agents — goals, utility evaluation, and reactive replanning.
+- **Primary Capabilities**: Goal DAG decomposition, multi-attribute expected utility theory, exponential belief decay ($C = C_0 e^{-\lambda t}$), intention dispatch queue, explainable decision traces.
+
+### 6. PuterVision Harness (`@putervision/harness`)
+- **Website**: https://putervision.com
+- **Repository**: https://github.com/putervision/harness
+- **Description**: Supervisor orchestration, multi-server lifecycle management, automated OODA super-loop execution, and gaming HUD perception-action bridges.
+- **Primary Capabilities**: Child process supervision, MCP tool registry & gateway proxy, automated trace ID & project parameter injection, Bézier aim smoothing, HUD vital slicer, panic E-stop.
+
+### 7. ScreenChunk (`ScreenChunk`)
+- **Website**: https://screenchunk.com
+- **Repository**: https://github.com/putervision/screenchunk
+- **Description**: Ultra-fast live screen capture studio, 2D region cropping, and WebRTC screen recorder with client-side zero-knowledge AES-256-GCM chunk protection.
+
+### 8. BassMusic.AI (`BassMusic.AI`)
+- **Website**: https://bassmusic.ai
+- **Repository**: https://github.com/putervision/bassmusicai
+- **Description**: Free, 100% client-side AI electronic bass music and vocal stem generator running in-browser via WebGPU and WebAssembly SIMD neural models.
 
 ## Canonical URLs & References
 - **PuterVision R&D Labs**: https://putervision.com
 - **State Memory MCP**: https://statememorymcp.com
 - **Visual Memory MCP**: https://visionmemorymcp.com
+- **Spatial World Model MCP**: https://worldmodelmcp.com
+- **Behavior Runtime MCP**: https://behaviormcp.com
+- **Agent Reasoning MCP**: https://agentreasoningmcp.com
+- **ScreenChunk**: https://screenchunk.com
+- **BassMusic.AI**: https://bassmusic.ai
 - **GitHub Organization**: https://github.com/putervision

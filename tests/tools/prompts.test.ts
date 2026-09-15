@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { NativeMcpServer as McpServer } from '../../src/transport/native-mcp.js';
 import { registerAllPrompts } from '../../src/tools/prompts.js';
 import { GraphEngine } from '../../src/engine/graph.js';
 import { EdgeEngine } from '../../src/engine/edges.js';

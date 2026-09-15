@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import {
+  NativeClient as Client,
+  NativeInMemoryTransport as InMemoryTransport,
+} from '../../src/transport/native-mcp.js';
 import { server } from '../../src/server.js';
 import { closeAllDbs } from '../../src/engine/db.js';
 import { TOOL_ACTION_REGISTRY } from '../../src/engine/advisor.js';

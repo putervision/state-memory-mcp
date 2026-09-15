@@ -49,7 +49,7 @@ describe('Webhook Notifications Engine Edge Cases', () => {
     expect(isPrivateIp('fc00::1')).toBe(true);
 
     expect(isPrivateIp('8.8.8.8')).toBe(false);
-    expect(isPrivateIp('1.1.1.1')).toBe(false);
+    expect(isPrivateIp('1.2.0.1')).toBe(false);
   });
 
   it('should evaluate isSafeWebhookUrl protocols and hostnames', () => {

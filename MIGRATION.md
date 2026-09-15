@@ -159,3 +159,51 @@ await client.callTool({
   arguments: { action: "complete", project: "my-app", task_id: "01M..." }
 });
 ```
+
+---
+
+## ⚡️ Upgrading to v1.1: Native Transport & Architecture Unification
+
+Version 1.1 introduces zero-dependency native transport, strict project isolation, unified blackboard semantics, and documentation resources.
+
+### 1. Zero-Dependency Native Transport (`PV_NATIVE_TRANSPORT=1`)
+You can now run `state-memory-mcp` with zero dependency on `@modelcontextprotocol/sdk` and `zod` by setting `PV_NATIVE_TRANSPORT=1`:
+
+```json
+{
+  "mcpServers": {
+    "state-memory": {
+      "command": "node",
+      "args": ["/path/to/state-memory-mcp/dist/index.js"],
+      "env": {
+        "PV_NATIVE_TRANSPORT": "1"
+      }
+    }
+  }
+}
+```
+
+- Sub-millisecond JSON-RPC 2.0 framing directly on Node.js `readline`.
+- Dynamic protocol version negotiation (supports `2024-11-05` and newer).
+- Per-request AbortController cancellation via `notifications/cancelled`.
+
+### 2. Mandatory `project` Slug Validation
+In v1.1, all SQLite operations require an explicit non-empty `project` slug.
+- Missing or empty `project` values immediately return JSON-RPC Error `-32602` (`Invalid params: "project" parameter is required`).
+- Silent fallback to `default.db` has been completely removed to avoid cross-project graph corruption.
+
+### 3. Unified Blackboard Dialect
+The `use_blackboard` tool adheres to the unified 5-verb specification across the PuterVision Pentad:
+`get` | `set` | `delete` | `lease` | `list`
+
+- Legacy `action: "post"` is aliased to `action: "set"` with a deprecation notice.
+- TTL expiration is in seconds (`ttl_seconds`).
+
+### 4. Canonical Tool Documentation Resources (`pv://docs/...`)
+Tool documentation and schemas can now be inspected directly through MCP resources without loading the full parameter schema into every context window:
+- URI template: `pv://docs/{toolName}`
+- Individual resources: `pv://docs/manage_nodes`, `pv://docs/get_analytics`, etc.
+
+### 5. Fast-Path Context Snapshot
+Use `get_analytics(action: "active_context", project: "...")` for a compacted single-turn snapshot of current goals, in-progress tasks, blockers, and recent decisions.
+

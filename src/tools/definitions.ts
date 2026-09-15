@@ -35,6 +35,7 @@ export const READ_ONLY_ACTIONS = new Set([
   'get_analytics:cognitive_load',
   'get_analytics:critical_path',
   'get_analytics:context_snapshot',
+  'get_analytics:active_context',
   'get_analytics:decision_trail',
   'get_analytics:find_related_decisions',
   'get_analytics:contradictions',
@@ -47,6 +48,8 @@ export const READ_ONLY_ACTIONS = new Set([
   'run_diagnostics:audit_chain',
   'run_diagnostics:version',
   'run_diagnostics:dedupe',
+  'use_blackboard:get',
+  'use_blackboard:list',
   'use_blackboard:read',
 ]);
 
@@ -58,6 +61,7 @@ export const DESTRUCTIVE_ACTIONS = new Set([
   'manage_snapshots:undo',
   'manage_data:import_graph',
   'run_diagnostics:prune_events',
+  'use_blackboard:delete',
 ]);
 
 export const DESTRUCTIVE_TOOLS = new Set([
@@ -564,7 +568,7 @@ export const toolDefinitions: ToolDefinition[] = [
   {
     name: 'get_analytics',
     description:
-      'Compute workflow metrics, velocity, burndown, cognitive load, decision lineages, and contradiction audits. Supported actions: summary (project overview), velocity (throughput and duration), burndown (time-series remaining tasks chart), value_metrics (token savings and ROI), cognitive_load (ICL and ECL context complexity), critical_path (longest unfinished task chain), context_snapshot (consolidated overview), decision_trail (trace decision lineage), find_related_decisions (find decisions related to an artifact), contradictions (audit for conflicting decisions or broken states).',
+      'Compute workflow metrics, velocity, burndown, cognitive load, decision lineages, and contradiction audits. Supported actions: summary (project overview), velocity (throughput and duration), burndown (time-series remaining tasks chart), value_metrics (token savings and ROI), cognitive_load (ICL and ECL context complexity), critical_path (longest unfinished task chain), context_snapshot / active_context (consolidated overview), decision_trail (trace decision lineage), find_related_decisions (find decisions related to an artifact), contradictions (audit for conflicting decisions or broken states).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -578,6 +582,7 @@ export const toolDefinitions: ToolDefinition[] = [
             'cognitive_load',
             'critical_path',
             'context_snapshot',
+            'active_context',
             'decision_trail',
             'find_related_decisions',
             'contradictions',
@@ -694,23 +699,36 @@ export const toolDefinitions: ToolDefinition[] = [
   {
     name: 'use_blackboard',
     description:
-      'Multi-agent shared blackboard for asynchronous agent coordination. Supported actions: post (publish ephemeral notice with topic, content, and TTL expiration), read (read active non-expired blackboard notices).',
+      'Multi-agent shared blackboard for asynchronous coordination. Actions: get (read notices or fetch by id), set (post notice with TTL), delete (remove by id or topic), lease (acquire or release mutex), list (list active topics). Legacy post/read supported.',
     inputSchema: {
       type: 'object',
       properties: {
         action: {
           type: 'string',
-          enum: ['post', 'read'],
+          enum: ['get', 'set', 'delete', 'lease', 'list', 'post', 'read'],
           description: 'The blackboard action to execute.',
         },
         topic: { type: 'string', description: 'Blackboard topic or channel name.' },
-        content: { type: 'string', description: 'Message payload to post.' },
-        agent_id: { type: 'string', description: 'Sender agent identifier.' },
+        content: { type: 'string', description: 'Message payload to post/set.' },
+        id: { type: 'string', description: 'Blackboard entry identifier for get or delete.' },
+        resource_id: { type: 'string', description: 'Resource identifier to lease or release.' },
+        mode: {
+          type: 'string',
+          enum: ['acquire', 'release'],
+          description: 'Lease action mode: acquire or release (default: acquire).',
+        },
+        agent_id: { type: 'string', description: 'Sender or claiming agent identifier.' },
         agent_role: {
           type: 'string',
           description: 'Sender agent role (e.g. planner, coder, reviewer).',
         },
         ttl_seconds: { type: 'number', description: 'Time-to-live in seconds (default: 3600).' },
+        duration_seconds: {
+          type: 'number',
+          description: 'Lease hold duration in seconds (default: 60).',
+        },
+        limit: { type: 'number', description: 'Maximum number of items or topics to return.' },
+        topic_prefix: { type: 'string', description: 'Prefix filter for listing topics.' },
         project: { type: 'string', description: 'Target project name or slug.' },
       },
       required: ['action'],

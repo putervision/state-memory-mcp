@@ -82,4 +82,16 @@ describe('Backward Compatibility Shim & Legacy Tool Mapping Tests', () => {
     expect(transformedArgs.action).toBe('find_similar_blockers');
     expect(transformedArgs.query).toBe('database lock');
   });
+
+  it('should handle argRenames correctly during translation', () => {
+    (LEGACY_TOOL_MAP as any)['test_rename_tool'] = {
+      tool: 'manage_nodes',
+      action: 'create',
+      argRenames: { old_field: 'new_field' },
+    };
+    const res = translateLegacyCall('test_rename_tool', { old_field: 'val' });
+    expect(res.transformedArgs.new_field).toBe('val');
+    expect(res.transformedArgs.old_field).toBeUndefined();
+    delete (LEGACY_TOOL_MAP as any)['test_rename_tool'];
+  });
 });

@@ -666,7 +666,7 @@ export const TOOL_ACTION_REGISTRY: Record<string, ToolActionMetadata> = {
         description: 'Single-call overview for agent alignment',
         optional: ['project'],
         example: { action: 'context_snapshot', project: 'my-app' },
-        aliases: ['snapshot_context', 'align'],
+        aliases: ['snapshot_context', 'align', 'active_context'],
       },
       decision_trail: {
         description: 'Trace decision lineage upstream and downstream',
@@ -696,7 +696,7 @@ export const TOOL_ACTION_REGISTRY: Record<string, ToolActionMetadata> = {
       if (args.node_id) return 'decision_trail';
       if (args.artifact_id) return 'find_related_decisions';
       if (args.contradictions) return 'contradictions';
-      if (args.context) return 'context_snapshot';
+      if (args.context || args.active_context) return 'context_snapshot';
       return 'summary';
     },
   },

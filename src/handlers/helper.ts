@@ -1,4 +1,4 @@
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { McpError, ErrorCode } from '../utils/errors.js';
 import { ParseResult } from '../schema/schemas.js';
 import { getDb } from '../engine/db.js';
 

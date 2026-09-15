@@ -1,6 +1,4 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
+import { McpError, ErrorCode, NativeMcpServer } from '../transport/native-mcp.js';
 import {
   toolDefinitions,
   READ_ONLY_TOOLS,
@@ -13,8 +11,9 @@ import { resolveProjectRoot } from '../engine/db.js';
 import { loadProjectConfig } from '../engine/config.js';
 import { LEGACY_TOOL_MAP, translateLegacyCall } from './compat-shim.js';
 import { resolveAction, generateToolActionGuidance } from '../engine/advisor.js';
+import { z, Schema, ObjectSchema } from '../schema/schemas.js';
 
-export function jsonSchemaToZod(schema: any): z.ZodTypeAny {
+export function jsonSchemaToZod(schema: any): Schema<any> {
   if (!schema || typeof schema !== 'object') {
     return z.any();
   }
@@ -43,12 +42,12 @@ export function jsonSchemaToZod(schema: any): z.ZodTypeAny {
     if (!schema.properties) {
       return z.record(z.any());
     }
-    const shape: Record<string, z.ZodTypeAny> = {};
+    const shape: Record<string, Schema<any>> = {};
     const properties = schema.properties || {};
     const required = new Set(schema.required || []);
 
     for (const [key, propSchema] of Object.entries(properties)) {
-      let zodProp: z.ZodTypeAny;
+      let zodProp: Schema<any>;
       if (key === 'action') {
         zodProp = z.string().optional();
       } else {
@@ -69,15 +68,15 @@ export function jsonSchemaToZod(schema: any): z.ZodTypeAny {
   return z.any();
 }
 
-export function jsonSchemaToZodObject(schema: any): z.ZodObject<any> {
+export function jsonSchemaToZodObject(schema: any): any {
   const zod = jsonSchemaToZod(schema);
-  if (zod instanceof z.ZodObject) {
+  if (zod instanceof ObjectSchema) {
     return zod;
   }
   return z.object({}).passthrough();
 }
 
-export function registerAllTools(server: McpServer): void {
+export function registerAllTools(server: NativeMcpServer | any): void {
   // 1. Register the 13 consolidated tools
   for (const toolDef of toolDefinitions) {
     const name = toolDef.name;
@@ -87,14 +86,18 @@ export function registerAllTools(server: McpServer): void {
       .join(' ');
 
     const isReadOnlyTool = READ_ONLY_TOOLS.has(name);
-    const inputZodSchema = jsonSchemaToZodObject(toolDef.inputSchema);
+    const effectiveSchema = JSON.parse(JSON.stringify(toolDef.inputSchema));
+    if (effectiveSchema.properties?.action) {
+      delete effectiveSchema.properties.action.enum;
+    }
 
     server.registerTool(
       name,
       {
         title,
         description: toolDef.description,
-        inputSchema: inputZodSchema as any,
+        inputSchema: effectiveSchema,
+        rawJsonSchema: effectiveSchema,
         annotations: {
           readOnlyHint: isReadOnlyTool,
           destructiveHint: false,
@@ -126,6 +129,22 @@ export function registerAllTools(server: McpServer): void {
         const effectiveArgs = { ...(args || {}), action };
         const actionKey = `${name}:${action}`;
 
+        // Enforce mandatory project slug (E7)
+        const isGlobalAction = name === 'run_diagnostics' && action === 'version';
+        if (!isGlobalAction) {
+          const projectSlug =
+            effectiveArgs?.project ||
+            process.env.STATE_MEMORY_MCP_PROJECT ||
+            process.env.PV_PROJECT;
+          if (!projectSlug || String(projectSlug).trim() === '') {
+            throw new McpError(
+              ErrorCode.InvalidParams,
+              `Parameter "project" is required for tool "${name}". Provide the "project" parameter or set the STATE_MEMORY_MCP_PROJECT environment variable.`
+            );
+          }
+          effectiveArgs.project = String(projectSlug).trim();
+        }
+
         // Security & Access Control Enforcement
         const projectRoot = resolveProjectRoot(effectiveArgs?.project);
         const config = loadProjectConfig(projectRoot);
@@ -154,6 +173,7 @@ export function registerAllTools(server: McpServer): void {
             'manage_database:audit',
             'get_analytics:summary',
             'get_analytics:context_snapshot',
+            'get_analytics:active_context',
           ].includes(actionKey)
         ) {
           throw new McpError(
@@ -209,7 +229,7 @@ export function registerAllTools(server: McpServer): void {
         {
           title: `[Deprecated] ${legacyName}`,
           description: `[DEPRECATED in v1.0] Legacy alias for ${mapping.tool}(action: "${mapping.action}"). Please migrate to ${mapping.tool}.`,
-          inputSchema: z.record(z.any()) as any,
+          inputSchema: { type: 'object' },
           annotations: {
             readOnlyHint: isReadOnly,
             destructiveHint: isDestructive,

@@ -288,6 +288,11 @@ describe('Tools Registration & Schema Converter Exhaustive Test Suite', () => {
     const aImpact = await registeredTools['get_analytics']({ action: 'context_snapshot', project });
     expect(aImpact.content[0].text).toBeDefined();
 
+    const aActive = await registeredTools['get_analytics']({ action: 'active_context', project });
+    expect(aActive.content[0].text).toBeDefined();
+    const activeParsed = JSON.parse(aActive.content[0].text);
+    expect(activeParsed.summary).toBeDefined();
+
     // 7. get_events: log, changelog
     const evList = await registeredTools['get_events']({ action: 'log', project, limit: 10 });
     expect(evList.content[0].text).toBeDefined();

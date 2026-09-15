@@ -354,6 +354,9 @@ export class ObjectSchema<T extends Record<string, Schema<any>>> extends Schema<
     if (this.description) s.description = this.description;
     return s;
   }
+  passthrough(): this {
+    return this;
+  }
 }
 
 export class UnknownSchema extends Schema<any> {
@@ -379,6 +382,7 @@ export const z = {
   record: <V>(valSchema: Schema<V>) => new RecordSchema<V>(valSchema),
   object: <T extends Record<string, Schema<any>>>(shape: T) => new ObjectSchema<T>(shape),
   unknown: () => new UnknownSchema(),
+  any: () => new UnknownSchema(),
 };
 
 // ==========================================
@@ -914,7 +918,7 @@ export const NaturalLanguageQuerySchema = z.object({
   limit: z.number().optional(),
 });
 
-export const PostBlackboardSchema = z.object({
+export const SetBlackboardSchema = z.object({
   project: z.string().optional(),
   agent_id: z.string().optional(),
   agent_role: z.string().optional(),
@@ -922,11 +926,35 @@ export const PostBlackboardSchema = z.object({
   content: z.string().min(1, 'content is required'),
   ttl_seconds: z.number().optional(),
 });
+export const PostBlackboardSchema = SetBlackboardSchema;
 
-export const ReadBlackboardSchema = z.object({
+export const GetBlackboardSchema = z.object({
   project: z.string().optional(),
   topic: z.string().optional(),
+  id: z.string().optional(),
   limit: z.number().optional(),
+});
+export const ReadBlackboardSchema = GetBlackboardSchema;
+
+export const DeleteBlackboardSchema = z.object({
+  project: z.string().optional(),
+  id: z.string().optional(),
+  topic: z.string().optional(),
+});
+
+export const LeaseBlackboardSchema = z.object({
+  project: z.string().optional(),
+  resource_id: z.string().optional(),
+  topic: z.string().optional(),
+  agent_id: z.string().min(1, 'agent_id is required'),
+  duration_seconds: z.number().optional(),
+  mode: z.enum(['acquire', 'release']).optional(),
+});
+
+export const ListBlackboardSchema = z.object({
+  project: z.string().optional(),
+  limit: z.number().optional(),
+  topic_prefix: z.string().optional(),
 });
 
 export const PlanAndDecomposeFeatureSchema = z.object({

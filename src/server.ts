@@ -1,4 +1,3 @@
-import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { VERSION } from './utils/version.js';
 import { registerAllTools } from './tools/handlers.js';
 import { registerAllPrompts } from './tools/prompts.js';
@@ -10,16 +9,14 @@ import { QueryEngine } from './engine/queries.js';
 import { EventEngine } from './engine/events.js';
 import { SessionEngine } from './engine/sessions.js';
 import { getDb, getProjectSlug } from './engine/db.js';
+import { toolDefinitions } from './tools/definitions.js';
+import { NativeMcpServer, NativeResourceTemplate } from './transport/native-mcp.js';
 
-export const server = new McpServer({
-  name: 'io.github.putervision/state-memory-mcp',
-  version: VERSION,
-});
-
+export function registerAllResources(server: NativeMcpServer | any): void {
 // Register Resource Templates
 server.registerResource(
   'project-summary',
-  new ResourceTemplate('state-memory:///{project}/summary', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/summary', { list: undefined }),
   {
     title: 'Project Summary Template',
     description: 'High-level project state overview',
@@ -42,7 +39,7 @@ server.registerResource(
 
 server.registerResource(
   'project-blockers',
-  new ResourceTemplate('state-memory:///{project}/blockers', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/blockers', { list: undefined }),
   {
     title: 'Project Active Blockers Template',
     description: 'Currently active blocker nodes',
@@ -65,7 +62,7 @@ server.registerResource(
 
 server.registerResource(
   'project-next-tasks',
-  new ResourceTemplate('state-memory:///{project}/tasks/next', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/tasks/next', { list: undefined }),
   {
     title: 'Project Next Tasks Template',
     description: 'Next unblocked runnable tasks',
@@ -89,7 +86,7 @@ server.registerResource(
 
 server.registerResource(
   'project-node-details',
-  new ResourceTemplate('state-memory:///{project}/node/{id}', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/node/{id}', { list: undefined }),
   {
     title: 'Project Node Details Template',
     description: 'Individual node details and connected edges',
@@ -112,7 +109,7 @@ server.registerResource(
 
 server.registerResource(
   'project-metrics',
-  new ResourceTemplate('state-memory:///{project}/metrics', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/metrics', { list: undefined }),
   {
     title: 'Project Metrics Template',
     description: 'Value metrics and project velocity',
@@ -135,7 +132,7 @@ server.registerResource(
 
 server.registerResource(
   'project-decisions',
-  new ResourceTemplate('state-memory:///{project}/decisions', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/decisions', { list: undefined }),
   {
     title: 'Project Decision Log Template',
     description: 'Recent accepted decisions',
@@ -158,7 +155,7 @@ server.registerResource(
 
 server.registerResource(
   'project-graph-json',
-  new ResourceTemplate('state-memory:///{project}/graph.json', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/graph.json', { list: undefined }),
   {
     title: 'Project Graph Export Template',
     description: 'Full node/edge graph export',
@@ -182,7 +179,7 @@ server.registerResource(
 
 server.registerResource(
   'project-events',
-  new ResourceTemplate('state-memory:///{project}/events', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/events', { list: undefined }),
   {
     title: 'Project Events Template',
     description: 'Recent state-transition events',
@@ -206,7 +203,7 @@ server.registerResource(
 
 server.registerResource(
   'project-sessions',
-  new ResourceTemplate('state-memory:///{project}/sessions', { list: undefined }),
+  new NativeResourceTemplate('state-memory:///{project}/sessions', { list: undefined }),
   {
     title: 'Project Sessions Template',
     description: 'Recent session history',
@@ -244,7 +241,7 @@ server.registerResource(
           mimeType: 'application/json',
           text: JSON.stringify({
             status: 'healthy',
-            version: '1.1.1',
+            version: '1.2.0',
             timestamp: new Date().toISOString(),
           }, null, 2),
         },
@@ -253,6 +250,86 @@ server.registerResource(
   }
 );
 
-// Register Tools & Prompts
-registerAllTools(server);
-registerAllPrompts(server);
+  // Register pv://docs/... documentation resources (E13)
+  for (const tool of toolDefinitions) {
+    server.registerResource(
+      `docs-${tool.name}`,
+      `pv://docs/${tool.name}`,
+      {
+        title: `${tool.name} Documentation`,
+        description: `Complete parameter schema and documentation for ${tool.name}`,
+        mimeType: 'application/json',
+      },
+      async (uri: URL) => ({
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify(
+              {
+                tool: tool.name,
+                description: tool.description,
+                inputSchema: tool.inputSchema,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      })
+    );
+  }
+
+  server.registerResource(
+    'tool-docs-template',
+    new NativeResourceTemplate('pv://docs/{toolName}', { list: undefined }),
+    {
+      title: 'Tool Documentation Template',
+      description: 'Fetch detailed tool documentation and parameter schema via pv://docs/{toolName}',
+      mimeType: 'application/json',
+    },
+    async (uri: URL, variables: any) => {
+      const toolName = Array.isArray(variables.toolName) ? variables.toolName[0] : variables.toolName;
+      const tool = toolDefinitions.find((t) => t.name === toolName);
+      if (!tool) {
+        throw new Error(`Documentation not found for tool: "${toolName}"`);
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify(
+              {
+                tool: tool.name,
+                description: tool.description,
+                inputSchema: tool.inputSchema,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+  );
+}
+
+// Zero-Dependency Native McpServer Factory
+export function createNativeServer(): NativeMcpServer {
+  const native = new NativeMcpServer({
+    name: 'io.github.putervision/state-memory-mcp',
+    version: VERSION,
+  });
+
+  registerAllResources(native);
+  registerAllTools(native);
+  registerAllPrompts(native);
+
+  return native;
+}
+
+// Default Native Server Instance
+export const server = createNativeServer();
+
+

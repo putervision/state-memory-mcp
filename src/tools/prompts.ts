@@ -1,20 +1,23 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { z } from 'zod';
+import { NativeMcpServer } from '../transport/native-mcp.js';
 import { AnalyticsEngine } from '../engine/analytics.js';
 import { getProjectSlug } from '../engine/db.js';
 
-export function registerAllPrompts(server: McpServer): void {
+export function registerAllPrompts(server: NativeMcpServer | any): void {
   server.registerPrompt(
     'review-decisions',
     {
       title: 'Review Decisions',
       description: 'Review accepted design decisions and check for contradictions',
       argsSchema: {
-        project: z.string().optional().describe('Optional project identifier'),
+        project: {
+          type: 'string',
+          description: 'Optional project identifier',
+          required: false,
+        },
       },
     },
-    async (args) => {
-      const projectSlug = getProjectSlug(args.project);
+    async (args: any) => {
+      const projectSlug = getProjectSlug(args?.project);
       const summary = AnalyticsEngine.getProjectSummary({ project: projectSlug });
       const contradictions = AnalyticsEngine.detectContradictions({ project: projectSlug });
 
@@ -56,10 +59,14 @@ export function registerAllPrompts(server: McpServer): void {
       title: 'Triage Blockers',
       description: 'Review and triage active blockers across the dependency graph',
       argsSchema: {
-        project: z.string().optional().describe('Optional project identifier'),
+        project: {
+          type: 'string',
+          description: 'Optional project identifier',
+          required: false,
+        },
       },
     },
-    async (args) => {
+    async (args: any) => {
       const projectSlug = getProjectSlug(args.project);
       const blockers = AnalyticsEngine.findBlockers({ project: projectSlug });
       const blockersText =

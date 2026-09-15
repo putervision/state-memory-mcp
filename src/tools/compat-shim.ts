@@ -1,4 +1,4 @@
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { McpError, ErrorCode } from '../transport/native-mcp.js';
 import { logger } from '../utils/logger.js';
 
 export interface LegacyMapping {

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-09-15
+
+### 🚀 Zero-Dependency Native MCP Transport & Cross-Pentad Synchronization
+- Added zero-dependency Native MCP Transport engine (`PV_NATIVE_TRANSPORT=1`) with pure Node.js stdio streaming and schema validation.
+- Fixed cryptographic audit chain SHA-256 integrity calculation and event metadata hashing.
+- Synchronized package manifests, registry configurations (`server.json`, `manifest.json`), and documentation across the Pentad.
+
 ## [1.1.1] - 2026-08-30
 
 ### 🚀 Synchronized Ecosystem Release

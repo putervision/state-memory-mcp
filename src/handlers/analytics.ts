@@ -1,4 +1,4 @@
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { McpError, ErrorCode } from '../utils/errors.js';
 import {
   GetProjectSummarySchema,
   VelocityAnalyticsSchema,
@@ -107,6 +107,7 @@ export const analyticsHandlers = {
         const data = parseArgs(CriticalPathSchema, args);
         return AnalyticsEngine.criticalPath(data);
       }
+      case 'active_context':
       case 'context_snapshot': {
         const data = parseArgs(GetContextSnapshotSchema, args);
         return AnalyticsEngine.getContextSnapshot(data);

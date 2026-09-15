@@ -1,4 +1,4 @@
-# 📘 @putervision/state-memory-mcp Formal API Reference (v1.0.0 — 13 Consolidated Tools)
+# 📘 @putervision/state-memory-mcp Formal API Reference (v1.2.0 — 13 Consolidated Tools)
 
 This document provides formal API specifications, parameter schemas, return shapes, and example JSON payloads for the **13 consolidated Model Context Protocol (MCP) tools** provided by `@putervision/state-memory-mcp`.
 

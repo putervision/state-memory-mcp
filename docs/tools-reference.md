@@ -1,4 +1,4 @@
-# 🧰 State-Memory-MCP Tool Reference (v1.0.0 — 13 Consolidated Tools)
+# 🧰 State-Memory-MCP Tool Reference (v1.2.0 — 13 Consolidated Tools)
 
 `@putervision/state-memory-mcp` exposes **13 domain-oriented MCP tools** (≤ 15 tools) that use action parameters to provide complete graph lifecycle management, dependency analysis, Spec-Driven Development, and multimodal synergy.
 

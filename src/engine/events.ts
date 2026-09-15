@@ -511,7 +511,17 @@ export class EventEngine {
           timestamp: ev.timestamp,
         });
 
-        if (calculatedHash !== ev.hash) {
+        let isValidHash = calculatedHash === ev.hash;
+        if (!isValidHash) {
+          // Backward-compatibility: check pre-v1.0 6-field preimage format
+          const legacyPayload = `${ev.prev_hash || expectedPrevHash}|${ev.id}|${ev.event_type}|${ev.entity_id}|${ev.after_state || ''}|${ev.timestamp}`;
+          const legacyHash = crypto.createHash('sha256').update(legacyPayload).digest('hex');
+          if (legacyHash === ev.hash) {
+            isValidHash = true;
+          }
+        }
+
+        if (!isValidHash) {
           return {
             valid: false,
             total_events: totalEvents,

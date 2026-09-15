@@ -1,18 +1,20 @@
 {
   "$schema": "https://modelcontextprotocol.io/schemas/mcp-manifest.json",
-  "name": "PuterVision MCP Pentad Ecosystem",
+  "name": "PuterVision MCP Ecosystem",
   "vendor": "PuterVision",
-  "description": "Deterministic state memory, visual perception caching, 3D spatial world modeling, strategic agent reasoning, and high-frequency behavior execution MCP servers for AI developer agents.",
-  "homepage": "https://putervision.com",
+  "description": "Deterministic multi-modal state memory, visual perception caching, 3D spatial world models, ~60Hz behavior trees, and strategic BDI reasoning MCP servers for autonomous AI agents.",
+  "homepage": "https://statememorymcp.com",
   "documentation": "https://putervision.com/llms.txt",
   "servers": [
     {
       "id": "state-memory-mcp",
       "name": "State Memory MCP",
       "package": "@putervision/state-memory-mcp",
-      "command": "state-memory-mcp",
+      "version": "1.2.0",
+      "command": "npx",
       "args": [
-        "run"
+        "-y",
+        "@putervision/state-memory-mcp"
       ],
       "homepage": "https://statememorymcp.com",
       "repository": "https://github.com/putervision/state-memory-mcp",
@@ -31,9 +33,11 @@
       "id": "vision-memory-mcp",
       "name": "Visual Memory MCP",
       "package": "@putervision/vision-memory-mcp",
-      "command": "vision-memory-mcp",
+      "version": "1.2.0",
+      "command": "npx",
       "args": [
-        "run"
+        "-y",
+        "@putervision/vision-memory-mcp"
       ],
       "homepage": "https://visionmemorymcp.com",
       "repository": "https://github.com/putervision/vision-memory-mcp",
@@ -42,23 +46,25 @@
         "clip-vector-search",
         "layout-drift-detection",
         "screenshot-caching",
-        "video-keyframing"
+        "video-keyframe-timeline"
       ],
       "protocolVersion": "2024-11-05"
     },
     {
       "id": "world-model-mcp",
-      "name": "World Model MCP",
+      "name": "Spatial World Model MCP",
       "package": "@putervision/world-model-mcp",
-      "command": "world-model-mcp",
+      "version": "0.4.0",
+      "command": "npx",
       "args": [
-        "run"
+        "-y",
+        "@putervision/world-model-mcp"
       ],
-      "homepage": "https://putervision.com",
+      "homepage": "https://worldmodelmcp.com",
       "repository": "https://github.com/putervision/world-model-mcp",
       "capabilities": [
-        "3d-spatial-graph",
-        "entity-permanence",
+        "spatial-memory",
+        "object-permanence",
         "collision-simulation",
         "frustum-culling",
         "game-inputs"
@@ -66,40 +72,67 @@
       "protocolVersion": "2024-11-05"
     },
     {
-      "id": "agent-reasoning-mcp",
-      "name": "Agent Reasoning MCP",
-      "package": "@putervision/agent-reasoning-mcp",
-      "command": "agent-reasoning-mcp",
-      "args": [
-        "run"
-      ],
-      "homepage": "https://putervision.com",
-      "repository": "https://github.com/putervision/agent-reasoning-mcp",
-      "capabilities": [
-        "bdi-goals",
-        "utility-scoring",
-        "belief-decay",
-        "risk-assessment",
-        "replanning"
-      ],
-      "protocolVersion": "2024-11-05"
-    },
-    {
       "id": "behavior-mcp",
-      "name": "Behavior MCP",
+      "name": "Behavior Runtime MCP",
       "package": "@putervision/behavior-mcp",
-      "command": "behavior-mcp",
+      "version": "0.2.0",
+      "command": "npx",
       "args": [
-        "run"
+        "-y",
+        "@putervision/behavior-mcp"
       ],
-      "homepage": "https://putervision.com",
+      "homepage": "https://behaviormcp.com",
       "repository": "https://github.com/putervision/behavior-mcp",
       "capabilities": [
-        "in-browser-trees",
+        "behavior-trees",
         "60hz-runtime",
         "reactive-triggers",
         "action-recordings",
         "safety-stack"
+      ],
+      "protocolVersion": "2024-11-05"
+    },
+    {
+      "id": "agent-reasoning-mcp",
+      "name": "Agent Reasoning MCP",
+      "package": "@putervision/agent-reasoning-mcp",
+      "version": "0.2.0",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@putervision/agent-reasoning-mcp"
+      ],
+      "homepage": "https://agentreasoningmcp.com",
+      "repository": "https://github.com/putervision/agent-reasoning-mcp",
+      "capabilities": [
+        "bdi-reasoning",
+        "goal-dags",
+        "utility-evaluation",
+        "belief-decay",
+        "replanning",
+        "decision-traces"
+      ],
+      "protocolVersion": "2024-11-05"
+    },
+    {
+      "id": "harness",
+      "name": "PuterVision Harness",
+      "package": "@putervision/harness",
+      "version": "0.2.0",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@putervision/harness"
+      ],
+      "homepage": "https://putervision.com",
+      "repository": "https://github.com/putervision/harness",
+      "capabilities": [
+        "process-supervision",
+        "gateway-proxy",
+        "ooda-loop",
+        "hud-slicer",
+        "aim-smoothing",
+        "gym-bridge"
       ],
       "protocolVersion": "2024-11-05"
     }

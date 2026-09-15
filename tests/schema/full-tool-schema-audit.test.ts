@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { toolDefinitions } from '../../src/tools/definitions.js';
 import { jsonSchemaToZodObject } from '../../src/tools/handlers.js';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 
 describe('Comprehensive Tool Schema Audit (Draft-07 & VS Code MCP Compliance)', () => {
   it('should verify all 13 consolidated tools have valid inputSchema structures and no property defects', () => {
@@ -50,14 +49,15 @@ describe('Comprehensive Tool Schema Audit (Draft-07 & VS Code MCP Compliance)', 
       // Check each property recursively
       auditProperties(toolName, properties, violations);
 
-      // Verify Zod conversion & JSON Schema generation
+      // Verify Schema conversion & JSON Schema generation
       try {
         const zodSchema = jsonSchemaToZodObject(schema);
-        const generatedJsonSchema: any = zodToJsonSchema(zodSchema);
+        const generatedJsonSchema: any =
+          typeof zodSchema.toJsonSchema === 'function' ? zodSchema.toJsonSchema() : zodSchema;
 
         verifyGeneratedJsonSchema(toolName, generatedJsonSchema, violations);
       } catch (err: any) {
-        violations.push(`[${toolName}]: Zod / JSON Schema conversion threw error: ${err.message}`);
+        violations.push(`[${toolName}]: Schema conversion threw error: ${err.message}`);
       }
     }
 

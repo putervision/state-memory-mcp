@@ -22,3 +22,5 @@ export class ValidationError extends StateMemoryError {
     super(message, 'VALIDATION_ERROR', details);
   }
 }
+
+export { McpError, ErrorCode } from '../transport/native-mcp.js';

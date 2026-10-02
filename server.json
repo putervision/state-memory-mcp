@@ -3,7 +3,7 @@
   "name": "io.github.putervision/state-memory-mcp",
   "version": "1.4.0",
   "title": "State Memory MCP",
-  "description": "Deterministic, persistent graph server for tracking workflow state, decisions, spatial entities, and blockers.",
+  "description": "Persistent workflow graph server tracking tasks, decisions, spatial entities, and blockers.",
   "publisher": "PuterVision",
   "license": "MIT",
   "websiteUrl": "https://statememorymcp.com",
